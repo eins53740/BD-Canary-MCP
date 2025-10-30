@@ -8,7 +8,15 @@
 
 ## Executive Summary
 
-{{executive_summary}}
+**The Universal Canary MCP Server** enables LLM-powered operational intelligence for industrial facilities by providing seamless access to Canary Historian plant data through the Model Context Protocol. This production-ready MCP server wraps the Canary Views Web API into standardized tools, allowing engineers and analysts to ask natural language questions and receive real-time insights in seconds instead of hours.
+
+**The Problem:** Industrial facilities deploying Canary Historian lack a standardized way to connect LLM applications to operational data. Today's manual export/import workflows take hours per analysis and are impractical for real-time decision-making. With 6 Canary sites planned for deployment, the lack of a standardized integration pattern creates unsustainable maintenance burden and blocks the company's AI adoption initiative.
+
+**The Solution:** The first purpose-built MCP server for Canary Historian, designed as a universal solution for any Canary deployment worldwide. Five core MCP tools (namespace discovery, tag search, metadata retrieval, timeseries data access, server health) enable intelligent tag inference from natural language queries, delivering structured plant data to LLMs for analysis and correlation.
+
+**Target Users:** Phase 1 focuses on UNS OT developers validating the 6-site Canary rollout. Phase 2 expands to dozens of plant engineers, data analysts, and operational staff across all sites. The universal design enables global adoption by any organization using Canary Historian across manufacturing, utilities, food processing, and heavy industry.
+
+**Business Impact:** Reduces time-to-insight from hours to minutes (95%+ time savings), enables 3-5x increase in plant data analysis frequency, and contributes to measurable EBITDA improvements through data-driven operational optimizations. Positions company as industrial AI thought leader while future-proofing operations by "catching the AI train" for long-term sustainability and competitiveness.
 
 ---
 
@@ -851,11 +859,56 @@ Canary Historian Database
 
 ### A. Research Summary
 
-{{research_summary}}
+**Hackathon Case Analysis:**
+- Case objective: Develop proof-of-concept MCP for Canary Views Web API access
+- Success criteria: Authentication, historical data queries, real-time access, metadata retrieval
+- Technical foundation: Python 3.13, uv, pytest, REST API integration
+
+**MCP Protocol Research:**
+- Model Context Protocol provides standardized way for LLMs to access external tools
+- Proven pattern with existing implementations across various domains
+- Anthropic-backed standard with growing ecosystem adoption
+
+**Canary API Investigation:**
+- Canary Views Web API documented at https://readapi.canarylabs.com/25.4/
+- Key endpoints: /views, /views/data, /views/metadata
+- Authentication: Token-based with session management
+- Known concerns: Potential documentation gaps and non-standard REST patterns (requires validation)
+
+**Industrial AI Trends:**
+- Growing adoption of LLM-based operational intelligence in manufacturing
+- Natural language interfaces reducing barrier to data-driven decision making
+- MCP protocol emerging as standard for industrial tool integration
 
 ### B. Stakeholder Input
 
-{{stakeholder_input}}
+**UNS OT Development Team:**
+- Priority: Validate Canary historian implementation across 6-site rollout
+- Need: Rapid testing and data quality validation tools
+- Timeline: 3-month window for POC validation before additional site deployments
+- Concern: Canary API quality and documentation completeness
+
+**Digital Transformation Leadership (60+ person initiative, Year 3):**
+- Strategic priority: AI adoption and massification across organization
+- Goal: "Catch the AI train" for long-term sustainability and competitiveness
+- Investment: Part of existing digital transformation budget
+- Success metric: Demonstrate practical AI value with operational impact
+
+**Plant Engineering Teams:**
+- Pain point: Hours-long delays for operational data analysis
+- Use cases: Root cause analysis, efficiency optimization, cross-site comparisons
+- Example questions: "Why did kiln 5 underperform by 10%?", "Show temperature trends for kiln 6"
+- Expectation: Real-time insights vs. waiting for scheduled reports
+
+**Data Analytics Team:**
+- Challenge: 3-5 hours per report spent on data extraction vs. analysis
+- Opportunity: 3-5x increase in analysis frequency with automation
+- Vision: Enable ad-hoc analysis without manual data wrangling
+
+**Executive Sponsors:**
+- Business case: EBITDA improvement through data-driven operational optimization
+- Strategic value: Industry leadership in industrial AI, talent attraction/retention
+- Risk mitigation: Avoid competitive disadvantage as industry adopts AI-driven operations
 
 ### C. References
 
