@@ -461,15 +461,93 @@ The engineer gets a comprehensive analysis in seconds - no exports, no manual da
 
 ### Phase 2 Features
 
-{{phase_2_features}}
+**Additional MCP Tools (3-6 months):**
+- **`aggregate_timeseries`** - Server-side rollups and resampling (avg, min, max, count, percentiles, time-weighted averages)
+- **`interpolate_timeseries`** - Aligned data for correlation analysis and plotting
+- **`export_timeseries`** - Structured export to CSV/Parquet for external analysis tools
+- **Additional tools as needed** - Based on community feedback and real-world usage patterns (e.g., batch queries, computed tags, alarm history)
+
+**Performance & Scale Enhancements:**
+- Intelligent caching layer for frequently accessed tags and time ranges
+- Query optimization engine for complex multi-tag requests
+- Connection pooling and request batching for high-concurrency scenarios
+- Streaming data subscriptions for real-time monitoring use cases
+
+**Production Hardening:**
+- Advanced monitoring dashboards (Grafana integration)
+- Comprehensive audit logging for compliance
+- Multi-tenant support with role-based access control
+- Enhanced security features (encrypted credentials, certificate management)
 
 ### Long-term Vision
 
-{{long_term_vision}}
+**Canary Ecosystem Leadership (12-24 months):**
+
+**Industry Adoption:**
+- Establish as the de facto MCP server for Canary Historian across industries:
+  - **Manufacturing:** Discrete manufacturing, automotive, electronics
+  - **Utilities:** Power generation, water treatment, energy distribution
+  - **Food & Beverage:** Processing plants, quality control, supply chain
+  - **Cement/Heavy Industry:** Current focus area, reference implementations
+- Build showcase implementations and case studies demonstrating ROI across sectors
+
+**AI Agent Integration:**
+- **Autonomous operations:** Enable AI agents to monitor, analyze, and suggest operational adjustments without human intervention
+- **Predictive maintenance:** AI agents continuously monitor equipment health indicators and schedule maintenance proactively
+- **Optimization loops:** Closed-loop AI systems that test operational hypotheses and implement approved optimizations
+- **Multi-agent collaboration:** Coordinate multiple specialized AI agents (process optimization, quality control, energy management) sharing Canary data
+
+**Advanced Analytics Platform:**
+- **ML model serving:** Expose trained models as MCP tools (anomaly detection, demand forecasting, quality prediction)
+- **Feature engineering:** Automated feature extraction from timeseries data for ML pipelines
+- **Model inference integration:** Real-time model scoring on streaming data
+- **Federated learning:** Enable privacy-preserving ML across multiple sites
+
+**Community & Commercial Considerations:**
+
+**Open Source Foundation:**
+- Maintain core MCP server as open source for maximum adoption
+- Active community engagement via GitHub, forums, documentation
+- Contribution guidelines and community-driven feature development
+
+**Commercial Offerings (Non-Profit Focus Initially):**
+- **Managed hosting:** Offer hosted MCP service for companies without DevOps resources
+- **Enterprise support:** Premium support contracts for mission-critical deployments
+- **Training & consulting:** Workshops and implementation services
+- **Strategic positioning:** Revenue reinvested in product development, not profit extraction
+- **Ecosystem building:** Commercial activities focused on expanding adoption and building industrial AI community
 
 ### Expansion Opportunities
 
-{{expansion_opportunities}}
+**Cross-Industry Growth:**
+- Tailor documentation and examples for specific industries
+- Build industry-specific tag libraries and query patterns
+- Partner with system integrators in different sectors
+- Present at industry conferences (ISA, OPC Foundation, manufacturing summits)
+
+**Technology Partnerships:**
+- Collaboration with Canary Labs on official MCP integration
+- Integration with popular LLM platforms (OpenAI, Anthropic, local LLMs)
+- Partnerships with industrial AI vendors and consultancies
+- Academic partnerships for research on industrial AI applications
+
+**Platform Extension:**
+- **Note:** Currently focused exclusively on Canary Historian ecosystem
+- May remain Canary-specific to maintain deep integration quality
+- Future assessment: Evaluate expansion to other historians (OSIsoft PI, InfluxDB) only if clear demand and resources permit
+- **Strategic focus:** Master Canary integration first before considering multi-platform support
+
+**Autonomous Operations Future:**
+- AI agents as first-class operators with real-time data access
+- Closed-loop control scenarios with human oversight
+- Multi-site coordination via AI agent networks
+- Digital twin integration for simulation-based optimization
+
+**Innovation Lab Applications:**
+- Generative AI for process optimization recommendations
+- Natural language to SQL/query translation for complex analysis
+- Automated root cause analysis engines
+- Cross-domain correlation (production + weather + market data)
 
 ---
 
@@ -477,15 +555,162 @@ The engineer gets a comprehensive analysis in seconds - no exports, no manual da
 
 ### Platform Requirements
 
-{{platform_requirements}}
+**Deployment Model:**
+- **Phase 1 (MVP):** Local deployment on user machines
+  - Users run MCP server on their own workstations/laptops
+  - Direct connection from local LLM client to local MCP server
+  - Minimal infrastructure dependencies
+
+- **Phase 2 (Production Scale):** Cloud-hosted centralized server
+  - Shared MCP server accessible by all users across sites
+  - Reduced per-user setup complexity
+  - Centralized monitoring and management
+
+**Containerization:**
+- Docker containerization for consistent deployment
+- Dockerfile for single-container deployment
+- Docker Compose for multi-container orchestration (MCP server + database + monitoring)
+- Container registry for version management and distribution
+
+**Scalability Target:**
+- Support 25 concurrent users initially
+- Architecture designed for horizontal scaling in Phase 2
 
 ### Technology Preferences
 
-{{technology_preferences}}
+**Primary Stack:**
+- **Python 3.13** (preferred) - Modern Python with latest performance improvements
+- **uv** for dependency management - Fast, modern alternative to pip/poetry
+- **Note:** Python/uv preferred but not mandatory - architect may propose alternatives if compelling rationale exists
+
+**MCP Server Implementation:**
+- **Recommended:** FastMCP or MCP Python SDK for standard MCP protocol implementation
+- **Alternative:** Build on official Anthropic MCP reference implementations
+- **Web framework:** FastAPI or similar for HTTP/SSE endpoints (if needed beyond MCP protocol)
+
+**Data Storage & Caching:**
+- **Lightweight database:** SQLite for local deployment (embedded, zero-config)
+- **Phase 2 upgrade path:** PostgreSQL or Redis for cloud-hosted deployment
+- **Use cases:**
+  - Query result caching (frequently accessed tags/time ranges)
+  - Tag metadata caching (reduce Canary API calls)
+  - Query history/analytics
+  - Session state management
+
+**Monitoring & Observability:**
+- **Logging:** Structured logging (JSON format) with log levels
+- **Metrics:** Prometheus-compatible metrics endpoint
+  - Request count, latency, error rates
+  - Canary API call volume and response times
+  - Cache hit/miss rates
+- **Health checks:** HTTP health endpoint for container orchestration
+- **Tracing:** OpenTelemetry integration for distributed tracing (Phase 2)
+
+**Testing Framework:**
+- **pytest** for unit and integration tests
+- **pytest-asyncio** for async test support
+- **pytest-cov** for coverage reporting (target: 75%+ coverage)
+- **responses** or **httpx-mock** for mocking Canary API calls
+- **Contract tests:** Validate against actual Canary API (gated by environment flag)
+
+**Code Quality Tools:**
+- **Ruff:** Linting and code formatting (fast, modern alternative to Black+Flake8)
+- **Mypy:** Optional static type checking
+- **Pre-commit hooks:** Automated formatting and linting on commit
 
 ### Architecture Considerations
 
-{{architecture_considerations}}
+**High-Level Architecture:**
+
+```
+User (Claude/ChatGPT)
+    ↓ MCP Protocol
+Local MCP Server (Python)
+    ↓ REST API
+Canary Views Web API
+    ↓
+Canary Historian Database
+```
+
+**Key Components:**
+1. **MCP Protocol Handler** - Receives tool calls from LLM client
+2. **Canary API Client** - Manages authentication, sessions, and API requests
+3. **Tag Discovery Engine** - Infers correct tags from natural language queries
+4. **Query Engine** - Translates user intent to Canary API calls
+5. **Cache Layer** - SQLite-based caching for performance
+6. **Error Handler** - Retry logic, circuit breaker, graceful degradation
+7. **Metrics Collector** - Track usage and performance metrics
+
+**Authentication Flow:**
+- User provides Canary API token via environment variable or config file
+- MCP server manages session token lifecycle (request, refresh, expiry)
+- No user credentials stored persistently (security best practice)
+
+**Configuration Management:**
+- **Environment variables:** Canary base URL, API token, historian list
+- **Config file (optional):** YAML or TOML for advanced settings
+- **Defaults:** Sensible defaults for rate limits, timeouts, retry behavior
+- **Multi-site support:** Config profiles for different Canary deployments
+
+**Error Handling Strategy:**
+- **Retry logic:** Exponential backoff with jitter (3-5 retries)
+- **Circuit breaker:** Open circuit after N consecutive failures, auto-recover after cooldown
+- **Timeouts:** Per-request timeout (10-30s), overall query timeout (60s)
+- **Error messages:** LLM-friendly error descriptions for user troubleshooting
+
+**Performance Optimization:**
+- **Connection pooling:** Reuse HTTP connections to Canary API
+- **Request batching:** Combine multiple tag queries when possible
+- **Lazy loading:** Load metadata on-demand, not upfront
+- **Background tasks:** Async cache warming, session keepalive
+
+### Integration Requirements
+
+**Primary Integration:**
+- **Canary Views Web API** - REST API integration
+  - Base URL: Configurable per deployment
+  - Authentication: Token-based (managed by MCP server)
+  - Endpoints: `/views`, `/views/data`, `/views/metadata`, etc.
+  - API documentation: https://readapi.canarylabs.com/25.4/
+
+**Authentication:**
+- Canary API token-based authentication
+- No additional SSO or Active Directory integration in Phase 1
+- Session token lifecycle managed transparently by MCP server
+
+**Future Integration Considerations (Phase 2):**
+- UNS architecture components (MQTT, Sparkplug B)
+- Enterprise SSO for cloud-hosted deployment
+- Existing monitoring/logging infrastructure (Grafana, ELK stack)
+
+### Constraints and Non-Functional Requirements
+
+**Security (Phase 1 Scope):**
+- ✅ Secure credential handling (environment variables, no hardcoding)
+- ✅ HTTPS for Canary API communication
+- ❌ Data encryption at rest (deferred to Phase 2)
+- ❌ Certificate management (deferred to Phase 2)
+- ❌ Role-based access control (deferred to Phase 2)
+
+**Performance:**
+- Median query response time: <5 seconds
+- 95th percentile: <10 seconds
+- Cache hit rate: 30%+ for repeated queries
+- Canary API rate limiting: Respect API limits, implement client-side throttling
+
+**Scalability:**
+- Support 25 concurrent users in Phase 1 (local deployment)
+- Architecture supports horizontal scaling for Phase 2 (cloud deployment)
+
+**Reliability:**
+- Target uptime: 99.5% (allowing for planned maintenance and updates)
+- Graceful degradation when Canary API unavailable (cached data, clear error messages)
+- Automatic recovery from transient failures
+
+**Compatibility:**
+- Works with any MCP-compatible LLM client (Claude Desktop, Continue, etc.)
+- Compatible with Canary Views API v25.4+ (validate version requirements)
+- Cross-platform: Windows, macOS, Linux
 
 ---
 
@@ -493,11 +718,116 @@ The engineer gets a comprehensive analysis in seconds - no exports, no manual da
 
 ### Constraints
 
-{{constraints}}
+**Timeline & Resource Constraints:**
+- **3-month development window:** Tight timeline aligned with 6-site Canary rollout schedule
+- **Existing team capacity:** Development by current UNS OT team, no new hires budgeted
+- **Digital transformation budget:** Part of existing budget allocation, limited incremental funding
+- **Time pressure:** Balancing MVP quality with speed-to-deployment
+
+**Technical Constraints:**
+- **Existing Canary deployment:** Must work with current Canary Historian infrastructure and configuration
+- **Phase 1 network:** Limited to company internal network (no external/public internet access initially)
+- **Local deployment model:** Each user runs MCP server locally in Phase 1 (infrastructure simplicity)
+- **Cross-platform support:** Must work on Windows, macOS, Linux (varied user environments)
+
+**API & Integration Constraints:**
+- **Canary API quality uncertainty:** ⚠️ **Known Risk** - Canary Views Web API may have:
+  - Incomplete or unclear documentation
+  - Non-standard REST patterns
+  - Undocumented edge cases or limitations
+  - **Mitigation:** Handle gracefully with robust error handling, comprehensive testing, and API behavior documentation
+  - **Impact:** May increase development effort by 20-30%, but not a fatal blocker
+  - **Approach:** Iterative validation, workarounds, and feedback to Canary Labs if needed
+
+**Organizational Constraints:**
+- **Universal design requirement:** Must be generic enough for any Canary deployment worldwide (no site-specific hardcoding)
+- **Open architecture:** Design must support future open-source release and community adoption
+- **No custom Canary modifications:** Cannot modify Canary Historian itself, must work with standard API
+
+**Security Constraints (Phase 1):**
+- Data encryption at rest: Deferred to Phase 2
+- Advanced certificate management: Deferred to Phase 2
+- Enterprise SSO integration: Deferred to Phase 2
+- Focus: Secure credential handling and HTTPS communication only
 
 ### Key Assumptions
 
-{{key_assumptions}}
+**User Adoption Assumptions (Validated):**
+- ✅ **Users are adopting LLM-based workflows:** Current trend observed within organization
+- ✅ **Natural language interface reduces friction:** Users prefer asking questions vs. building queries
+- ✅ **Engineers comfortable with LLM tools:** Claude/ChatGPT usage already established
+
+**Technical Assumptions (Require Validation):**
+
+**🔍 CRITICAL ASSUMPTION: LLM Effectiveness with Plant Data**
+- **Assumption:** LLMs can effectively interpret industrial timeseries data and provide useful operational insights
+- **Validation Status:** ⚠️ **UNPROVEN** - Needs validation during MVP development
+- **Risks:**
+  - LLMs may struggle with numeric/timeseries pattern recognition
+  - Industrial domain knowledge gaps may lead to incorrect conclusions
+  - Complex correlations may require domain-specific prompting
+- **Validation Plan:**
+  - Test with real plant scenarios during Phase 1
+  - Gather UNS developer feedback on insight quality
+  - Iterate on data formatting and context provided to LLM
+  - Document best practices for effective plant data queries
+
+**🔍 CRITICAL ASSUMPTION: Tag Discovery from Natural Language**
+- **Assumption:** MCP server + LLM can effectively infer correct Canary tags from human language queries
+- **Validation Status:** ⚠️ **UNPROVEN** - Core MVP capability requiring validation
+- **Challenge:** User asks "Show me kiln 6 temperature" → MCP must find tag like "Maceira.Cement.Kiln6.Temperature"
+- **Dependencies:**
+  - LLM understands domain terminology (kiln, temperature, pressure, etc.)
+  - `search_tags` and `list_namespaces` tools provide sufficient discovery capability
+  - Tag naming conventions are somewhat consistent across sites
+- **Validation Plan:**
+  - Build comprehensive tag search with fuzzy matching and metadata filters
+  - Test with diverse natural language query patterns
+  - Provide rich tag metadata to help LLM make correct inferences
+  - User feedback loop to refine search algorithms
+
+**Infrastructure Assumptions:**
+- **Reliable connectivity:** Stable network connection between MCP server and Canary API within company network
+- **Canary availability:** Canary Historian and Views API maintain high availability (>99%)
+- **Client environment:** Users have Python runtime or Docker available on their machines
+- **Sufficient resources:** User machines can run MCP server alongside LLM client without performance issues
+
+**Data & API Assumptions:**
+- **Tag metadata completeness:** Canary tags have sufficient metadata (units, descriptions) for LLM interpretation
+- **Consistent data quality:** Historian data is reliable with quality flags where applicable
+- **API rate limits:** Canary API rate limits are sufficient for 25 concurrent users in Phase 1
+- **Namespace structure:** Canary namespace/hierarchy is logical and discoverable
+
+**User Behavior Assumptions:**
+- **Query patterns:** Most queries will be straightforward time-range + tag requests (80%+)
+- **Complex analysis:** Users will iterate with LLM (ask follow-up questions) rather than expecting single-query answers
+- **Feedback provision:** UNS developers will provide timely feedback on API issues and tag discovery accuracy
+- **Learning curve:** Users willing to learn MCP server setup and basic troubleshooting
+
+**Deployment Assumptions:**
+- **Local deployment viability:** Phase 1 local deployment is acceptable temporary solution before cloud hosting
+- **Docker adoption:** Users can run Docker containers or are willing to learn
+- **Configuration complexity:** Users can handle basic environment variable configuration
+- **Update distribution:** Can push updates via container registry without complex deployment process
+
+### Assumptions Requiring Validation During Development
+
+**High Priority Validation:**
+1. **LLM insight quality** - Do LLMs provide actionable insights from plant data?
+2. **Tag discovery accuracy** - Can we reliably map natural language to correct tags?
+3. **Canary API completeness** - Does API provide all needed functionality?
+4. **Query performance** - Can we meet <5 second response time target?
+
+**Medium Priority Validation:**
+5. User adoption rate and satisfaction with MCP-based workflow
+6. Cache hit rates and effectiveness of caching strategy
+7. Error rate and retry success rate with Canary API
+8. Concurrent user scalability within Phase 1 limits
+
+**Continuous Validation:**
+- API behavior and edge cases (ongoing as usage grows)
+- Tag naming consistency across sites (as new sites onboard)
+- User query pattern evolution (may require tool enhancements)
 
 ---
 
