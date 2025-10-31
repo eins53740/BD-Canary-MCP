@@ -2,7 +2,8 @@
 - inteligence Explosion (auto improve)
 - meta prompting
 - install speak to text
-
+-codex in vscode: add mcps
+-codex: install BMad in codex
 
 ## LINKS:
  - https://github.com/bmad-code-org/BMAD-METHOD/blob/main/src/modules/bmm/README.md

@@ -6,7 +6,9 @@
       "Bash(uv run ruff check:*)",
       "Bash(uv run mypy:*)",
       "SlashCommand(/bmad:bmm:workflows:code-review)",
-      "SlashCommand(/bmad:bmm:workflows:story-done:*)"
+      "SlashCommand(/bmad:bmm:workflows:story-done:*)",
+      "SlashCommand(/bmad:bmm:workflows:create-story:*)",
+      "Bash(curl -s \"https://readapi.canarylabs.com/25.4/\")"
     ],
     "deny": [],
     "ask": []
