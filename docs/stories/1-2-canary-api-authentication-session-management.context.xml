@@ -1,0 +1,200 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>2</storyId>
+    <title>Canary API Authentication & Session Management</title>
+    <status>drafted</status>
+    <generatedAt>2025-10-31</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/1-2-canary-api-authentication-session-management.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>UNS Developer</asA>
+    <iWant>the MCP server to authenticate with Canary Views Web API and manage session tokens</iWant>
+    <soThat>all subsequent tools can securely access plant data</soThat>
+    <tasks>
+      - Task 1: Create Canary authentication module (AC: #1, #2, #3)
+        - Create src/canary_mcp/auth.py module
+        - Implement token-based authentication with Canary API
+        - Implement session token storage and management
+        - Add automatic token refresh logic (check expiry before use)
+        - Load credentials from environment variables
+        - Handle authentication errors gracefully
+      - Task 2: Implement connection retry logic (AC: #4, #5)
+        - Add exponential backoff retry decorator/function
+        - Configure minimum 3 retry attempts with backoff
+        - Implement clear error messages for different failure types
+        - Log retry attempts and outcomes
+        - Test retry logic with simulated failures
+      - Task 3: Create configuration validation tool (AC: #6)
+        - Create validation script/function to verify environment config
+        - Check required environment variables are present
+        - Test Canary API connection before server starts
+        - Provide clear feedback on validation results
+        - Integrate validation into server startup
+      - Task 4: Create validation tests (AC: #7)
+        - Create tests/integration/test_canary_auth.py
+        - Write test for successful authentication
+        - Write test for token refresh functionality
+        - Write test for retry logic
+        - Write test for authentication failure scenarios
+        - Add unit tests for auth module (tests/unit/test_auth.py)
+        - Verify all tests pass
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    1. Canary API authentication implemented using token-based auth
+    2. Session token management with automatic refresh before expiry
+    3. Credentials loaded from environment variables (CANARY_SAF_BASE_URL, CANARY_VIEWS_BASE_URL, CANARY_API_TOKEN)
+    4. Connection retry logic with exponential backoff (3 attempts)
+    5. Clear error messages for authentication failures
+    6. Configuration validation tool verifies connection before server starts
+    7. Validation test: test_canary_auth.py confirms successful authentication and token refresh
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>FR007: Canary API Authentication</section>
+        <snippet>System shall authenticate with Canary Views Web API using token-based authentication, managing session tokens with automatic refresh and secure credential handling (environment variables)</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>FR009: Error Handling and Resilience</section>
+        <snippet>System shall implement retry logic with exponential backoff (3-5 retries), circuit breaker pattern for cascading failure protection, and graceful degradation with meaningful error messages</snippet>
+      </doc>
+      <doc>
+        <path>docs/epics.md</path>
+        <title>Epic Breakdown</title>
+        <section>Story 1.2: Canary API Authentication & Session Management</section>
+        <snippet>MCP server authenticates with Canary Views Web API and manages session tokens, enabling secure data access for all subsequent tools</snippet>
+      </doc>
+      <doc>
+        <path>docs/Canary info, Tests, Configs.md</path>
+        <title>Canary Configuration and API Documentation</title>
+        <section>Canary Request Basics</section>
+        <snippet>Endpoint: POST /api/v1/getSessionToken. Authentication: obtain sessionToken via POST using CANARY_API_TOKEN and include it in requests. Session timeout: CANARY_SESSION_TIMEOUT_MS (default 120000ms)</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/1-1-mcp-server-foundation-protocol-implementation.md</path>
+        <title>Story 1.1 Completion Notes</title>
+        <section>Dev Agent Record - Completion Notes</section>
+        <snippet>FastMCP SDK integrated. Environment-based configuration via python-dotenv. httpx available for HTTP client. pytest framework with markers established. 73% test coverage baseline.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>src/canary_mcp/server.py</path>
+        <kind>server</kind>
+        <symbol>mcp (FastMCP instance), ping tool, main</symbol>
+        <lines>1-37</lines>
+        <reason>Existing MCP server - will extend with auth module integration</reason>
+      </artifact>
+      <artifact>
+        <path>src/canary_mcp/__init__.py</path>
+        <kind>package initialization</kind>
+        <symbol>main</symbol>
+        <lines>1-5</lines>
+        <reason>Package entry point - may need to export auth client</reason>
+      </artifact>
+      <artifact>
+        <path>tests/integration/test_mcp_server_startup.py</path>
+        <kind>integration test</kind>
+        <symbol>test functions for server startup</symbol>
+        <lines>1-52</lines>
+        <reason>Existing integration test pattern to follow for auth tests</reason>
+      </artifact>
+      <artifact>
+        <path>tests/unit/test_project_structure.py</path>
+        <kind>unit test</kind>
+        <symbol>test functions for project structure</symbol>
+        <lines>1-75</lines>
+        <reason>Existing unit test pattern to follow for auth unit tests</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <python>
+        <existing>
+          <package name="python" version=">=3.12" />
+          <package name="fastmcp" version=">=0.1.0" note="MCP SDK" />
+          <package name="httpx" version=">=0.27.0" note="HTTP client for Canary API" />
+          <package name="python-dotenv" version=">=1.0.0" note="Environment configuration" />
+          <package name="pytest" version=">=8.0.0" note="Testing framework" />
+          <package name="pytest-asyncio" version=">=0.23.0" note="Async test support" />
+        </existing>
+        <mayNeed>
+          <package name="tenacity" version="latest" note="Retry logic with exponential backoff (optional - can implement custom)" />
+        </mayNeed>
+      </python>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    - Token-based authentication via Canary Views Web API (POST /api/v1/getSessionToken)
+    - Session token must be refreshed before expiry (CANARY_SESSION_TIMEOUT_MS default 120000ms)
+    - Refresh strategy: Refresh when less than 30s remaining before expiry
+    - Retry logic: minimum 3 attempts with exponential backoff (configurable via CANARY_RETRY_ATTEMPTS)
+    - Environment-based credentials: CANARY_SAF_BASE_URL, CANARY_VIEWS_BASE_URL, CANARY_API_TOKEN (no hardcoded secrets)
+    - Configuration validation must run before server operations
+    - Clear error messages for: missing credentials, connection failures, authentication failures
+    - Use httpx.AsyncClient for async HTTP requests
+    - Follow Story 1.1 patterns: environment loading, pytest markers, separated tests
+    - Create auth.py as separate module (single responsibility principle)
+    - DO NOT recreate existing files: server.py, __init__.py, test infrastructure
+    - Reuse Story 1.1 services: FastMCP server, python-dotenv, pytest framework
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>CanaryAuthClient</name>
+      <kind>Authentication Service Class</kind>
+      <signature>
+        class CanaryAuthClient:
+            async def authenticate() -> str: Returns session token
+            async def refresh_token() -> str: Refreshes and returns new session token
+            async def get_valid_token() -> str: Returns valid token (auto-refreshes if needed)
+            def is_token_expired() -> bool: Checks if token needs refresh
+      </signature>
+      <path>src/canary_mcp/auth.py (to be created)</path>
+    </interface>
+    <interface>
+      <name>validate_config</name>
+      <kind>Configuration Validation Function</kind>
+      <signature>
+        def validate_config() -> bool: Validates environment variables and Canary connection
+      </signature>
+      <path>src/canary_mcp/auth.py (to be created)</path>
+    </interface>
+    <interface>
+      <name>Canary API - getSessionToken</name>
+      <kind>REST API Endpoint</kind>
+      <signature>
+        POST /api/v1/getSessionToken
+        Request: {"userToken": "CANARY_API_TOKEN"}
+        Response: {"sessionToken": "...", "expiresAt": "..."}
+      </signature>
+      <path>External Canary API</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>pytest framework with markers (unit, integration, contract). Run tests: uv run pytest -m &lt;marker&gt; -q. Use pytest-asyncio for async tests (@pytest.mark.asyncio). Target 75%+ coverage. Integration tests may use real Canary API or mocks. Unit tests mock all external dependencies.</standards>
+    <locations>tests/unit/, tests/integration/</locations>
+    <ideas>
+      - AC #1, #2: Integration test tests/integration/test_canary_auth.py - authenticates with Canary API, verifies session token returned
+      - AC #2: Integration test - verifies token refresh functionality (manually expire token, call get_valid_token, verify refresh occurred)
+      - AC #3: Unit test tests/unit/test_auth.py - verifies credentials loaded from environment variables
+      - AC #4: Integration test - simulates API failures, verifies retry logic with exponential backoff (3+ attempts)
+      - AC #5: Unit test - verifies clear error messages for: missing credentials, connection timeouts, 401 unauthorized, 500 server errors
+      - AC #6: Integration test - calls validate_config(), verifies it checks env vars and tests connection
+      - AC #7: Integration test suite passes with all authentication scenarios validated
+      - Unit test - verifies token expiry detection logic (is_token_expired)
+      - Unit test - mocks httpx requests, tests auth flow without network calls
+    </ideas>
+  </tests>
+</story-context>

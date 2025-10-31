@@ -1,6 +1,12 @@
 {
   "permissions": {
     "allow": [
+      "SlashCommand(/bmad:bmm:workflows:dev-story)",
+      "Bash(uv run pytest:*)",
+      "Bash(uv run ruff check:*)",
+      "Bash(uv run mypy:*)",
+      "SlashCommand(/bmad:bmm:workflows:code-review)",
+      "SlashCommand(/bmad:bmm:workflows:story-done:*)"
       "SlashCommand(/bmad:bmm:workflows:prd)",
       "SlashCommand(/bmad:bmm:workflows:architecture)",
       "WebFetch(domain:github.com)",

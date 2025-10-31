@@ -1,6 +1,7 @@
 # HACKATON NOTES
 - inteligence Explosion (auto improve)
 - meta prompting
+- install speak to text
 
 
 
@@ -31,6 +32,7 @@ ultrathinking
 
 -> addon-> context left until compact
 -> bypass permissions on
+-> Ctx, Block, Model.
 -> Ctx, Block, Model.
 
 
