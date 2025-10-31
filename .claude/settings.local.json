@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "SlashCommand(/bmad:bmm:workflows:sprint-planning)",
+      "Bash(uv:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

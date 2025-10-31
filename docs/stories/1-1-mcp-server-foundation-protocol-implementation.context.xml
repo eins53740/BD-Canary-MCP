@@ -1,0 +1,149 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>1</storyId>
+    <title>MCP Server Foundation & Protocol Implementation</title>
+    <status>drafted</status>
+    <generatedAt>2025-10-31</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/1-1-mcp-server-foundation-protocol-implementation.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>Developer</asA>
+    <iWant>to set up the MCP server project structure with MCP protocol implementation</iWant>
+    <soThat>I can build MCP tools that LLM clients can invoke</soThat>
+    <tasks>
+      - Task 1: Initialize Python 3.13 project with uv (AC: #1, #5)
+        - Install uv dependency manager
+        - Create project structure (src/, tests/, docs/, config/)
+        - Initialize pyproject.toml with project metadata
+        - Create .gitignore for Python projects
+      - Task 2: Integrate MCP SDK (AC: #2)
+        - Research and select MCP SDK (FastMCP vs MCP Python SDK)
+        - Add MCP SDK to dependencies
+        - Create main server module in src/canary_mcp/
+        - Configure MCP server initialization
+      - Task 3: Implement basic MCP server and ping tool (AC: #3, #4)
+        - Implement server startup logic
+        - Create sample "ping" tool for connection testing
+        - Add server configuration loading from environment
+        - Test server starts and accepts tool calls manually
+      - Task 4: Create validation test (AC: #7)
+        - Set up pytest framework
+        - Create tests/integration/test_mcp_server_startup.py
+        - Write test that starts server and invokes ping tool
+        - Verify test passes
+      - Task 5: Create README and documentation (AC: #6)
+        - Write README with project overview
+        - Document installation steps
+        - Create basic architecture diagram
+        - Add usage examples
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    1. Python 3.13 project initialized with uv dependency management
+    2. MCP SDK (FastMCP or MCP Python SDK) integrated and configured
+    3. Basic MCP server starts and listens for tool calls
+    4. Sample "ping" tool responds successfully to test LLM client connection
+    5. Project structure follows best practices (src/, tests/, docs/, config/)
+    6. README with project overview and architecture diagram
+    7. Validation test: test_mcp_server_startup.py confirms server starts and accepts tool calls
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>FR001: MCP Protocol Implementation</section>
+        <snippet>System shall implement Model Context Protocol (MCP) standard, exposing tools that LLM clients can invoke via MCP-compatible interfaces (Claude Desktop, Continue, etc.)</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>NFR003: Quality Assurance</section>
+        <snippet>System shall maintain minimum 75% test coverage across codebase. System shall achieve 85%+ unit test pass rate.</snippet>
+      </doc>
+      <doc>
+        <path>docs/epics.md</path>
+        <title>Epic Breakdown</title>
+        <section>Story 1.1: MCP Server Foundation & Protocol Implementation</section>
+        <snippet>Establish production-ready MCP server with protocol implementation enabling basic plant data queries through LLM interfaces.</snippet>
+      </doc>
+      <doc>
+        <path>docs/MCP Canary - Process Historical Data.md</path>
+        <title>MCP Canary Case Document</title>
+        <section>Case Objective</section>
+        <snippet>Develop a proof of concept of a functional MCP that includes tools to authenticate and connect to the Canary API, query historical data, access real-time data, and retrieve metadata.</snippet>
+      </doc>
+      <doc>
+        <path>docs/MCP Canary - Process Historical Data.md</path>
+        <title>MCP Canary Case Document</title>
+        <section>Pytest Commands Quick Reference</section>
+        <snippet>Unit only: uv run pytest -m unit -q. Integration only: uv run pytest -m integration -q. Contract only: uv run pytest -m contract -q. All with coverage: uv run pytest --cov=. --cov-report=term-missing -q</snippet>
+      </doc>
+    </docs>
+    <code>
+      <!-- No existing code - greenfield project. Story 1.1 establishes initial codebase. -->
+    </code>
+    <dependencies>
+      <python>
+        <note>No pyproject.toml exists yet. Story 1.1 will create initial dependency manifest.</note>
+        <expected>
+          <package name="python" version="3.13" />
+          <package name="uv" version="latest" note="Dependency manager" />
+          <package name="fastmcp" version="latest" note="MCP SDK option 1" />
+          <package name="mcp" version="latest" note="MCP Python SDK option 2 - choose one" />
+          <package name="pytest" version="latest" note="Testing framework" />
+          <package name="pytest-cov" version="latest" note="Coverage reporting" />
+          <package name="pytest-xdist" version="latest" note="Parallel test execution (optional)" />
+        </expected>
+      </python>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    - Python 3.13 required (modern tooling, type hints)
+    - Use uv for dependency management (not pip/poetry)
+    - MCP SDK selection: Research FastMCP vs MCP Python SDK - choose based on features, maturity, documentation quality
+    - Project structure must use src/ layout (not flat) for proper packaging (PEP 518)
+    - Separate unit and integration tests in tests/unit/ and tests/integration/
+    - Configuration via environment variables (.env.example template)
+    - Follow PEP 518 standards for pyproject.toml
+    - 75%+ test coverage target (NFR003)
+    - pytest framework with markers: unit, integration, contract
+    - All code must be in src/canary_mcp/ package
+    - First story in epic - establishes foundation for all subsequent development
+  </constraints>
+
+  <interfaces>
+    <!-- No existing interfaces - Story 1.1 creates initial MCP server interface -->
+    <interface>
+      <name>MCP Server</name>
+      <kind>MCP Protocol Server</kind>
+      <signature>Server initialization and tool registration pattern to be established</signature>
+      <path>src/canary_mcp/server.py (to be created)</path>
+    </interface>
+    <interface>
+      <name>ping Tool</name>
+      <kind>MCP Tool</kind>
+      <signature>Sample tool for connection testing - accepts no parameters, returns success message</signature>
+      <path>src/canary_mcp/tools/ (to be created)</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>pytest framework with markers (unit, integration, contract). Run tests: uv run pytest -m &lt;marker&gt; -q. Coverage: uv run pytest --cov=. --cov-report=term-missing -q. Target 75%+ coverage (NFR003). Tests organized in tests/unit/ and tests/integration/. Integration tests validate full server startup and tool invocation.</standards>
+    <locations>tests/unit/, tests/integration/</locations>
+    <ideas>
+      - AC #7: Integration test tests/integration/test_mcp_server_startup.py - starts MCP server, invokes ping tool, verifies response
+      - AC #1, #5: Unit test verifies project structure exists (src/, tests/, docs/, config/ directories)
+      - AC #2: Unit test verifies MCP SDK imported and configured correctly
+      - AC #3: Integration test verifies server starts without errors and listens for tool calls
+      - AC #4: Integration test verifies ping tool responds with expected message
+      - AC #6: Unit test verifies README exists and contains required sections
+    </ideas>
+  </tests>
+</story-context>
