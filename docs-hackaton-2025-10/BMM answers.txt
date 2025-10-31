@@ -1,0 +1,69 @@
+  1. There is no official Canary MCP server. This is important to query the plant data using LLM models
+  2. Data easily available for LLM, and then for more information from the plant extracted form the canary historian raw data.
+  3. Canary API is not perfect (maybe it do not uses the REST best practices).
+  4. We are implementing Canary in 6 sites.
+  
+  1. Hours. They can use api for data export, and import to the llm later. this is not pratical for a realtime, and daily analysis.
+  2. Not sure. Information i heard. Maybe poor documentation, non-standard endpoints.
+  3. I have a Proof of concept in one plant. The others will follow.
+  4. "Show me temperature trends for Maceira plant - Kiln 6 last week", "Compare production efficiency across sites", "Alert me to anomalies", "Our kiln 5 had a bad month. The productions was 10% below. Tell me why"
+  
+  1. "A production-ready MCP server that wraps the Canary Views Web API into standardized MCP tools,        
+  enabling LLMs to query plant data as easily as they query any other tool"
+  2. The first usefull Canary historian MCP server.
+  3.  MCP protocol maturity, proven pattern from other MCP servers. But i fear the API quality.
+  4. They open Claude/ChatGPT, connect to your MCP server, and then ask about the raw data from the historian. They will query complex questions, that will need the extraction of plant raw data, LLM data ingestion, and LLM data conversion to usefull info to get correlaction, reports, insigths, ideas..
+
+
+{
+  "list_namespaces": "Top-level discovery of sites/assets/namespaces; lets clients browse what data exists.",
+  "search_tags": "Find tags quickly by name/regex and optional metadata filters (unit, type).",
+  "get_tag_metadata": "Fetch properties like units, data type, descriptions, min/max, sampling mode per tag.",
+  "read_timeseries": "Retrieve raw historical samples (with paging and quality flags) over a time window.",
+  "aggregate_timeseries": "Server-side rollups/resampling (avg, min, max, count, pXX, TWAvg) on intervals.",
+  "interpolate_timeseries": "Return values aligned to provided timestamps (linear/step) for joins/plots.",
+  "get_server_info": "Health/capabilities: server version, time zones, supported aggregates/features.",
+  "export_timeseries": "Convenience export of queried data to CSV/Parquet with a download handle."
+}
+
+
+Plant engineers / process engineers at industrial facilities, Plant manager, Data analysts, UNS developers (the team who is implementing Canary historian in a UNS architecture)
+ 
+  1. To successeful query the Canary historian and get real time and historical plant data. We are finishing the POC, in 3 month next sites will follow.
+  2. Dozens of active users. We will save hours per report. But we will conduct more analysis, and then improve the company ebidta.
+  
+  
+  1. we Can you launch with fewer tools initially. But it is mandatory to infer the tags the user need, to retrieve it inside the correct canary dataset.
+  2. error handling quality, monitoring, deployment  process
+  3. Under pressure
+It is essential to know what data the user need, and to query those data to retrieve it to the LLM via our MCP server.
+
+
+  1. Digital transformation with > 60 px. Started 2 years ago. AI adoption. AI use massification.
+  2. position the company as an industry leader in industrial AI, and then do not be vulnerable to the future. We must catch the AI train for sustainability.
+  3.manual workflows across 6 sites, and a less optimized plants.
+  
+  
+  
+  1. I prefer Python 3.13 with uv. But it is not mandatory, but prefered.
+  2. Local deployment on user machine in phase one. We may use containers (dockerfile, docler compose). In phase 2 we may use a cloud-hosted server.
+  3.You choose. we may have a lite database to store, cache, and use for calculations. Monitoring/observability tools is preferable.
+  4. Canary Views Web API (already known). Authentication is basen on Canary tokens.
+  5. Security standards: data encryption, certificate management not in this phase.  Scalability (25 concurrent users)
+  
+  
+  1. it is a risk you must be aware. But you must handle it gratefully. It can increase the efford, but it may not be a fatal issue.
+  2. users are adopting LLM-based workflows
+  3. reliable connectivity between MCP server and Canary. in phase one within the company network
+  4. LLMs can effectively interpret plant data and provide useful insights. We may assume it. but it is not known. 
+  5. We assume we can build effective tag discovery/search from natural language. LLM and MCP server must handle it. They must use human language to know the tools, and the tags to query.
+
+--end----
+
+  When You Return
+
+  To continue your project:
+
+  1. Check status: /bmad:bmm:workflows:workflow-status
+  2. Start PRD workflow: /bmad:bmm:workflows:prd
+  3. Agent to use: PM (Product Manager)
