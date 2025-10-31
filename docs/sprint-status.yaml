@@ -40,8 +40,8 @@ development_status:
   1-2-canary-api-authentication-session-management: done
   1-3-list-namespaces-tool-validation: review
   1-4-search-tags-tool-validation: review
-  1-5-get-tag-metadata-tool-validation: in-progress
-  1-6-read-timeseries-tool-validation: backlog
+  1-5-get-tag-metadata-tool-validation: review
+  1-6-read-timeseries-tool-validation: review
   1-7-get-server-info-tool-validation: backlog
   1-8-test-data-fixtures-mock-responses: backlog
   1-9-basic-error-handling-logging: backlog

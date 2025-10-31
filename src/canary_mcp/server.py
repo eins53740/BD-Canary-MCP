@@ -2,6 +2,7 @@
 
 import asyncio
 import os
+from datetime import datetime, timedelta
 from typing import Any
 
 import httpx
@@ -15,6 +16,63 @@ load_dotenv()
 
 # Initialize FastMCP server
 mcp = FastMCP("Canary MCP Server")
+
+
+def parse_time_expression(time_expr: str) -> str:
+    """
+    Parse natural language time expressions into ISO timestamps.
+
+    Supports expressions like:
+    - "yesterday" → previous calendar day
+    - "last week" → past 7 days
+    - "past 24 hours" → last 24 hours from now
+    - "last 30 days" → past 30 days from now
+
+    Args:
+        time_expr: Natural language time expression or ISO timestamp
+
+    Returns:
+        str: ISO timestamp string
+
+    Raises:
+        ValueError: If expression cannot be parsed
+    """
+    time_expr_lower = time_expr.lower().strip()
+    now = datetime.utcnow()
+
+    # Try parsing as ISO timestamp first
+    try:
+        datetime.fromisoformat(time_expr.replace("Z", "+00:00"))
+        return time_expr  # Already ISO format
+    except (ValueError, AttributeError):
+        pass
+
+    # Natural language expressions
+    if time_expr_lower == "yesterday":
+        target = now - timedelta(days=1)
+        return target.replace(hour=0, minute=0, second=0, microsecond=0).isoformat() + "Z"
+
+    if "last week" in time_expr_lower or "past week" in time_expr_lower:
+        target = now - timedelta(days=7)
+        return target.isoformat() + "Z"
+
+    if "past 24 hours" in time_expr_lower or "last 24 hours" in time_expr_lower:
+        target = now - timedelta(hours=24)
+        return target.isoformat() + "Z"
+
+    if "last 30 days" in time_expr_lower or "past 30 days" in time_expr_lower:
+        target = now - timedelta(days=30)
+        return target.isoformat() + "Z"
+
+    if "last 7 days" in time_expr_lower or "past 7 days" in time_expr_lower:
+        target = now - timedelta(days=7)
+        return target.isoformat() + "Z"
+
+    if time_expr_lower == "now":
+        return now.isoformat() + "Z"
+
+    # If not recognized, raise error
+    raise ValueError(f"Unrecognized time expression: {time_expr}")
 
 
 @mcp.tool()
@@ -344,6 +402,210 @@ async def list_namespaces() -> dict[str, Any]:
     except Exception as e:
         error_msg = f"Unexpected error listing namespaces: {str(e)}"
         return {"success": False, "error": error_msg, "namespaces": [], "count": 0}
+
+
+@mcp.tool()
+async def read_timeseries(
+    tag_names: str | list[str],
+    start_time: str,
+    end_time: str,
+    page_size: int = 1000,
+) -> dict[str, Any]:
+    """
+    Retrieve historical timeseries data for specific tags and time ranges.
+
+    This tool retrieves historical process data from the Canary historian
+    for analysis and troubleshooting.
+
+    Args:
+        tag_names: Single tag name or list of tag names to retrieve data for
+        start_time: Start time (ISO timestamp or natural language like "yesterday")
+        end_time: End time (ISO timestamp or natural language like "now")
+        page_size: Number of samples per page (default 1000)
+
+    Returns:
+        dict[str, Any]: Dictionary containing timeseries data with keys:
+            - data: List of data points with timestamp, value, quality
+            - count: Total number of data points returned
+            - success: Boolean indicating if operation succeeded
+            - tag_names: The tag names that were queried
+            - start_time: Parsed start time (ISO format)
+            - end_time: Parsed end time (ISO format)
+
+    Raises:
+        Exception: If authentication fails or API request errors occur
+    """
+    try:
+        # Normalize tag_names to list
+        if isinstance(tag_names, str):
+            tag_list = [tag_names]
+        else:
+            tag_list = list(tag_names)
+
+        # Validate tag names
+        if not tag_list or all(not tag.strip() for tag in tag_list):
+            return {
+                "success": False,
+                "error": "Tag names cannot be empty",
+                "data": [],
+                "count": 0,
+                "tag_names": tag_list,
+            }
+
+        # Parse time expressions
+        try:
+            parsed_start_time = parse_time_expression(start_time)
+            parsed_end_time = parse_time_expression(end_time)
+        except ValueError as e:
+            return {
+                "success": False,
+                "error": f"Invalid time expression: {str(e)}",
+                "data": [],
+                "count": 0,
+                "tag_names": tag_list,
+            }
+
+        # Validate time range
+        try:
+            start_dt = datetime.fromisoformat(parsed_start_time.replace("Z", "+00:00"))
+            end_dt = datetime.fromisoformat(parsed_end_time.replace("Z", "+00:00"))
+            if start_dt >= end_dt:
+                return {
+                    "success": False,
+                    "error": "Start time must be before end time",
+                    "data": [],
+                    "count": 0,
+                    "tag_names": tag_list,
+                    "start_time": parsed_start_time,
+                    "end_time": parsed_end_time,
+                }
+        except (ValueError, AttributeError) as e:
+            return {
+                "success": False,
+                "error": f"Invalid time format: {str(e)}",
+                "data": [],
+                "count": 0,
+                "tag_names": tag_list,
+            }
+
+        # Get Canary Views base URL from environment
+        views_base_url = os.getenv("CANARY_VIEWS_BASE_URL", "")
+        if not views_base_url:
+            raise ValueError("CANARY_VIEWS_BASE_URL not configured")
+
+        # Authenticate and get session token
+        async with CanaryAuthClient() as client:
+            session_token = await client.get_valid_token()
+
+            # Query Canary API for timeseries data
+            # Using getData endpoint to retrieve historical data
+            data_url = f"{views_base_url}/api/v1/getData"
+
+            async with httpx.AsyncClient(timeout=30.0) as http_client:
+                response = await http_client.post(
+                    data_url,
+                    json={
+                        "sessionToken": session_token,
+                        "tagNames": tag_list,
+                        "startTime": parsed_start_time,
+                        "endTime": parsed_end_time,
+                        "pageSize": page_size,
+                    },
+                )
+
+                response.raise_for_status()
+                api_response = response.json()
+
+                # Parse timeseries data from response
+                data_points = []
+                if isinstance(api_response, dict):
+                    # Check if this is a "no data" vs "tag not found" scenario
+                    if "data" in api_response:
+                        raw_data = api_response.get("data", [])
+                        for point in raw_data:
+                            if isinstance(point, dict):
+                                data_points.append(
+                                    {
+                                        "timestamp": point.get(
+                                            "timestamp", point.get("time", "")
+                                        ),
+                                        "value": point.get("value"),
+                                        "quality": point.get("quality", "Unknown"),
+                                        "tagName": point.get("tagName", ""),
+                                    }
+                                )
+                    elif "error" in api_response:
+                        error_msg = api_response.get("error", "Unknown error")
+                        if "not found" in error_msg.lower():
+                            return {
+                                "success": False,
+                                "error": f"Tag not found: {error_msg}",
+                                "data": [],
+                                "count": 0,
+                                "tag_names": tag_list,
+                                "start_time": parsed_start_time,
+                                "end_time": parsed_end_time,
+                            }
+                        return {
+                            "success": False,
+                            "error": error_msg,
+                            "data": [],
+                            "count": 0,
+                            "tag_names": tag_list,
+                            "start_time": parsed_start_time,
+                            "end_time": parsed_end_time,
+                        }
+
+                return {
+                    "success": True,
+                    "data": data_points,
+                    "count": len(data_points),
+                    "tag_names": tag_list,
+                    "start_time": parsed_start_time,
+                    "end_time": parsed_end_time,
+                }
+
+    except CanaryAuthError as e:
+        error_msg = f"Authentication failed: {str(e)}"
+        return {
+            "success": False,
+            "error": error_msg,
+            "data": [],
+            "count": 0,
+            "tag_names": tag_list if "tag_list" in locals() else [],
+        }
+
+    except httpx.HTTPStatusError as e:
+        error_msg = (
+            f"API request failed with status {e.response.status_code}: {e.response.text}"
+        )
+        return {
+            "success": False,
+            "error": error_msg,
+            "data": [],
+            "count": 0,
+            "tag_names": tag_list if "tag_list" in locals() else [],
+        }
+
+    except httpx.RequestError as e:
+        error_msg = f"Network error accessing Canary API: {str(e)}"
+        return {
+            "success": False,
+            "error": error_msg,
+            "data": [],
+            "count": 0,
+            "tag_names": tag_list if "tag_list" in locals() else [],
+        }
+
+    except Exception as e:
+        error_msg = f"Unexpected error retrieving timeseries data: {str(e)}"
+        return {
+            "success": False,
+            "error": error_msg,
+            "data": [],
+            "count": 0,
+            "tag_names": tag_list if "tag_list" in locals() else [],
+        }
 
 
 def main() -> None:
