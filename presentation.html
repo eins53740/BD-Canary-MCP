@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal Canary MCP Server - Presentation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .presentation-container {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .slide {
+            display: none;
+            width: 90%;
+            max-width: 1200px;
+            height: 85vh;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 60px;
+            position: relative;
+            animation: slideIn 0.5s ease-out;
+            overflow-y: auto;
+        }
+
+        .slide.active {
+            display: block;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(100px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* Title Slide */
+        .slide.title-slide {
+            background: linear-gradient(135deg, #0066cc 0%, #004499 100%);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .slide.title-slide h1 {
+            font-size: 4em;
+            margin-bottom: 30px;
+            font-weight: 700;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .slide.title-slide h2 {
+            font-size: 2em;
+            font-weight: 300;
+            opacity: 0.9;
+        }
+
+        /* Section Divider */
+        .slide.divider-slide {
+            background: linear-gradient(135deg, #ff9900 0%, #ff6600 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .slide.divider-slide h1 {
+            font-size: 4.5em;
+            font-weight: 700;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Content Slides */
+        .slide h1 {
+            font-size: 2.5em;
+            color: #0066cc;
+            margin-bottom: 40px;
+            border-bottom: 4px solid #ff9900;
+            padding-bottom: 15px;
+        }
+
+        .slide h2 {
+            font-size: 1.8em;
+            color: #333;
+            margin-top: 30px;
+            margin-bottom: 15px;
+        }
+
+        .slide h3 {
+            font-size: 1.4em;
+            color: #0066cc;
+            margin-top: 25px;
+            margin-bottom: 10px;
+        }
+
+        .content-list {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .content-list li {
+            font-size: 1.2em;
+            line-height: 1.8;
+            margin-bottom: 15px;
+            padding-left: 35px;
+            position: relative;
+            color: #333;
+        }
+
+        .content-list li:before {
+            content: "▸";
+            position: absolute;
+            left: 0;
+            color: #0066cc;
+            font-weight: bold;
+            font-size: 1.3em;
+        }
+
+        .content-list li.emoji:before {
+            content: attr(data-emoji);
+            font-size: 1.2em;
+        }
+
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-top: 30px;
+        }
+
+        .column {
+            padding: 20px;
+        }
+
+        .highlight-box {
+            background: #f0f8ff;
+            border-left: 5px solid #0066cc;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .success-box {
+            background: #e8f5e9;
+            border-left: 5px solid #228b22;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 1em;
+            line-height: 1.6;
+            margin: 20px 0;
+            overflow-x: auto;
+        }
+
+        /* Navigation */
+        .nav-controls {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            z-index: 1000;
+        }
+
+        .nav-btn {
+            background: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.1em;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+            font-weight: 600;
+            color: #0066cc;
+        }
+
+        .nav-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            background: #0066cc;
+            color: white;
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .slide-counter {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            background: white;
+            padding: 10px 20px;
+            border-radius: 50px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            font-weight: 600;
+            color: #0066cc;
+            z-index: 1000;
+        }
+
+        /* Progress Bar */
+        .progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 5px;
+            background: #ff9900;
+            transition: width 0.3s ease;
+            z-index: 1001;
+        }
+
+        /* Keyboard hint */
+        .keyboard-hint {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 0.9em;
+            opacity: 0.7;
+            text-align: center;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .slide {
+                padding: 30px;
+                height: 90vh;
+            }
+
+            .slide h1 {
+                font-size: 1.8em;
+            }
+
+            .slide.title-slide h1 {
+                font-size: 2.5em;
+            }
+
+            .two-column {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .content-list li {
+                font-size: 1em;
+            }
+        }
+
+        /* Table styling */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        table th {
+            background: #0066cc;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        table td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        table tr:hover {
+            background: #f5f5f5;
+        }
+
+        /* Emoji styling */
+        .emoji {
+            font-size: 1.3em;
+        }
+    </style>
+</head>
+<body>
+    <div class="progress-bar" id="progressBar"></div>
+    <div class="slide-counter" id="slideCounter">1 / 26</div>
+
+    <div class="presentation-container">
+        <!-- Slide 1: Title -->
+        <div class="slide title-slide active">
+            <h1>Universal Canary MCP Server</h1>
+            <h2>BD Hackathon 2025-10</h2>
+        </div>
+
+        <!-- Slide 2: The Challenge -->
+        <div class="slide">
+            <h1>The Challenge</h1>
+            <ul class="content-list">
+                <li class="emoji" data-emoji="🏭"><strong>Complex Tag Hierarchies</strong> - Deep folder structures with cryptic naming</li>
+                <li class="emoji" data-emoji="❌"><strong>Access Barriers</strong> - Requires API knowledge and custom integration code</li>
+                <li class="emoji" data-emoji="⏱️"><strong>Time-Consuming</strong> - Engineers spend hours navigating and querying data</li>
+                <li class="emoji" data-emoji="🔍"><strong>Non-Intuitive Naming</strong> - Abbreviations and conventions vary by plant</li>
+            </ul>
+            <div class="highlight-box">
+                <strong>Example path:</strong><br>
+                <code>Views/Secil/Portugal/Cement/Maceira/400 - Clinker Production/<br>
+                431 - Kiln/Normalised/Energy/P431</code>
+            </div>
+        </div>
+
+        <!-- Slide 3: Our Solution -->
+        <div class="slide">
+            <h1>Our Solution</h1>
+            <ul class="content-list">
+                <li class="emoji" data-emoji="💬"><strong>Natural Language Queries</strong> - Ask questions conversationally</li>
+                <li class="emoji" data-emoji="🤖"><strong>LLM Integration</strong> - Connect Claude Desktop to plant data</li>
+                <li class="emoji" data-emoji="🔌"><strong>MCP Protocol</strong> - Standardized bridge between AI and industrial systems</li>
+                <li class="emoji" data-emoji="⚡"><strong>Instant Access</strong> - Seconds instead of hours</li>
+            </ul>
+            <div class="success-box">
+                <strong>Example:</strong> "What was the average kiln speed yesterday?"<br><br>
+                <strong>→</strong> System automatically finds tags, retrieves data, analyzes results
+            </div>
+        </div>
+
+        <!-- Slide 4: Section Divider - Architecture -->
+        <div class="slide divider-slide">
+            <h1>System Architecture</h1>
+        </div>
+
+        <!-- Slide 5: Architecture Layers -->
+        <div class="slide">
+            <h1>System Architecture - 3 Layers</h1>
+            <div class="highlight-box">
+                <h3>1️⃣ LLM Client Layer</h3>
+                <ul class="content-list">
+                    <li>Claude Desktop, Continue IDE, other MCP clients</li>
+                    <li>Natural language understanding</li>
+                </ul>
+            </div>
+            <div class="highlight-box">
+                <h3>2️⃣ MCP Server Layer (Our Implementation)</h3>
+                <ul class="content-list">
+                    <li>FastMCP framework (Python 3.12+)</li>
+                    <li>5 core tools: ping, list_namespaces, search_tags, get_tag_metadata, read_timeseries</li>
+                    <li>Authentication & session management</li>
+                    <li>Time expression parsing</li>
+                </ul>
+            </div>
+            <div class="highlight-box">
+                <h3>3️⃣ Canary Historian Layer</h3>
+                <ul class="content-list">
+                    <li>SAF authentication</li>
+                    <li>Views Web API (Read API)</li>
+                    <li>Time-series database</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Slide 6: Authentication -->
+        <div class="slide">
+            <h1>Authentication & Session Management</h1>
+            <h2 class="emoji">🔐 Token-Based Authentication with Canary SAF</h2>
+            <div class="two-column">
+                <div class="column">
+                    <h3>Process:</h3>
+                    <ul class="content-list">
+                        <li>User token (from .env) → Session token request</li>
+                        <li>Session token cached with 2-minute expiry</li>
+                        <li>Automatic refresh when &lt;30 seconds remaining</li>
+                        <li>Retry logic with exponential backoff (3 attempts)</li>
+                    </ul>
+                </div>
+                <div class="column">
+                    <h3>Benefits:</h3>
+                    <ul class="content-list">
+                        <li>✓ Seamless - Users never see token management</li>
+                        <li>✓ Efficient - Token reuse reduces API calls</li>
+                        <li>✓ Resilient - Auto-retry on connection failures</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 7: Section Divider - Features -->
+        <div class="slide divider-slide">
+            <h1>Key Features</h1>
+        </div>
+
+        <!-- Slide 8: Core MCP Tools -->
+        <div class="slide">
+            <h1>5 Core MCP Tools</h1>
+            <div class="two-column">
+                <div class="column">
+                    <div class="success-box">
+                        <strong>✅ ping()</strong><br>
+                        Health check and connectivity test
+                    </div>
+                    <div class="success-box">
+                        <strong>✅ list_namespaces()</strong><br>
+                        Browse Canary tag hierarchy<br>
+                        Returns full folder structure
+                    </div>
+                    <div class="success-box">
+                        <strong>✅ search_tags(pattern)</strong><br>
+                        Find tags by wildcard pattern<br>
+                        Returns matching tags with metadata
+                    </div>
+                </div>
+                <div class="column">
+                    <div class="success-box">
+                        <strong>✅ get_tag_metadata(tag_path)</strong><br>
+                        Retrieve tag properties:<br>
+                        • Data type, units, ranges<br>
+                        • Description, update rate
+                    </div>
+                    <div class="success-box">
+                        <strong>✅ read_timeseries(tags, start, end)</strong><br>
+                        Fetch historical data:<br>
+                        • Natural language times<br>
+                        • Multiple tags supported<br>
+                        • Quality flags included<br>
+                        • Pagination handling
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 9: Time Parsing -->
+        <div class="slide">
+            <h1>Smart Time Expression Parsing</h1>
+            <h2 class="emoji">🕐 Converts Natural Language → ISO 8601 Timestamps</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Input Expression</th>
+                        <th>Output Timestamp</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>'yesterday'</td>
+                        <td>2025-10-30T00:00:00Z</td>
+                    </tr>
+                    <tr>
+                        <td>'past 24 hours'</td>
+                        <td>current time - 24h</td>
+                    </tr>
+                    <tr>
+                        <td>'last week'</td>
+                        <td>current time - 7 days</td>
+                    </tr>
+                    <tr>
+                        <td>'now'</td>
+                        <td>current timestamp</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="highlight-box">
+                <strong>Benefits:</strong>
+                <ul class="content-list">
+                    <li>Users don't need to know exact timestamp formats</li>
+                    <li>Timezone-aware conversions</li>
+                    <li>Validation of time ranges (start &lt; end)</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Slide 10: Section Divider - Demo -->
+        <div class="slide divider-slide">
+            <h1>Usage & Demo</h1>
+        </div>
+
+        <!-- Slide 11: How to Use -->
+        <div class="slide">
+            <h1>How to Use the Canary MCP Server</h1>
+            <div class="highlight-box">
+                <h3 class="emoji">📦 Installation (3 steps):</h3>
+                <ol class="content-list">
+                    <li>Install dependencies: <code>uv sync --all-extras</code></li>
+                    <li>Configure .env with Canary credentials</li>
+                    <li>Install Claude Desktop config file</li>
+                </ol>
+            </div>
+            <div class="success-box">
+                <h3 class="emoji">🚀 Usage:</h3>
+                <ol class="content-list">
+                    <li>Open Claude Desktop (auto-connects to MCP server)</li>
+                    <li>Look for 'canary-historian' server indicator</li>
+                    <li>Ask questions naturally!</li>
+                </ol>
+            </div>
+            <div class="code-block">
+Example: "Show me the kiln temperature for yesterday"
+→ Claude automatically calls search_tags() and read_timeseries()
+            </div>
+        </div>
+
+        <!-- Slide 12: Demo Scenario 1 -->
+        <div class="slide">
+            <h1>Demo Scenario #1: Quick Status Check</h1>
+            <div class="highlight-box">
+                <h3>User Query:</h3>
+                <p style="font-size: 1.2em; font-style: italic;">"What is the latest value for kiln 5 431 shell velocity?"</p>
+            </div>
+            <h3>System Flow:</h3>
+            <ul class="content-list">
+                <li>Claude interprets: kiln 431, shell velocity, latest value</li>
+                <li>Calls search_tags('*431*shell*velocity*')</li>
+                <li>Selects best match from candidates</li>
+                <li>Calls read_timeseries(tag, 'past 24 hours', 'now', 1)</li>
+            </ul>
+            <div class="success-box">
+                <h3>Response:</h3>
+                <p>"The latest shell velocity for Kiln 5 (431) is <strong>1.2 rpm</strong> as of 2025-10-31 14:30 UTC. Quality: Good."</p>
+                <p><strong>⏱️ Time: &lt;5 seconds</strong></p>
+            </div>
+        </div>
+
+        <!-- Slide 13: Demo Scenario 2 -->
+        <div class="slide">
+            <h1>Demo Scenario #2: Trend Analysis</h1>
+            <div class="highlight-box">
+                <h3>User Query:</h3>
+                <p style="font-size: 1.2em; font-style: italic;">"Compare kiln 431 power consumption yesterday vs today"</p>
+            </div>
+            <h3>System Flow:</h3>
+            <ul class="content-list">
+                <li>Searches for power tag (finds P431)</li>
+                <li>Retrieves yesterday's data (full day)</li>
+                <li>Retrieves today's data (partial)</li>
+                <li>Calculates statistics and compares</li>
+            </ul>
+            <div class="success-box">
+                <h3>Response:</h3>
+                <p><strong>Yesterday:</strong> Avg 1765 kW (min 1720, max 1808)</p>
+                <p><strong>Today:</strong> Avg 1752 kW (min 1735, max 1792)</p>
+                <p><strong>Observation:</strong> -0.7% lower with less variance</p>
+                <p><strong>⏱️ Time: &lt;10 seconds</strong></p>
+            </div>
+        </div>
+
+        <!-- Slide 14: Demo Scenario 3 -->
+        <div class="slide">
+            <h1>Demo Scenario #3: Multi-Parameter Correlation</h1>
+            <div class="highlight-box">
+                <h3>User Query:</h3>
+                <p style="font-size: 1.2em; font-style: italic;">"Show correlation between kiln speed and temperature (past week)"</p>
+            </div>
+            <h3>System Flow:</h3>
+            <ul class="content-list">
+                <li>Searches for speed tag</li>
+                <li>Searches for temperature tag</li>
+                <li>Retrieves 7 days of data for both</li>
+                <li>Analyzes correlation</li>
+            </ul>
+            <div class="success-box">
+                <h3>Response:</h3>
+                <p><strong>Speed:</strong> 1.8-2.1 rpm (avg 1.95)</p>
+                <p><strong>Temperature:</strong> 850-920°C (avg 885)</p>
+                <p><strong>Correlation:</strong> r=0.82 (strong positive)</p>
+                <p><strong>Insight:</strong> Speed &gt;2.0 rpm → temp +15-20°C</p>
+                <p><strong>⏱️ Time: &lt;15 seconds</strong></p>
+            </div>
+        </div>
+
+        <!-- Slide 15: Section Divider - Technical -->
+        <div class="slide divider-slide">
+            <h1>Technical Achievements</h1>
+        </div>
+
+        <!-- Slide 16: Tech Stack -->
+        <div class="slide">
+            <h1>Technology Stack & Metrics</h1>
+            <div class="two-column">
+                <div class="column">
+                    <h3 class="emoji">🛠️ Core Technologies:</h3>
+                    <ul class="content-list">
+                        <li>Python 3.12+</li>
+                        <li>FastMCP 0.1.0+ (MCP SDK)</li>
+                        <li>httpx (async HTTP client)</li>
+                        <li>uv (package manager)</li>
+                        <li>pytest (testing framework)</li>
+                    </ul>
+                    <h3 class="emoji">📊 Code Quality:</h3>
+                    <ul class="content-list">
+                        <li>73% test coverage</li>
+                        <li>Type-safe with mypy</li>
+                        <li>Ruff for linting</li>
+                        <li>~1,500 lines production code</li>
+                    </ul>
+                </div>
+                <div class="column">
+                    <h3 class="emoji">✨ Key Features:</h3>
+                    <ul class="content-list">
+                        <li>Async/await architecture</li>
+                        <li>Retry with exponential backoff</li>
+                        <li>Session token auto-refresh</li>
+                        <li>Comprehensive error handling</li>
+                        <li>Environment-based config</li>
+                    </ul>
+                    <h3 class="emoji">📈 Project Stats:</h3>
+                    <ul class="content-list">
+                        <li>5 MCP tools implemented</li>
+                        <li>15+ test cases</li>
+                        <li>20+ commits</li>
+                        <li>Complete documentation</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 17: Architecture Highlights -->
+        <div class="slide">
+            <h1>Technical Architecture Highlights</h1>
+            <h2 class="emoji">🎯 Design Principles:</h2>
+            <div class="highlight-box">
+                <h3>1. Separation of Concerns</h3>
+                <ul class="content-list">
+                    <li>Auth module (345 lines) - Token management</li>
+                    <li>Server module (631 lines) - Tools & parsing</li>
+                </ul>
+            </div>
+            <div class="highlight-box">
+                <h3>2. Async-First Design</h3>
+                <ul class="content-list">
+                    <li>Non-blocking I/O for performance</li>
+                    <li>Concurrent API calls where possible</li>
+                </ul>
+            </div>
+            <div class="highlight-box">
+                <h3>3. Resilience & Reliability</h3>
+                <ul class="content-list">
+                    <li>Automatic retry on transient failures</li>
+                    <li>Graceful error handling with context</li>
+                    <li>Session state management</li>
+                </ul>
+            </div>
+            <div class="highlight-box">
+                <h3>4. Developer Experience</h3>
+                <ul class="content-list">
+                    <li>Type hints throughout</li>
+                    <li>Clear error messages</li>
+                    <li>Extensive documentation</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Slide 18: Section Divider - Results -->
+        <div class="slide divider-slide">
+            <h1>Results & Impact</h1>
+        </div>
+
+        <!-- Slide 19: What We Achieved -->
+        <div class="slide">
+            <h1>What We Achieved</h1>
+            <div class="success-box">
+                <h3>✅ Production-Ready MCP Server</h3>
+                <ul class="content-list">
+                    <li>Complete authentication & session management</li>
+                    <li>5 fully functional tools</li>
+                    <li>Comprehensive error handling</li>
+                </ul>
+            </div>
+            <div class="success-box">
+                <h3>✅ Natural Language Interface</h3>
+                <ul class="content-list">
+                    <li>Converts conversational queries → API calls</li>
+                    <li>Time expression parsing</li>
+                    <li>Tag search with wildcards</li>
+                </ul>
+            </div>
+            <div class="success-box">
+                <h3>✅ Robust Testing</h3>
+                <ul class="content-list">
+                    <li>73% code coverage</li>
+                    <li>Unit + integration tests</li>
+                    <li>Validated against real Canary system</li>
+                </ul>
+            </div>
+            <div class="success-box">
+                <h3>✅ Complete Documentation</h3>
+                <ul class="content-list">
+                    <li>README, testing guide, API docs</li>
+                    <li>Setup instructions for Windows/Claude Desktop</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Slide 20: Business Impact -->
+        <div class="slide">
+            <h1>Business Value & Impact</h1>
+            <div class="highlight-box">
+                <h3 class="emoji">⏱️ Time Savings</h3>
+                <p>From minutes/hours → seconds for data access</p>
+            </div>
+            <div class="highlight-box">
+                <h3 class="emoji">👥 Accessibility</h3>
+                <p>Enable non-technical users to query plant data</p>
+                <p>No need to learn complex APIs or tag structures</p>
+            </div>
+            <div class="highlight-box">
+                <h3 class="emoji">🔍 Faster Insights</h3>
+                <p>Quick analysis → faster problem resolution</p>
+                <p>Easier correlation and trend detection</p>
+            </div>
+            <div class="highlight-box">
+                <h3 class="emoji">📈 Scalability</h3>
+                <p>Foundation for AI-powered plant operations</p>
+                <p>Extensible architecture for future features</p>
+            </div>
+            <div class="highlight-box">
+                <h3 class="emoji">🌍 Multi-Site Potential</h3>
+                <p>Can be deployed across all Secil plants</p>
+            </div>
+        </div>
+
+        <!-- Slide 21: Section Divider - Future -->
+        <div class="slide divider-slide">
+            <h1>Future Roadmap</h1>
+        </div>
+
+        <!-- Slide 22: Phases 1 & 2 -->
+        <div class="slide">
+            <h1>Future Roadmap - Phases 1 & 2</h1>
+            <div class="two-column">
+                <div class="column">
+                    <h3 class="emoji">📍 Phase 1: Semantic Resolution</h3>
+                    <ul class="content-list">
+                        <li>Fuzzy matching with confidence</li>
+                        <li>Context-aware search (plant/area/unit)</li>
+                        <li>Synonym expansion (speed ↔ rpm ↔ velocity)</li>
+                        <li>Multi-language support (English/Portuguese)</li>
+                        <li>Path normalization</li>
+                    </ul>
+                    <div class="highlight-box">
+                        <strong>Example:</strong><br>
+                        'velocidade do forno 5'<br>
+                        → Translates, expands synonyms<br>
+                        → Ranks by fuzzy match + context
+                    </div>
+                </div>
+                <div class="column">
+                    <h3 class="emoji">📊 Phase 2: Advanced Analytics</h3>
+                    <ul class="content-list">
+                        <li>Statistical aggregations (avg, min, max, stddev)</li>
+                        <li>Trend detection</li>
+                        <li>Anomaly identification</li>
+                        <li>Correlation analysis</li>
+                        <li>Time-series forecasting</li>
+                        <li>Quality-filtered data</li>
+                    </ul>
+                    <div class="highlight-box">
+                        <strong>Example:</strong><br>
+                        'Detect anomalies in kiln temperature last month'<br>
+                        → Statistical analysis<br>
+                        → Highlight outliers
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 23: Phases 3 & 4 -->
+        <div class="slide">
+            <h1>Future Roadmap - Phases 3 & 4</h1>
+            <div class="two-column">
+                <div class="column">
+                    <h3 class="emoji">⚡ Phase 3: Performance</h3>
+                    <ul class="content-list">
+                        <li>Caching layer (browse/search results)</li>
+                        <li>Connection pooling</li>
+                        <li>Smart pagination</li>
+                        <li>Continuation token support</li>
+                        <li>Rate limiting</li>
+                        <li>Backpressure handling</li>
+                    </ul>
+                    <div class="highlight-box">
+                        <strong>Target:</strong><br>
+                        • &lt;500ms average response<br>
+                        • Support 100+ concurrent users<br>
+                        • 99.9% uptime
+                    </div>
+                </div>
+                <div class="column">
+                    <h3 class="emoji">🌐 Phase 4: Multi-Site</h3>
+                    <ul class="content-list">
+                        <li>Multi-plant configuration</li>
+                        <li>Site-specific dictionaries</li>
+                        <li>Cross-site comparison</li>
+                        <li>Federated queries</li>
+                        <li>Site context awareness</li>
+                    </ul>
+                    <div class="highlight-box">
+                        <strong>Example:</strong><br>
+                        'Compare Outao and Maceira kiln efficiency this week'<br>
+                        → Queries both sites<br>
+                        → Normalizes metrics<br>
+                        → Presents comparison
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 24: Next Steps -->
+        <div class="slide">
+            <h1>Next Steps</h1>
+            <div class="highlight-box">
+                <h3 class="emoji">🎯 Immediate (1-2 weeks):</h3>
+                <ul class="content-list">
+                    <li>Pilot deployment with select engineers</li>
+                    <li>Gather user feedback and usage patterns</li>
+                    <li>Document common queries and pain points</li>
+                </ul>
+            </div>
+            <div class="highlight-box">
+                <h3 class="emoji">🚀 Short-term (1-3 months):</h3>
+                <ul class="content-list">
+                    <li>Implement semantic resolution (fuzzy matching, synonyms)</li>
+                    <li>Optimize performance (caching, connection pooling)</li>
+                    <li>Expand test coverage to 85%+</li>
+                </ul>
+            </div>
+            <div class="highlight-box">
+                <h3 class="emoji">🌟 Long-term (3-6 months):</h3>
+                <ul class="content-list">
+                    <li>Multi-site rollout across Secil plants</li>
+                    <li>Advanced analytics capabilities</li>
+                    <li>Integration with additional LLM clients</li>
+                    <li>Explore write operations (with strict permissions)</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Slide 25: Key Takeaways -->
+        <div class="slide">
+            <h1>Key Takeaways</h1>
+            <ul class="content-list">
+                <li class="emoji" data-emoji="✨">We built a production-ready MCP server connecting LLMs to industrial data</li>
+                <li class="emoji" data-emoji="🎯">Engineers can now query plant data using natural language</li>
+                <li class="emoji" data-emoji="⚡">Data access time reduced from hours → seconds</li>
+                <li class="emoji" data-emoji="🔧">Robust, tested, documented, and ready for deployment</li>
+                <li class="emoji" data-emoji="🚀">Foundation for AI-powered plant operations at Secil</li>
+                <li class="emoji" data-emoji="🌍">Scalable architecture ready for multi-site expansion</li>
+            </ul>
+            <div class="success-box" style="text-align: center; font-size: 1.5em; margin-top: 40px;">
+                <strong>The future of industrial data access is conversational.</strong>
+            </div>
+        </div>
+
+        <!-- Slide 26: Thank You -->
+        <div class="slide title-slide">
+            <h1>Thank You!</h1>
+            <h2>Questions?</h2>
+        </div>
+    </div>
+
+    <!-- Navigation Controls -->
+    <div class="nav-controls">
+        <button class="nav-btn" id="prevBtn" onclick="changeSlide(-1)">← Previous</button>
+        <button class="nav-btn" id="nextBtn" onclick="changeSlide(1)">Next →</button>
+    </div>
+
+    <div class="keyboard-hint">
+        Use arrow keys ← → or click buttons to navigate
+    </div>
+
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const totalSlides = slides.length;
+
+        function showSlide(n) {
+            slides[currentSlide].classList.remove('active');
+
+            if (n >= totalSlides) {
+                currentSlide = totalSlides - 1;
+            } else if (n < 0) {
+                currentSlide = 0;
+            } else {
+                currentSlide = n;
+            }
+
+            slides[currentSlide].classList.add('active');
+
+            // Update slide counter
+            document.getElementById('slideCounter').textContent = `${currentSlide + 1} / ${totalSlides}`;
+
+            // Update progress bar
+            const progress = ((currentSlide + 1) / totalSlides) * 100;
+            document.getElementById('progressBar').style.width = progress + '%';
+
+            // Update button states
+            document.getElementById('prevBtn').disabled = currentSlide === 0;
+            document.getElementById('nextBtn').disabled = currentSlide === totalSlides - 1;
+
+            // Scroll to top of slide
+            slides[currentSlide].scrollTop = 0;
+        }
+
+        function changeSlide(n) {
+            showSlide(currentSlide + n);
+        }
+
+        // Keyboard navigation
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'ArrowLeft') {
+                changeSlide(-1);
+            } else if (event.key === 'ArrowRight' || event.key === ' ') {
+                event.preventDefault();
+                changeSlide(1);
+            } else if (event.key === 'Home') {
+                showSlide(0);
+            } else if (event.key === 'End') {
+                showSlide(totalSlides - 1);
+            }
+        });
+
+        // Initialize
+        showSlide(0);
+    </script>
+</body>
+</html>

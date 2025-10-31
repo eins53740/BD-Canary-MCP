@@ -102,4 +102,5 @@ foreach ($endpoint in $endpoints) {
 
 Write-Host "`n=== Testing Complete ===`n" -ForegroundColor Cyan
 Write-Host "If you found a working endpoint above, update your .env file and" -ForegroundColor White
-Write-Host "claude_desktop_config.json with the displayed configuration.`n" -ForegroundColor White
+Write-Host "claude_desktop_config.json with the displayed configuration." -ForegroundColor White
+Write-Host ""

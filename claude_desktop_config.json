@@ -11,8 +11,8 @@
         "canary_mcp.server"
       ],
       "env": {
-        "CANARY_SAF_BASE_URL": "https://scunscanary.secil.pt/readapi/v1",
-        "CANARY_VIEWS_BASE_URL": "https://scunscanary.secil.pt",
+        "CANARY_SAF_BASE_URL": "https://scunscanary.secil.pt:55236/api/v2",
+        "CANARY_VIEWS_BASE_URL": "https://scunscanary.secil.pt:55236",
         "CANARY_API_TOKEN": "0120fd2e-e9c2-4c8d-8115-a6ceb41490ce"
       }
     }
