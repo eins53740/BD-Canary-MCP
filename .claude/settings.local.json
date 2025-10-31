@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "SlashCommand(/bmad:bmm:workflows:prd)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
