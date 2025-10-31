@@ -420,7 +420,8 @@ So that I can quickly learn how to use the MCP server for my daily tasks.
 6. Interactive examples: users can copy/paste into Claude Desktop
 7. Examples reference real-world scenarios from Product Brief (Kiln 6, Maceira plant, etc.)
 8. Example library published in docs/ and README
-9. Validation test: `test_examples.py` confirms all example queries are valid and return expected results
+9. Include integration example comparing historical vs recent data (e.g., "Compare Kiln 6 temperature: last week average vs last minute value")
+10. Validation test: `test_examples.py` confirms all example queries are valid and return expected results
 
 **Prerequisites:** Story 2.6 (API documentation)
 
