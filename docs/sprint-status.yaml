@@ -50,7 +50,7 @@ development_status:
   epic-1-retrospective: optional
 
   epic-2: backlog
-  2-1-connection-pooling-performance-baseline: backlog
+  2-1-connection-pooling-performance-baseline: drafted
   2-2-caching-layer-implementation: backlog
   2-3-advanced-error-handling-retry-logic: backlog
   2-4-performance-validation-test-suite: backlog
