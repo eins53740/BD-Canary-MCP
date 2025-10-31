@@ -1,6 +1,6 @@
 # Story 1.6: Read Timeseries Tool & Validation
 
-Status: review
+Status: done
 
 ## Change Log
 
@@ -377,3 +377,8 @@ Claude Sonnet 4.5 (us.anthropic.claude-sonnet-4-5-20250929-v1:0)
 
 **MODIFIED:**
 - src/canary_mcp/server.py - Added parse_time_expression() function and read_timeseries tool (added ~270 lines)
+
+### Completion Notes
+
+**Completed:** 2025-10-31
+**Definition of Done:** All acceptance criteria met, code reviewed, tests passing

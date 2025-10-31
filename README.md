@@ -69,43 +69,125 @@ BD-hackaton-2025-10/
 
 ## Installation
 
-### Prerequisites
+The Canary MCP Server supports two installation methods to accommodate different user needs and environments. Choose the method that best fits your situation.
 
-- **Python 3.12+** (3.13 recommended)
-- **uv** - Fast Python package manager ([install guide](https://docs.astral.sh/uv/))
-- **Git** - For cloning the repository
+### Installation Options Overview
 
-### Setup Steps
+| Feature | Non-Admin Windows | Docker |
+|---------|------------------|--------|
+| **Administrator Privileges** | Not required | Required (for Docker Desktop) |
+| **Installation Time** | 10-15 minutes | 5-10 minutes |
+| **Environment Isolation** | Process-level | Complete containerization |
+| **Reproducibility** | Depends on host configuration | Identical across environments |
+| **Resource Usage** | Lower (native process) | Higher (Docker overhead) |
+| **Updates** | Update packages with `uv` | Rebuild Docker image |
+| **Best For** | Company workstations, dev laptops | Production, DevOps workflows |
+| **Configuration** | `.env` file in project root | `.env` file + Docker Compose |
 
-1. **Clone the repository:**
-   ```bash
-   git clone <repository-url>
-   cd BD-hackaton-2025-10
-   ```
+### When to Use Each Method
 
-2. **Install dependencies:**
-   ```bash
-   uv sync --all-extras
-   ```
+**Choose Non-Admin Windows Installation if:**
+- You work on a company workstation without administrator privileges
+- You want minimal resource overhead
+- You prefer native Python development workflow
+- You need quick setup without Docker dependencies
 
-   This installs:
-   - `fastmcp` - MCP SDK
-   - `httpx` - HTTP client for Canary API (future use)
-   - `python-dotenv` - Environment configuration
-   - `pytest` and dev tools
+**Choose Docker Installation if:**
+- You have Docker Desktop access
+- You need reproducible deployments across environments
+- You want complete environment isolation
+- You're deploying to production or staging environments
+- You're already using containerization in your workflow
 
-3. **Configure environment:**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
+### Quick Start Guides
 
-4. **Verify installation:**
-   ```bash
-   uv run pytest -v
-   ```
+#### Option 1: Non-Admin Windows Installation (Recommended for Workstations)
 
-   Expected output: All tests passing ✅
+For users without administrator privileges on Windows workstations.
+
+**Prerequisites:**
+- No administrator privileges required
+- Internet access to download Python and uv
+
+**Quick Setup:**
+```bash
+# 1. Install Python 3.13 portable (download from python.org)
+# 2. Install uv package manager
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# 3. Clone repository
+git clone <repository-url>
+cd BD-hackaton-2025-10
+
+# 4. Install MCP server (user-space)
+uv pip install -e .
+
+# 5. Configure environment
+copy .env.example .env
+# Edit .env with your Canary credentials
+
+# 6. Validate installation
+python scripts/validate_installation.py
+
+# 7. Start server
+python -m canary_mcp.server
+```
+
+**Detailed Guide:** See [docs/installation/non-admin-windows.md](docs/installation/non-admin-windows.md)
+
+**Troubleshooting:** See [docs/installation/troubleshooting.md](docs/installation/troubleshooting.md)
+
+#### Option 2: Docker Installation (Recommended for Production)
+
+For users with Docker Desktop access, ideal for production deployments.
+
+**Prerequisites:**
+- Docker Desktop installed (requires admin for installation)
+- Docker Compose (included with Docker Desktop)
+- At least 4GB RAM allocated to Docker
+- 2GB free disk space
+
+**Quick Setup:**
+```bash
+# 1. Clone repository
+git clone <repository-url>
+cd BD-hackaton-2025-10
+
+# 2. Configure environment
+copy .env.example .env
+# Edit .env with your Canary credentials
+
+# 3. Build Docker image
+docker build -t canary-mcp-server .
+
+# 4. Start container
+docker-compose up -d
+
+# 5. Verify container is running
+docker-compose ps
+
+# 6. View logs
+docker-compose logs -f
+```
+
+**Detailed Guide:** See [docs/installation/docker-installation.md](docs/installation/docker-installation.md)
+
+### Installation Validation
+
+After installation, verify your setup with the validation script:
+
+```bash
+python scripts/validate_installation.py
+```
+
+This script checks:
+- Python version (>= 3.13)
+- uv package manager installation
+- canary-mcp package installation
+- Required dependencies (fastmcp, httpx, python-dotenv, structlog)
+- Configuration file (.env) exists and valid
+- Server can start without errors
+- Logs directory is writable
 
 ## Usage
 

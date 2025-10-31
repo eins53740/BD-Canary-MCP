@@ -1,6 +1,5 @@
 """Main MCP server module for Canary Historian integration."""
 
-import asyncio
 import os
 from datetime import datetime, timedelta
 from typing import Any
@@ -9,13 +8,18 @@ import httpx
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 
-from canary_mcp.auth import CanaryAuthClient, CanaryAuthError, validate_config
+from canary_mcp.auth import CanaryAuthError, CanaryAuthClient
+from canary_mcp.logging_setup import configure_logging, get_logger
+from canary_mcp.request_context import set_request_id, get_request_id
 
 # Load environment variables
 load_dotenv()
 
 # Initialize FastMCP server
 mcp = FastMCP("Canary MCP Server")
+
+# Get logger instance
+log = get_logger(__name__)
 
 
 def parse_time_expression(time_expr: str) -> str:
@@ -107,6 +111,14 @@ async def search_tags(search_pattern: str) -> dict[str, Any]:
     Raises:
         Exception: If authentication fails or API request errors occur
     """
+    request_id = set_request_id()
+    log.info(
+        "search_tags_called",
+        search_pattern=search_pattern,
+        request_id=request_id,
+        tool="search_tags",
+    )
+
     try:
         # Validate search pattern
         if not search_pattern or not search_pattern.strip():
@@ -123,21 +135,21 @@ async def search_tags(search_pattern: str) -> dict[str, Any]:
         if not views_base_url:
             raise ValueError("CANARY_VIEWS_BASE_URL not configured")
 
-        # Authenticate and get session token
+        # Authenticate and get API token
         async with CanaryAuthClient() as client:
-            session_token = await client.get_valid_token()
+            api_token = await client.get_valid_token()
 
             # Query Canary API for tag search
             # Using browseTags endpoint to search for tags
-            search_url = f"{views_base_url}/api/v1/browseTags"
+            search_url = f"{views_base_url}/api/v2/browseTags"
 
             async with httpx.AsyncClient(timeout=10.0) as http_client:
                 response = await http_client.post(
                     search_url,
                     json={
-                        "sessionToken": session_token,
-                        "searchPattern": search_pattern,
-                        "includeProperties": True,
+                        "apiToken": api_token,
+                        "search": search_pattern,
+                        "deep": True,
                     },
                 )
 
@@ -159,6 +171,12 @@ async def search_tags(search_pattern: str) -> dict[str, Any]:
                                 }
                             )
 
+                log.info(
+                    "search_tags_success",
+                    pattern=search_pattern,
+                    tag_count=len(tags),
+                    request_id=get_request_id(),
+                )
                 return {
                     "success": True,
                     "tags": tags,
@@ -168,6 +186,12 @@ async def search_tags(search_pattern: str) -> dict[str, Any]:
 
     except CanaryAuthError as e:
         error_msg = f"Authentication failed: {str(e)}"
+        log.error(
+            "search_tags_auth_failed",
+            error=error_msg,
+            pattern=search_pattern,
+            request_id=get_request_id(),
+        )
         return {
             "success": False,
             "error": error_msg,
@@ -180,6 +204,13 @@ async def search_tags(search_pattern: str) -> dict[str, Any]:
         error_msg = (
             f"API request failed with status {e.response.status_code}: {e.response.text}"
         )
+        log.error(
+            "search_tags_api_error",
+            error=error_msg,
+            status_code=e.response.status_code,
+            pattern=search_pattern,
+            request_id=get_request_id(),
+        )
         return {
             "success": False,
             "error": error_msg,
@@ -190,6 +221,12 @@ async def search_tags(search_pattern: str) -> dict[str, Any]:
 
     except httpx.RequestError as e:
         error_msg = f"Network error accessing Canary API: {str(e)}"
+        log.error(
+            "search_tags_network_error",
+            error=error_msg,
+            pattern=search_pattern,
+            request_id=get_request_id(),
+        )
         return {
             "success": False,
             "error": error_msg,
@@ -200,6 +237,13 @@ async def search_tags(search_pattern: str) -> dict[str, Any]:
 
     except Exception as e:
         error_msg = f"Unexpected error searching tags: {str(e)}"
+        log.error(
+            "search_tags_unexpected_error",
+            error=error_msg,
+            pattern=search_pattern,
+            request_id=get_request_id(),
+            exc_info=True,
+        )
         return {
             "success": False,
             "error": error_msg,
@@ -229,6 +273,14 @@ async def get_tag_metadata(tag_path: str) -> dict[str, Any]:
     Raises:
         Exception: If authentication fails or API request errors occur
     """
+    request_id = set_request_id()
+    log.info(
+        "get_tag_metadata_called",
+        tag_path=tag_path,
+        request_id=request_id,
+        tool="get_tag_metadata",
+    )
+
     try:
         # Validate tag path
         if not tag_path or not tag_path.strip():
@@ -244,20 +296,20 @@ async def get_tag_metadata(tag_path: str) -> dict[str, Any]:
         if not views_base_url:
             raise ValueError("CANARY_VIEWS_BASE_URL not configured")
 
-        # Authenticate and get session token
+        # Authenticate and get API token
         async with CanaryAuthClient() as client:
-            session_token = await client.get_valid_token()
+            api_token = await client.get_valid_token()
 
             # Query Canary API for tag metadata
             # Using getTagProperties endpoint to get detailed metadata
-            metadata_url = f"{views_base_url}/api/v1/getTagProperties"
+            metadata_url = f"{views_base_url}/api/v2/getTagProperties"
 
             async with httpx.AsyncClient(timeout=10.0) as http_client:
                 response = await http_client.post(
                     metadata_url,
                     json={
-                        "sessionToken": session_token,
-                        "tagPath": tag_path,
+                        "apiToken": api_token,
+                        "tags": [tag_path],
                     },
                 )
 
@@ -284,6 +336,13 @@ async def get_tag_metadata(tag_path: str) -> dict[str, Any]:
                     if properties and isinstance(properties, dict):
                         metadata["properties"] = properties
 
+                log.info(
+                    "get_tag_metadata_success",
+                    tag_path=tag_path,
+                    data_type=metadata.get("dataType"),
+                    units=metadata.get("units"),
+                    request_id=get_request_id(),
+                )
                 return {
                     "success": True,
                     "metadata": metadata,
@@ -292,6 +351,12 @@ async def get_tag_metadata(tag_path: str) -> dict[str, Any]:
 
     except CanaryAuthError as e:
         error_msg = f"Authentication failed: {str(e)}"
+        log.error(
+            "get_tag_metadata_auth_failed",
+            error=error_msg,
+            tag_path=tag_path,
+            request_id=get_request_id(),
+        )
         return {
             "success": False,
             "error": error_msg,
@@ -303,6 +368,13 @@ async def get_tag_metadata(tag_path: str) -> dict[str, Any]:
         error_msg = (
             f"API request failed with status {e.response.status_code}: {e.response.text}"
         )
+        log.error(
+            "get_tag_metadata_api_error",
+            error=error_msg,
+            status_code=e.response.status_code,
+            tag_path=tag_path,
+            request_id=get_request_id(),
+        )
         return {
             "success": False,
             "error": error_msg,
@@ -312,6 +384,12 @@ async def get_tag_metadata(tag_path: str) -> dict[str, Any]:
 
     except httpx.RequestError as e:
         error_msg = f"Network error accessing Canary API: {str(e)}"
+        log.error(
+            "get_tag_metadata_network_error",
+            error=error_msg,
+            tag_path=tag_path,
+            request_id=get_request_id(),
+        )
         return {
             "success": False,
             "error": error_msg,
@@ -321,6 +399,13 @@ async def get_tag_metadata(tag_path: str) -> dict[str, Any]:
 
     except Exception as e:
         error_msg = f"Unexpected error retrieving tag metadata: {str(e)}"
+        log.error(
+            "get_tag_metadata_unexpected_error",
+            error=error_msg,
+            tag_path=tag_path,
+            request_id=get_request_id(),
+            exc_info=True,
+        )
         return {
             "success": False,
             "error": error_msg,
@@ -346,27 +431,28 @@ async def list_namespaces() -> dict[str, Any]:
     Raises:
         Exception: If authentication fails or API request errors occur
     """
+    request_id = set_request_id()
+    log.info("list_namespaces_called", request_id=request_id, tool="list_namespaces")
+
     try:
         # Get Canary Views base URL from environment
         views_base_url = os.getenv("CANARY_VIEWS_BASE_URL", "")
         if not views_base_url:
             raise ValueError("CANARY_VIEWS_BASE_URL not configured")
 
-        # Authenticate and get session token
+        # Authenticate and get API token
         async with CanaryAuthClient() as client:
-            session_token = await client.get_valid_token()
+            api_token = await client.get_valid_token()
 
             # Query Canary API for namespace/node information
             # Using browseNodes endpoint to get hierarchical structure
-            browse_url = f"{views_base_url}/api/v1/browseNodes"
+            browse_url = f"{views_base_url}/api/v2/browseNodes"
 
             async with httpx.AsyncClient(timeout=10.0) as http_client:
                 response = await http_client.post(
                     browse_url,
                     json={
-                        "sessionToken": session_token,
-                        "nodeId": "",  # Empty for root level
-                        "recursive": True,  # Get full hierarchy
+                        "apiToken": api_token,
                     },
                 )
 
@@ -381,6 +467,11 @@ async def list_namespaces() -> dict[str, Any]:
                         if isinstance(node, dict) and "path" in node:
                             namespaces.append(node["path"])
 
+                log.info(
+                    "list_namespaces_success",
+                    namespace_count=len(namespaces),
+                    request_id=get_request_id(),
+                )
                 return {
                     "success": True,
                     "namespaces": namespaces,
@@ -389,18 +480,32 @@ async def list_namespaces() -> dict[str, Any]:
 
     except CanaryAuthError as e:
         error_msg = f"Authentication failed: {str(e)}"
+        log.error("list_namespaces_auth_failed", error=error_msg, request_id=get_request_id())
         return {"success": False, "error": error_msg, "namespaces": [], "count": 0}
 
     except httpx.HTTPStatusError as e:
         error_msg = f"API request failed with status {e.response.status_code}: {e.response.text}"
+        log.error(
+            "list_namespaces_api_error",
+            error=error_msg,
+            status_code=e.response.status_code,
+            request_id=get_request_id(),
+        )
         return {"success": False, "error": error_msg, "namespaces": [], "count": 0}
 
     except httpx.RequestError as e:
         error_msg = f"Network error accessing Canary API: {str(e)}"
+        log.error("list_namespaces_network_error", error=error_msg, request_id=get_request_id())
         return {"success": False, "error": error_msg, "namespaces": [], "count": 0}
 
     except Exception as e:
         error_msg = f"Unexpected error listing namespaces: {str(e)}"
+        log.error(
+            "list_namespaces_unexpected_error",
+            error=error_msg,
+            request_id=get_request_id(),
+            exc_info=True,
+        )
         return {"success": False, "error": error_msg, "namespaces": [], "count": 0}
 
 
@@ -435,6 +540,19 @@ async def read_timeseries(
     Raises:
         Exception: If authentication fails or API request errors occur
     """
+    request_id = set_request_id()
+    # Normalize tag_names for logging
+    tag_list_for_log = [tag_names] if isinstance(tag_names, str) else list(tag_names)
+    log.info(
+        "read_timeseries_called",
+        tag_names=tag_list_for_log,
+        start_time=start_time,
+        end_time=end_time,
+        page_size=page_size,
+        request_id=request_id,
+        tool="read_timeseries",
+    )
+
     try:
         # Normalize tag_names to list
         if isinstance(tag_names, str):
@@ -493,23 +611,22 @@ async def read_timeseries(
         if not views_base_url:
             raise ValueError("CANARY_VIEWS_BASE_URL not configured")
 
-        # Authenticate and get session token
+        # Authenticate and get API token
         async with CanaryAuthClient() as client:
-            session_token = await client.get_valid_token()
+            api_token = await client.get_valid_token()
 
             # Query Canary API for timeseries data
-            # Using getData endpoint to retrieve historical data
-            data_url = f"{views_base_url}/api/v1/getData"
+            # Using getTagData endpoint to retrieve historical data
+            data_url = f"{views_base_url}/api/v2/getTagData"
 
             async with httpx.AsyncClient(timeout=30.0) as http_client:
                 response = await http_client.post(
                     data_url,
                     json={
-                        "sessionToken": session_token,
-                        "tagNames": tag_list,
+                        "apiToken": api_token,
+                        "tags": tag_list,
                         "startTime": parsed_start_time,
                         "endTime": parsed_end_time,
-                        "pageSize": page_size,
                     },
                 )
 
@@ -556,6 +673,14 @@ async def read_timeseries(
                             "end_time": parsed_end_time,
                         }
 
+                log.info(
+                    "read_timeseries_success",
+                    tag_names=tag_list,
+                    data_point_count=len(data_points),
+                    start_time=parsed_start_time,
+                    end_time=parsed_end_time,
+                    request_id=get_request_id(),
+                )
                 return {
                     "success": True,
                     "data": data_points,
@@ -567,6 +692,12 @@ async def read_timeseries(
 
     except CanaryAuthError as e:
         error_msg = f"Authentication failed: {str(e)}"
+        log.error(
+            "read_timeseries_auth_failed",
+            error=error_msg,
+            tag_names=tag_list if "tag_list" in locals() else [],
+            request_id=get_request_id(),
+        )
         return {
             "success": False,
             "error": error_msg,
@@ -579,6 +710,13 @@ async def read_timeseries(
         error_msg = (
             f"API request failed with status {e.response.status_code}: {e.response.text}"
         )
+        log.error(
+            "read_timeseries_api_error",
+            error=error_msg,
+            status_code=e.response.status_code,
+            tag_names=tag_list if "tag_list" in locals() else [],
+            request_id=get_request_id(),
+        )
         return {
             "success": False,
             "error": error_msg,
@@ -589,6 +727,12 @@ async def read_timeseries(
 
     except httpx.RequestError as e:
         error_msg = f"Network error accessing Canary API: {str(e)}"
+        log.error(
+            "read_timeseries_network_error",
+            error=error_msg,
+            tag_names=tag_list if "tag_list" in locals() else [],
+            request_id=get_request_id(),
+        )
         return {
             "success": False,
             "error": error_msg,
@@ -599,6 +743,13 @@ async def read_timeseries(
 
     except Exception as e:
         error_msg = f"Unexpected error retrieving timeseries data: {str(e)}"
+        log.error(
+            "read_timeseries_unexpected_error",
+            error=error_msg,
+            tag_names=tag_list if "tag_list" in locals() else [],
+            request_id=get_request_id(),
+            exc_info=True,
+        )
         return {
             "success": False,
             "error": error_msg,
@@ -608,26 +759,208 @@ async def read_timeseries(
         }
 
 
+@mcp.tool()
+async def get_server_info() -> dict[str, Any]:
+    """
+    Get Canary server health and capability information.
+
+    This tool retrieves server version, status, supported time zones,
+    and aggregation functions from the Canary historian, along with
+    MCP server configuration details.
+
+    Returns:
+        dict[str, Any]: Dictionary containing server information with keys:
+            - success: Boolean indicating if operation succeeded
+            - server_info: Dictionary with Canary server details
+            - mcp_info: Dictionary with MCP server details
+            - error: Error message (only on failure)
+
+    Raises:
+        Exception: If authentication fails or API request errors occur
+    """
+    request_id = set_request_id()
+    log.info("get_server_info_called", request_id=request_id, tool="get_server_info")
+
+    try:
+        # Get Canary Views base URL from environment
+        views_base_url = os.getenv("CANARY_VIEWS_BASE_URL", "")
+        if not views_base_url:
+            raise ValueError("CANARY_VIEWS_BASE_URL not configured")
+
+        saf_base_url = os.getenv("CANARY_SAF_BASE_URL", "")
+
+        # Authenticate and get API token
+        async with CanaryAuthClient() as client:
+            api_token = await client.get_valid_token()
+
+            # Query Canary API for server capabilities
+            async with httpx.AsyncClient(timeout=10.0) as http_client:
+                # Get supported time zones
+                timezones_url = f"{views_base_url}/api/v2/getTimeZones"
+                timezones_response = await http_client.post(
+                    timezones_url,
+                    json={"apiToken": api_token},
+                )
+                timezones_response.raise_for_status()
+                timezones_data = timezones_response.json()
+
+                # Get supported aggregation functions
+                aggregates_url = f"{views_base_url}/api/v2/getAggregates"
+                aggregates_response = await http_client.post(
+                    aggregates_url,
+                    json={"apiToken": api_token},
+                )
+                aggregates_response.raise_for_status()
+                aggregates_data = aggregates_response.json()
+
+                # Parse server capabilities
+                timezones = []
+                if isinstance(timezones_data, dict):
+                    timezones = timezones_data.get("timeZones", [])
+                elif isinstance(timezones_data, list):
+                    timezones = timezones_data
+
+                aggregates = []
+                if isinstance(aggregates_data, dict):
+                    aggregates = aggregates_data.get("aggregates", [])
+                elif isinstance(aggregates_data, list):
+                    aggregates = aggregates_data
+
+                # Build server info response
+                server_info = {
+                    "canary_server_url": views_base_url,
+                    "api_version": "v2",
+                    "connected": True,
+                    # Limit to 10 for readability
+                    "supported_timezones": (
+                        timezones[:10] if len(timezones) > 10 else timezones
+                    ),
+                    "total_timezones": len(timezones),
+                    # Limit to 10 for readability
+                    "supported_aggregates": (
+                        aggregates[:10] if len(aggregates) > 10 else aggregates
+                    ),
+                    "total_aggregates": len(aggregates),
+                }
+
+                # MCP server info
+                mcp_info = {
+                    "server_name": "Canary MCP Server",
+                    "version": "1.0.0",  # TODO: Get from package metadata
+                    "configuration": {
+                        "saf_base_url": saf_base_url,
+                        "views_base_url": views_base_url,
+                    },
+                }
+
+                log.info(
+                    "get_server_info_success",
+                    canary_server_url=views_base_url,
+                    api_version="v2",
+                    connected=True,
+                    timezone_count=len(timezones),
+                    aggregate_count=len(aggregates),
+                    request_id=get_request_id(),
+                )
+                return {
+                    "success": True,
+                    "server_info": server_info,
+                    "mcp_info": mcp_info,
+                }
+
+    except CanaryAuthError as e:
+        error_msg = f"Authentication failed: {str(e)}"
+        log.error("get_server_info_auth_failed", error=error_msg, request_id=get_request_id())
+        return {
+            "success": False,
+            "error": error_msg,
+            "server_info": {},
+            "mcp_info": {},
+        }
+
+    except httpx.HTTPStatusError as e:
+        error_msg = (
+            f"API request failed with status {e.response.status_code}: {e.response.text}"
+        )
+        log.error(
+            "get_server_info_api_error",
+            error=error_msg,
+            status_code=e.response.status_code,
+            request_id=get_request_id(),
+        )
+        return {
+            "success": False,
+            "error": error_msg,
+            "server_info": {},
+            "mcp_info": {},
+        }
+
+    except httpx.RequestError as e:
+        error_msg = f"Network error accessing Canary API: {str(e)}"
+        log.error("get_server_info_network_error", error=error_msg, request_id=get_request_id())
+        return {
+            "success": False,
+            "error": error_msg,
+            "server_info": {},
+            "mcp_info": {},
+        }
+
+    except Exception as e:
+        error_msg = f"Unexpected error retrieving server info: {str(e)}"
+        log.error(
+            "get_server_info_unexpected_error",
+            error=error_msg,
+            request_id=get_request_id(),
+            exc_info=True,
+        )
+        return {
+            "success": False,
+            "error": error_msg,
+            "server_info": {},
+            "mcp_info": {},
+        }
+
+
 def main() -> None:
     """Run the MCP server."""
+    import sys
+
+    # Configure logging before starting server
+    configure_logging()
+
+    log.info("Starting Canary MCP Server", version="1.0.0")
+
     # Validate configuration before starting server
     # TEMPORARILY DISABLED: Uncomment when correct API endpoint is configured
     # try:
     #     asyncio.run(validate_config())
     # except Exception as e:
-    #     import sys
+    #     log.error("Configuration validation failed", error=str(e))
     #     print(f"Configuration validation failed: {e}", file=sys.stderr)
-    #     print("Please check your .env file and ensure all required variables are set.", file=sys.stderr)
+    #     print(
+    #         "Please check your .env file and ensure all required "
+    #         "variables are set.",
+    #         file=sys.stderr
+    #     )
     #     return
 
     # Note: All print statements for MCP must go to stderr, not stdout
     # stdout is reserved for MCP JSON protocol messages
-    import sys
     print("Starting Canary MCP Server...", file=sys.stderr)
-    print("WARNING: Configuration validation disabled - server will start but API calls may fail", file=sys.stderr)
-    print("         Please verify your CANARY_SAF_BASE_URL and CANARY_VIEWS_BASE_URL settings", file=sys.stderr)
+    print(
+        "WARNING: Configuration validation disabled - "
+        "server will start but API calls may fail",
+        file=sys.stderr,
+    )
+    print(
+        "         Please verify your CANARY_SAF_BASE_URL "
+        "and CANARY_VIEWS_BASE_URL settings",
+        file=sys.stderr,
+    )
 
+    log.info("MCP server starting", transport="stdio")
     mcp.run()
+    log.info("MCP server stopped")
 
 
 if __name__ == "__main__":

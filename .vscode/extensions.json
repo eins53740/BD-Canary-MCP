@@ -1,0 +1,27 @@
+{
+  "recommendations": [
+    // Python Development
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+
+    // Linting and Formatting
+    "charliermarsh.ruff",
+
+    // Testing
+    "littlefoxteam.vscode-python-test-adapter",
+
+    // Markdown
+    "yzhang.markdown-all-in-one",
+    "davidanson.vscode-markdownlint",
+
+    // Git
+    "mhutchie.git-graph",
+    "eamodio.gitlens",
+
+    // YAML
+    "redhat.vscode-yaml",
+
+    // Docker (optional)
+    "ms-azuretools.vscode-docker"
+  ]
+}

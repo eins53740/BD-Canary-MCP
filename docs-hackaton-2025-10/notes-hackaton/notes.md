@@ -1,3 +1,6 @@
+- Finance w/ claude ate 14.15h
+
+
 # HACKATON NOTES
 - inteligence Explosion (auto improve)
 - meta prompting
@@ -7,7 +10,13 @@
 +strands + mcp
 -model: GLM
 harness
+Production Hardening (performance optimization, advanced features)
 
+-> addon-> context left until compact
+-> bypass permissions on
+-> Ctx, Block, Model.
+
+npx @modelcontextprotocol/inspector uv --directory . run canary-mcp
 
 
 ## LINKS:
@@ -34,7 +43,3 @@ $Env:AWS_SESSION_TOKEN="IQoJb3JpZ2luX2VjEEAaCXVzLWVhc3QtMSJGMEQCIHeyOgGSJzW4U+tn
 /workflow-init
 /workflow-status
 ultrathinking
-
--> addon-> context left until compact
--> bypass permissions on
--> Ctx, Block, Model.

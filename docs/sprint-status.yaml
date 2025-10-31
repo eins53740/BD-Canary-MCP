@@ -38,15 +38,15 @@ development_status:
   epic-1: backlog
   1-1-mcp-server-foundation-protocol-implementation: done
   1-2-canary-api-authentication-session-management: done
-  1-3-list-namespaces-tool-validation: review
-  1-4-search-tags-tool-validation: review
-  1-5-get-tag-metadata-tool-validation: review
-  1-6-read-timeseries-tool-validation: review
-  1-7-get-server-info-tool-validation: backlog
-  1-8-test-data-fixtures-mock-responses: backlog
-  1-9-basic-error-handling-logging: backlog
-  1-10-non-admin-user-installation-docker-alternative: backlog
-  1-11-local-development-environment-setup-validation: backlog
+  1-3-list-namespaces-tool-validation: done
+  1-4-search-tags-tool-validation: done
+  1-5-get-tag-metadata-tool-validation: done
+  1-6-read-timeseries-tool-validation: done
+  1-7-get-server-info-tool-validation: done
+  1-8-test-data-fixtures-mock-responses: done
+  1-9-basic-error-handling-logging: done
+  1-10-non-admin-user-installation-docker-alternative: done
+  1-11-local-development-environment-setup-validation: done
   epic-1-retrospective: optional
 
   epic-2: backlog
