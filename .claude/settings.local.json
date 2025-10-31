@@ -1,8 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "SlashCommand(/bmad:bmm:workflows:sprint-planning)",
-      "Bash(uv:*)"
+      "SlashCommand(/bmad:bmm:workflows:dev-story)",
+      "Bash(uv run pytest:*)",
+      "Bash(uv run ruff check:*)",
+      "Bash(uv run mypy:*)",
+      "SlashCommand(/bmad:bmm:workflows:code-review)",
+      "SlashCommand(/bmad:bmm:workflows:story-done:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,6 +1,7 @@
 """Integration tests for MCP server startup and basic functionality."""
 
 import pytest
+
 from canary_mcp.server import mcp
 
 
@@ -37,8 +38,9 @@ def test_ping_tool_response():
 @pytest.mark.integration
 def test_server_configuration():
     """Test that server can load configuration from environment."""
-    from canary_mcp.server import main
     import os
+
+    from canary_mcp.server import main
 
     # Test that environment variables are accessible
     # Set test values

@@ -1,7 +1,7 @@
 # HACKATON NOTES
 - inteligence Explosion (auto improve)
 - meta prompting
-
+- install speak to text
 
 
 ## LINKS:

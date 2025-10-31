@@ -36,8 +36,8 @@ story_location: "{project-root}/docs/stories"
 
 development_status:
   epic-1: backlog
-  1-1-mcp-server-foundation-protocol-implementation: review
-  1-2-canary-api-authentication-session-management: backlog
+  1-1-mcp-server-foundation-protocol-implementation: done
+  1-2-canary-api-authentication-session-management: done
   1-3-list-namespaces-tool-validation: backlog
   1-4-search-tags-tool-validation: backlog
   1-5-get-tag-metadata-tool-validation: backlog

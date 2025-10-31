@@ -1,8 +1,8 @@
 """Unit tests for project structure and configuration."""
 
-import os
-import pytest
 from pathlib import Path
+
+import pytest
 
 
 @pytest.mark.unit
