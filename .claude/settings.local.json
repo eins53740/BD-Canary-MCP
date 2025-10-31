@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "SlashCommand(/bmad:bmm:workflows:prd)"
+      "SlashCommand(/bmad:bmm:workflows:prd)",
+      "SlashCommand(/bmad:bmm:workflows:architecture)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.canarylabs.com)",
+      "WebFetch(domain:docs.canarylabs.com)",
+      "WebFetch(domain:readapi.canarylabs.com)",
+      "WebFetch(domain:helpcenter.canarylabs.com)"
     ],
     "deny": [],
     "ask": []
