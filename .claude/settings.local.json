@@ -7,7 +7,8 @@
       "WebFetch(domain:www.canarylabs.com)",
       "WebFetch(domain:docs.canarylabs.com)",
       "WebFetch(domain:readapi.canarylabs.com)",
-      "WebFetch(domain:helpcenter.canarylabs.com)"
+      "WebFetch(domain:helpcenter.canarylabs.com)",
+      "SlashCommand(/bmad:bmm:workflows:solutioning-gate-check)"
     ],
     "deny": [],
     "ask": []
