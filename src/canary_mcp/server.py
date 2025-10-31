@@ -611,18 +611,22 @@ async def read_timeseries(
 def main() -> None:
     """Run the MCP server."""
     # Validate configuration before starting server
-    try:
-        asyncio.run(validate_config())
-    except Exception as e:
-        print(f"Configuration validation failed: {e}")
-        print("Please check your .env file and ensure all required variables are set.")
-        return
+    # TEMPORARILY DISABLED: Uncomment when correct API endpoint is configured
+    # try:
+    #     asyncio.run(validate_config())
+    # except Exception as e:
+    #     import sys
+    #     print(f"Configuration validation failed: {e}", file=sys.stderr)
+    #     print("Please check your .env file and ensure all required variables are set.", file=sys.stderr)
+    #     return
 
-    # Get configuration from environment
-    host = os.getenv("MCP_SERVER_HOST", "localhost")
-    port = int(os.getenv("MCP_SERVER_PORT", "3000"))
+    # Note: All print statements for MCP must go to stderr, not stdout
+    # stdout is reserved for MCP JSON protocol messages
+    import sys
+    print("Starting Canary MCP Server...", file=sys.stderr)
+    print("WARNING: Configuration validation disabled - server will start but API calls may fail", file=sys.stderr)
+    print("         Please verify your CANARY_SAF_BASE_URL and CANARY_VIEWS_BASE_URL settings", file=sys.stderr)
 
-    print(f"Starting Canary MCP Server on {host}:{port}")
     mcp.run()
 
 
