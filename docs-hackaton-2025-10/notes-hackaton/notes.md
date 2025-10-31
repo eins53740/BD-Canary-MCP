@@ -5,6 +5,7 @@
 -codex in vscode: add mcps
 -codex: install BMad in codex
 
+
 ## LINKS:
  - https://github.com/bmad-code-org/BMAD-METHOD/blob/main/src/modules/bmm/README.md
  - https://autopsias.github.io/Hackatonsite/
@@ -33,3 +34,26 @@ ultrathinking
 -> addon-> context left until compact
 -> bypass permissions on
 -> Ctx, Block, Model.
+-> Ctx, Block, Model.
+
+
+
+Success Criteria
+•	Build a functional MCP with tools for historical, real-time, and metadata access.
+•	Demonstrate real access to data from an existing view.
+•	Show an integration example (e.g., comparing historical and real-time data).
+•	Explain how the solution could be scaled for real use.
+
+
+-------------------------------------------------------------------------------------
+2nd day
+
+Step 2: Say to me:
+  Let's begin Story 1.1 - run /bmad:bmm:workflows:create-story
+  Step 3: I'll generate the detailed implementation plan and guide you through each task
+  create the project, write code, run tests, and validate Story 1.1 is complete
+  
+    You're all set! Tomorrow morning:
+  1. Say: Let's begin Story 1.1 - run /bmad:bmm:workflows:create-story
+  2. We'll initialize the project and build the MCP server foundation
+  3. First validation: "ping" tool working through Claude Desktop

@@ -1,0 +1,3944 @@
+{
+	"info": {
+		"_postman_id": "d566d9fb-e9e9-400f-baa2-a58f3b25603e",
+		"name": "CanaryWebReadAPI",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "8903981",
+		"_collection_link": "https://warped-firefly-879649.postman.co/workspace/Canary-Community-Read-API~dbaef857-794b-420b-a59d-79e5346ba5fa/collection/8903981-d566d9fb-e9e9-400f-baa2-a58f3b25603e?action=share&source=collection_link&creator=8903981"
+	},
+	"item": [
+		{
+			"name": "V1",
+			"item": [
+				{
+					"name": "POST",
+					"item": [
+						{
+							"name": "getTimeZones",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getTimeZones",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getTimeZones"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "browseNodes",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\"\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/browseNodes",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"browseNodes"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "browseTags",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"path\": \"\",\r\n  \"deep\": true,\r\n  \"search\": \"\"\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/browseTags",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"browseTags"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getTagProperties",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"tags\": [\"{{ViewName}}.{Diagnostics}.Sys.Memory Physical\"]\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getTagProperties",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getTagProperties"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getAggregates",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"apiToken\": \"{{ApiToken}}\"\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getAggregates",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getAggregates"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getQualities",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"qualities\": [192, 32768]\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getQualities",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getQualities"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getTagData_LastValue",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"tags\": [\"{{ViewName}}.{Diagnostics}.Sys.Memory Physical\"]\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getTagData",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getTagData"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getTagData_Raw",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"tags\": [\"{{ViewName}}.{Diagnostics}.Sys.Memory Physical\"],\r\n  \"startTime\": \"now-1d\",\r\n  \"endTime\": \"now\"\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getTagData",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getTagData"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getTagData_Aggregate",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"tags\": [\"{{ViewName}}.{Diagnostics}.Sys.Memory Physical\"],\r\n  \"startTime\": \"now-30d\",\r\n  \"endTime\": \"now\",\r\n  \"aggregateName\": \"TimeAverage2\"\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getTagData",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getTagData"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getLiveDataToken",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});\r",
+											"\r",
+											"pm.environment.set(\"LiveDataToken\", pm.response.json().liveDataToken);"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"tags\": [\"{{ViewName}}.{Diagnostics}.Sys.Memory Physical}}\"]\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getLiveDataToken",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getLiveDataToken"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getLiveData",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"liveDataToken\": \"{{LiveDataToken}}\"\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getLiveData",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getLiveData"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "revokeLiveDataToken",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"liveDataToken\": \"{{LiveDataToken}}\"\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/revokeLiveDataToken",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"revokeLiveDataToken"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getVirtualViews",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\"\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getVirtualViews",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getVirtualViews"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getAssetTypes",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"view\": \"{{GetAssetTypesView}}\"\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getAssetTypes",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getAssetTypes"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getAssetTypeTags",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"view\": \"{{GetAssetTypesView}}\",\r\n  \"assetType\": \"{{AssetType}}\",\r\n  \"deep\": true\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getAssetTypeTags",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getAssetTypeTags"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getAssetInstances",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"view\": \"{{GetAssetTypesView}}\",\r\n  \"assetType\": \"{{AssetType}}\",\r\n  \"path\": \"\",\r\n  \"filterExpression\": \"\"\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getAssetInstances",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getAssetInstances"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "browseStatus",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"views\": [\"{{GetAssetTypesView}}\"]\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/browseStatus",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"browseStatus"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getEvents_Limit 10",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"limit\": 10\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getEvents",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getEvents"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getAdhocEvents",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"viewName\": \"{{ViewName}}\",\r\n  \"searchFrom\": \"now-1w\",\r\n  \"searchTo\": \"now\",\r\n  \"startTrigger\": \"[{{AdhocTag}}] > 1\",\r\n  \"assetType\": \"\",\r\n  \"minDuration\":\"00:00:01\"\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getAdhocEvents",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getAdhocEvents"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				}
+			],
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"pm.environment.set(\"ApiVersion\", \"v1\");"
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				}
+			]
+		},
+		{
+			"name": "V2",
+			"item": [
+				{
+					"name": "API Token Examples",
+					"item": [
+						{
+							"name": "browseNodes Query Parameter",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"disabled": true
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/browseNodes?apitoken={{ApiToken}}",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"browseNodes"
+									],
+									"query": [
+										{
+											"key": "apitoken",
+											"value": "{{ApiToken}}"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "browseNodes Body Parameter",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"disabled": true
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/browseNodes",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"browseNodes"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "browseNodes Auth Header Bearer",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{ApiToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"disabled": true
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/browseNodes",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"browseNodes"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "GET (Query Param ApiToken)",
+					"item": [
+						{
+							"name": "browseNodes",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"disabled": true
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/browseNodes?apiToken={{ApiToken}}",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"browseNodes"
+									],
+									"query": [
+										{
+											"key": "apiToken",
+											"value": "{{ApiToken}}"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getVirtualViews",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getVirtualViews?apiToken={{ApiToken}}",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getVirtualViews"
+									],
+									"query": [
+										{
+											"key": "apiToken",
+											"value": "{{ApiToken}}"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "browseTags",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/browseTags?apiToken={{ApiToken}}&deep=true",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"browseTags"
+									],
+									"query": [
+										{
+											"key": "apiToken",
+											"value": "{{ApiToken}}"
+										},
+										{
+											"key": "deep",
+											"value": "true"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getTagProperties",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getTagProperties?apiToken={{ApiToken}}&tags={{ViewName}}.{Diagnostics}.Sys.Memory Physical",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getTagProperties"
+									],
+									"query": [
+										{
+											"key": "apiToken",
+											"value": "{{ApiToken}}"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Memory Physical"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getTagData_LastValue",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getTagData?apiToken={{ApiToken}}&tags={{ViewName}}.{Diagnostics}.Sys.Memory Physical",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getTagData"
+									],
+									"query": [
+										{
+											"key": "apiToken",
+											"value": "{{ApiToken}}"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Memory Physical"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getTagData_Raw",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getTagData?apiToken={{ApiToken}}&tags={{ViewName}}.{Diagnostics}.Sys.Memory Physical&startTime=now-1d&endTime=now",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getTagData"
+									],
+									"query": [
+										{
+											"key": "apiToken",
+											"value": "{{ApiToken}}"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Memory Physical"
+										},
+										{
+											"key": "startTime",
+											"value": "now-1d"
+										},
+										{
+											"key": "endTime",
+											"value": "now"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getTagData_Raw_WithPaging",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});\r",
+											"\r",
+											"pm.test(\"10K records per page\", function() {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.data[pm.environment.get(\"ViewName\") + \".{Diagnostics}.Sys.Memory Physical\"].length).to.eql(10000);\r",
+											"});\r",
+											"\r",
+											"pm.test(\"Continuation Specified\", function() {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.continuation[0]).not.eql(null);\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getTagData?apiToken={{ApiToken}}&startTime=now-6month&endTime=now&maxSize=1000000&tags={{ViewName}}.{Diagnostics}.Sys.Memory Physical&tags={{ViewName}}.{Diagnostics}.Sys.CPU Usage Historian&tags={{ViewName}}.{Diagnostics}.Sys.CPU Usage Total&tags={{ViewName}}.{Diagnostics}.Sys.Historian Handle Count&tags={{ViewName}}.{Diagnostics}.Sys.Historian Thread Count&tags={{ViewName}}.{Diagnostics}.Sys.Historian Working Set (memory)&tags={{ViewName}}.{Diagnostics}.Sys.Memory Page&tags={{ViewName}}.{Diagnostics}.Reading.NumClients&tags={{ViewName}}.{Diagnostics}.Sys.Memory Virtual&tags={{ViewName}}.{Diagnostics}.Reading.TagHandles",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getTagData"
+									],
+									"query": [
+										{
+											"key": "apiToken",
+											"value": "{{ApiToken}}"
+										},
+										{
+											"key": "startTime",
+											"value": "now-6month"
+										},
+										{
+											"key": "endTime",
+											"value": "now"
+										},
+										{
+											"key": "maxSize",
+											"value": "1000000"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Memory Physical"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.CPU Usage Historian"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.CPU Usage Total"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Historian Handle Count"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Historian Thread Count"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Historian Working Set (memory)"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Memory Page"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Reading.NumClients"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Memory Virtual"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Reading.TagHandles"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getTagData_Aggregate",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getTagData?apiToken={{ApiToken}}&tags={{ViewName}}.{Diagnostics}.Sys.Memory Physical&startTime=now-30d&endTime=now&aggregateName=TimeAverage2",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getTagData"
+									],
+									"query": [
+										{
+											"key": "apiToken",
+											"value": "{{ApiToken}}"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Memory Physical"
+										},
+										{
+											"key": "startTime",
+											"value": "now-30d"
+										},
+										{
+											"key": "endTime",
+											"value": "now"
+										},
+										{
+											"key": "aggregateName",
+											"value": "TimeAverage2"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getTagData_AggregateWithPaging",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});\r",
+											"\r",
+											"pm.test(\"10K records per page\", function() {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.data[pm.environment.get(\"ViewName\") + \".{Diagnostics}.Sys.Memory Physical\"].length).to.eql(10000);\r",
+											"});\r",
+											"\r",
+											"pm.test(\"Continuation Specified\", function() {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.continuation[0]).not.eql(null);\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getTagData?startTime=now-6mo&endTime=now&maxSize=1000000&tags={{ViewName}}.{Diagnostics}.Sys.Memory Physical&tags={{ViewName}}.{Diagnostics}.Sys.CPU Usage Historian&tags={{ViewName}}.{Diagnostics}.Sys.CPU Usage Total&tags={{ViewName}}.{Diagnostics}.Sys.Historian Handle Count&tags={{ViewName}}.{Diagnostics}.Sys.Historian Thread Count&tags={{ViewName}}.{Diagnostics}.Sys.Historian Working Set (memory)&tags={{ViewName}}.{Diagnostics}.Sys.Memory Page&tags={{ViewName}}.{Diagnostics}.Reading.NumClients&tags={{ViewName}}.{Diagnostics}.Sys.Memory Virtual&tags={{ViewName}}.{Diagnostics}.Reading.TagHandles&aggregateName=TimeAverage2&aggregateInterval=00:00:01&apiToken={{ApiToken}}",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getTagData"
+									],
+									"query": [
+										{
+											"key": "startTime",
+											"value": "now-6mo"
+										},
+										{
+											"key": "endTime",
+											"value": "now"
+										},
+										{
+											"key": "maxSize",
+											"value": "1000000"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Memory Physical"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.CPU Usage Historian"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.CPU Usage Total"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Historian Handle Count"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Historian Thread Count"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Historian Working Set (memory)"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Memory Page"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Reading.NumClients"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Memory Virtual"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Reading.TagHandles"
+										},
+										{
+											"key": "aggregateName",
+											"value": "TimeAverage2"
+										},
+										{
+											"key": "aggregateInterval",
+											"value": "00:00:01"
+										},
+										{
+											"key": "continuation",
+											"value": "2021-07-03T08:49:06.4706072-04:00",
+											"disabled": true
+										},
+										{
+											"key": "continuation",
+											"value": "2021-07-03T08:49:05.4706072-04:00",
+											"disabled": true
+										},
+										{
+											"key": "continuation",
+											"value": "2021-08-03T08:49:05.4716053-04:00",
+											"disabled": true
+										},
+										{
+											"key": "apiToken",
+											"value": "{{ApiToken}}"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getTagData2_LastValue",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getTagData2?apiToken={{ApiToken}}&tags={{ViewName}}.{Diagnostics}.Sys.Memory Physical",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getTagData2"
+									],
+									"query": [
+										{
+											"key": "apiToken",
+											"value": "{{ApiToken}}"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Memory Physical"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getTagContext",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getTagContext?apiToken={{ApiToken}}&tags={{ViewName}}.{Diagnostics}.Sys.Memory Physical",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getTagContext"
+									],
+									"query": [
+										{
+											"key": "apiToken",
+											"value": "{{ApiToken}}"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Memory Physical"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getTagData2_Raw",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getTagData2?apiToken={{ApiToken}}&tags={{ViewName}}.{Diagnostics}.Sys.Memory Physical&startTime=now-1d&endTime=now",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getTagData2"
+									],
+									"query": [
+										{
+											"key": "apiToken",
+											"value": "{{ApiToken}}"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Memory Physical"
+										},
+										{
+											"key": "startTime",
+											"value": "now-1d"
+										},
+										{
+											"key": "endTime",
+											"value": "now"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getTagData2_RawWithPaging",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});\r",
+											"\r",
+											"pm.test(\"10 records per tag\", function() {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    for (const [key, value] of Object.entries(jsonData.data)) \r",
+											"    {\r",
+											"        pm.expect(value.length).to.eql(10);\r",
+											"    }\r",
+											"});\r",
+											"\r",
+											"pm.test(\"Continuations Specified\", function() {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    jsonData.continuation.forEach(element=> \r",
+											"        pm.expect(element).not.eql(null)\r",
+											"    );\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getTagData2?apiToken={{ApiToken}}&startTime=now-3month&endTime=now&maxSize=10&tags={{ViewName}}.{Diagnostics}.Sys.Memory Physical&tags={{ViewName}}.{Diagnostics}.Sys.CPU Usage Historian&tags={{ViewName}}.{Diagnostics}.Sys.CPU Usage Total&tags={{ViewName}}.{Diagnostics}.Sys.Historian Handle Count&tags={{ViewName}}.{Diagnostics}.Sys.Historian Thread Count&tags={{ViewName}}.{Diagnostics}.Sys.Historian Working Set (memory)&tags={{ViewName}}.{Diagnostics}.Sys.Memory Page&tags={{ViewName}}.{Diagnostics}.Reading.NumClients&tags={{ViewName}}.{Diagnostics}.Sys.Memory Virtual&tags={{ViewName}}.{Diagnostics}.Reading.TagHandles",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getTagData2"
+									],
+									"query": [
+										{
+											"key": "apiToken",
+											"value": "{{ApiToken}}"
+										},
+										{
+											"key": "startTime",
+											"value": "now-3month"
+										},
+										{
+											"key": "endTime",
+											"value": "now"
+										},
+										{
+											"key": "maxSize",
+											"value": "10"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Memory Physical"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.CPU Usage Historian"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.CPU Usage Total"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Historian Handle Count"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Historian Thread Count"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Historian Working Set (memory)"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Memory Page"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Reading.NumClients"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Memory Virtual"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Reading.TagHandles"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getTagData2_ProcessedWithPaging",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});\r",
+											"\r",
+											"pm.test(\"10 records per tag\", function() {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    for (const [key, value] of Object.entries(jsonData.data)) \r",
+											"    {\r",
+											"        pm.expect(value.length).to.eql(10);\r",
+											"    }\r",
+											"});\r",
+											"\r",
+											"pm.test(\"Continuations Specified\", function() {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    jsonData.continuation.forEach(element=> \r",
+											"        pm.expect(element).not.eql(null)\r",
+											"    );\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getTagData2?startTime=now-3mo&endTime=now&maxSize=10&tags={{ViewName}}.{Diagnostics}.Sys.Memory Physical&tags={{ViewName}}.{Diagnostics}.Sys.CPU Usage Historian&tags={{ViewName}}.{Diagnostics}.Sys.CPU Usage Total&tags={{ViewName}}.{Diagnostics}.Sys.Historian Handle Count&tags={{ViewName}}.{Diagnostics}.Sys.Historian Thread Count&tags={{ViewName}}.{Diagnostics}.Sys.Historian Working Set (memory)&tags={{ViewName}}.{Diagnostics}.Sys.Memory Page&tags={{ViewName}}.{Diagnostics}.Reading.NumClients&tags={{ViewName}}.{Diagnostics}.Sys.Memory Virtual&tags={{ViewName}}.{Diagnostics}.Reading.TagHandles&aggregateName=TimeAverage2&aggregateInterval=00:00:01&apiToken={{ApiToken}}",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getTagData2"
+									],
+									"query": [
+										{
+											"key": "startTime",
+											"value": "now-3mo"
+										},
+										{
+											"key": "endTime",
+											"value": "now"
+										},
+										{
+											"key": "maxSize",
+											"value": "10"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Memory Physical"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.CPU Usage Historian"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.CPU Usage Total"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Historian Handle Count"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Historian Thread Count"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Historian Working Set (memory)"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Memory Page"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Reading.NumClients"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Memory Virtual"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Reading.TagHandles"
+										},
+										{
+											"key": "aggregateName",
+											"value": "TimeAverage2"
+										},
+										{
+											"key": "aggregateInterval",
+											"value": "00:00:01"
+										},
+										{
+											"key": "continuation",
+											"value": "2021-08-03T07:55:58.1683156-04:00",
+											"disabled": true
+										},
+										{
+											"key": "continuation",
+											"value": "2021-08-03T08:05:58.1683156-04:00",
+											"disabled": true
+										},
+										{
+											"key": "continuation",
+											"value": "2021-07-27T08:05:58.1683156-04:00",
+											"disabled": true
+										},
+										{
+											"key": "apiToken",
+											"value": "{{ApiToken}}"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getAnnotations",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getAnnotations?apiToken={{ApiToken}}&tags={{ViewName}}.{Diagnostics}.Sys.Memory Physical&startTime=now-1d&endTime=now",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getAnnotations"
+									],
+									"query": [
+										{
+											"key": "apiToken",
+											"value": "{{ApiToken}}"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Memory Physical"
+										},
+										{
+											"key": "startTime",
+											"value": "now-1d"
+										},
+										{
+											"key": "endTime",
+											"value": "now"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getLiveDataToken",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});\r",
+											"\r",
+											"pm.environment.set(\"LiveDataToken\", pm.response.json().liveDataToken);"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getLiveDataToken?apiToken={{ApiToken}}&tags={{ViewName}}.{Diagnostics}.Sys.Memory Physical",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getLiveDataToken"
+									],
+									"query": [
+										{
+											"key": "apiToken",
+											"value": "{{ApiToken}}"
+										},
+										{
+											"key": "tags",
+											"value": "{{ViewName}}.{Diagnostics}.Sys.Memory Physical"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getLiveData",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getLiveData?apiToken={{ApiToken}}&liveDataToken={{LiveDataToken}}",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getLiveData"
+									],
+									"query": [
+										{
+											"key": "apiToken",
+											"value": "{{ApiToken}}"
+										},
+										{
+											"key": "liveDataToken",
+											"value": "{{LiveDataToken}}"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "revokeLiveDataToken",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/revokeLiveDataToken?apiToken={{ApiToken}}&liveDataToken={{LiveDataToken}}",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"revokeLiveDataToken"
+									],
+									"query": [
+										{
+											"key": "apiToken",
+											"value": "{{ApiToken}}"
+										},
+										{
+											"key": "liveDataToken",
+											"value": "{{LiveDataToken}}"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getVirtualViews",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getVirtualViews?apiToken={{ApiToken}}",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getVirtualViews"
+									],
+									"query": [
+										{
+											"key": "apiToken",
+											"value": "{{ApiToken}}"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getAssetTypes",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getAssetTypes?apiToken={{ApiToken}}&view={{GetAssetTypesView}}",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getAssetTypes"
+									],
+									"query": [
+										{
+											"key": "apiToken",
+											"value": "{{ApiToken}}"
+										},
+										{
+											"key": "view",
+											"value": "{{GetAssetTypesView}}"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getAssetTypeTags",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getAssetTypeTags?apiToken={{ApiToken}}&view={{GetAssetTypesView}}&assetType={{AssetType}}&deep=true",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getAssetTypeTags"
+									],
+									"query": [
+										{
+											"key": "apiToken",
+											"value": "{{ApiToken}}"
+										},
+										{
+											"key": "view",
+											"value": "{{GetAssetTypesView}}"
+										},
+										{
+											"key": "assetType",
+											"value": "{{AssetType}}"
+										},
+										{
+											"key": "deep",
+											"value": "true"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getAssetInstances",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getAssetInstances?apiToken={{ApiToken}}&view={{GetAssetTypesView}}&assetType={{AssetType}}&path={{AssetInstancePath}}",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getAssetInstances"
+									],
+									"query": [
+										{
+											"key": "apiToken",
+											"value": "{{ApiToken}}"
+										},
+										{
+											"key": "view",
+											"value": "{{GetAssetTypesView}}"
+										},
+										{
+											"key": "assetType",
+											"value": "{{AssetType}}"
+										},
+										{
+											"key": "path",
+											"value": "{{AssetInstancePath}}"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "browseStatus",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/browseStatus?apiToken={{ApiToken}}&views={{GetAssetTypesView}}",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"browseStatus"
+									],
+									"query": [
+										{
+											"key": "apiToken",
+											"value": "{{ApiToken}}"
+										},
+										{
+											"key": "views",
+											"value": "{{GetAssetTypesView}}"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getEvents_Limit 10",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getEvents?apiToken={{ApiToken}}&limit=10",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getEvents"
+									],
+									"query": [
+										{
+											"key": "apiToken",
+											"value": "{{ApiToken}}"
+										},
+										{
+											"key": "limit",
+											"value": "10"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getAdhocEvents",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/x-www-form-urlencoded"
+									}
+								],
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getAdhocEvents?apiToken={{ApiToken}}&viewName={{ViewName}}&searchFrom=now-1w&searchTo=now&startTrigger=[{{AdhocTag}}] > 1&minDuration=00:00:01",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getAdhocEvents"
+									],
+									"query": [
+										{
+											"key": "apiToken",
+											"value": "{{ApiToken}}"
+										},
+										{
+											"key": "viewName",
+											"value": "{{ViewName}}"
+										},
+										{
+											"key": "searchFrom",
+											"value": "now-1w"
+										},
+										{
+											"key": "searchTo",
+											"value": "now"
+										},
+										{
+											"key": "startTrigger",
+											"value": "[{{AdhocTag}}] > 1"
+										},
+										{
+											"key": "minDuration",
+											"value": "00:00:01"
+										}
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "POST",
+					"item": [
+						{
+							"name": "getTimeZones",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getTimeZones",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getTimeZones"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "browseNodes",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\"\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/browseNodes",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"browseNodes"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "browseTags",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"path\": \"\",\r\n  \"deep\": true,\r\n  \"search\": \"\"\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/browseTags",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"browseTags"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getAggregates",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\"\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getAggregates",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getAggregates"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getQualities",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"qualities\": [192, 32768]\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getQualities",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getQualities"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getTagProperties",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"tags\": [\"{{ViewName}}.{Diagnostics}.Sys.Memory Physical\"]\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getTagProperties",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getTagProperties"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getTagData_LastValue",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"tags\": [\"{{ViewName}}.{Diagnostics}.Sys.Memory Physical\"]\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getTagData",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getTagData"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getTagData_Raw",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"tags\": [\"{{ViewName}}.{Diagnostics}.Sys.Memory Physical\"],\r\n  \"startTime\": \"now-1d\",\r\n  \"endTime\": \"now\"\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getTagData",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getTagData"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getTagData_Raw_WithPaging",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});\r",
+											"\r",
+											"pm.test(\"10K records per page\", function() {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.data[pm.environment.get(\"ViewName\") + \".{Diagnostics}.Sys.Memory Physical\"].length).to.eql(10000);\r",
+											"});\r",
+											"\r",
+											"pm.test(\"Continuation Specified\", function() {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.continuation[0]).not.eql(null);\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"tags\": [\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Memory Physical\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.CPU Usage Historian\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.CPU Usage Total\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Historian Handle Count\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Historian Thread Count\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Historian Working Set (memory)\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Memory Page\",\r\n      \"{{ViewName}}.{Diagnostics}.Reading.NumClients\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Memory Virtual\",\r\n      \"{{ViewName}}.{Diagnostics}.Reading.TagHandles\"\r\n      ],\r\n  \"startTime\": \"now-6month\",\r\n  \"endTime\": \"now\",\r\n  \"maxSize\": 1000000\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getTagData",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getTagData"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getTagData_Aggregate",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"tags\": [\"{{ViewName}}.{Diagnostics}.Sys.Memory Physical\"],\r\n  \"startTime\": \"now-30d\",\r\n  \"endTime\": \"now\",\r\n  \"aggregateName\": \"TimeAverage2\"\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getTagData",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getTagData"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getTagData_AggregateWithPaging",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});\r",
+											"\r",
+											"pm.test(\"10K records per page\", function() {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.data[pm.environment.get(\"ViewName\") + \".{Diagnostics}.Sys.Memory Physical\"].length).to.eql(10000);\r",
+											"});\r",
+											"\r",
+											"pm.test(\"Continuation Specified\", function() {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.continuation[0]).not.eql(null);\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"tags\": [\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Memory Physical\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.CPU Usage Historian\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.CPU Usage Total\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Historian Handle Count\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Historian Thread Count\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Historian Working Set (memory)\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Memory Page\",\r\n      \"{{ViewName}}.{Diagnostics}.Reading.NumClients\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Memory Virtual\",\r\n      \"{{ViewName}}.{Diagnostics}.Reading.TagHandles\"\r\n      ],\r\n  \"startTime\": \"now-6month\",\r\n  \"endTime\": \"now\",\r\n  \"maxSize\": 1000000,\r\n  \"aggregateName\": \"TimeAverage2\",\r\n  \"aggregateInterval\": \"00:00:01\"\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getTagData",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getTagData"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getTagData2_LastValue",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"apiToken\": \"{{ApiToken}}\",\r\n    \"tags\": [\"{{ViewName}}.{Diagnostics}.Sys.Memory Physical\"]\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getTagData2",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getTagData2"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getTagData2_Raw",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"apiToken\": \"{{ApiToken}}\",\r\n    \"tags\": [\"{{ViewName}}.{Diagnostics}.Sys.Memory Physical\"],\r\n    \"startTime\": \"now-1d\",\r\n    \"endTime\": \"now\"\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getTagData2",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getTagData2"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getTagData2_RawWithPaging",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});\r",
+											"\r",
+											"pm.test(\"10 records per tag\", function() {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    for (const [key, value] of Object.entries(jsonData.data)) \r",
+											"    {\r",
+											"        pm.expect(value.length).to.eql(10);\r",
+											"    }\r",
+											"});\r",
+											"\r",
+											"pm.test(\"Continuations Specified\", function() {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    jsonData.continuation.forEach(element=> \r",
+											"        pm.expect(element).not.eql(null)\r",
+											"    );\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"tags\": [\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Memory Physical\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.CPU Usage Historian\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.CPU Usage Total\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Historian Handle Count\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Historian Thread Count\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Historian Working Set (memory)\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Memory Page\",\r\n      \"{{ViewName}}.{Diagnostics}.Reading.NumClients\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Memory Virtual\",\r\n      \"{{ViewName}}.{Diagnostics}.Reading.TagHandles\"\r\n      ],\r\n  \"startTime\": \"now-3month\",\r\n  \"endTime\": \"now\",\r\n  \"maxSize\": 10\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getTagData2",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getTagData2"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getTagData2_ProcessedWithPaging",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});\r",
+											"\r",
+											"pm.test(\"10 records per tag\", function() {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    for (const [key, value] of Object.entries(jsonData.data)) \r",
+											"    {\r",
+											"        pm.expect(value.length).to.eql(10);\r",
+											"    }\r",
+											"});\r",
+											"\r",
+											"pm.test(\"Continuations Specified\", function() {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    jsonData.continuation.forEach(element=> \r",
+											"        pm.expect(element).not.eql(null)\r",
+											"    );\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"tags\": [\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Memory Physical\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.CPU Usage Historian\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.CPU Usage Total\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Historian Handle Count\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Historian Thread Count\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Historian Working Set (memory)\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Memory Page\",\r\n      \"{{ViewName}}.{Diagnostics}.Reading.NumClients\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Memory Virtual\",\r\n      \"{{ViewName}}.{Diagnostics}.Reading.TagHandles\"\r\n      ],\r\n  \"startTime\": \"now-3month\",\r\n  \"endTime\": \"now\",\r\n  \"maxSize\": 10,\r\n  \"aggregateName\": \"TimeAverage2\",\r\n  \"aggregateInterval\": \"00:00:01\"\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getTagData2",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getTagData2"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getAnnotations",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"apiToken\": \"{{ApiToken}}\",\r\n    \"tags\": [\"{{ViewName}}.{Diagnostics}.Sys.Memory Physical\"],\r\n    \"startTime\": \"now-1d\",\r\n    \"endTime\": \"now\"\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getAnnotations",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getAnnotations"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getTagContext",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"tags\": [\"{{ViewName}}.{Diagnostics}.Sys.Memory Physical\"]\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getTagContext",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getTagContext"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getLiveDataToken",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});\r",
+											"\r",
+											"pm.environment.set(\"LiveDataToken\", pm.response.json().liveDataToken);"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"tags\": [\"{{ViewName}}.{Diagnostics}.Sys.Memory Physical\"]\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getLiveDataToken",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getLiveDataToken"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getLiveData",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"liveDataToken\": \"{{LiveDataToken}}\"\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getLiveData",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getLiveData"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "revokeLiveDataToken",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"liveDataToken\": \"{{LiveDataToken}}\"\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/revokeLiveDataToken",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"revokeLiveDataToken"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getVirtualViews",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\"\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getVirtualViews",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getVirtualViews"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getAssetTypes",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"view\": \"{{GetAssetTypesView}}\"\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getAssetTypes",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getAssetTypes"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getAssetTypeTags",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"view\": \"{{GetAssetTypesView}}\",\r\n  \"assetType\": \"{{AssetType}}\",\r\n  \"deep\": true\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getAssetTypeTags",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getAssetTypeTags"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getAssetInstances",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"view\": \"{{GetAssetTypesView}}\",\r\n  \"assetType\": \"{{AssetType}}\",\r\n  \"path\": \"{{AssetInstancePath}}\"\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getAssetInstances",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getAssetInstances"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "browseStatus",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"views\": [\"{{GetAssetTypesView}}\"]\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/browseStatus",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"browseStatus"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getEvents_Limit 10",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"limit\": 10\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getEvents",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getEvents"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getAdhocEvents",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful Response\", function () {\r",
+											"    var jsonData = pm.response.json();\r",
+											"    pm.expect(jsonData.statusCode).to.eql(\"Good\");\r",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"viewName\": \"{{ViewName}}\",\r\n  \"searchFrom\": \"now-1w\",\r\n  \"searchTo\": \"now\",\r\n  \"startTrigger\": \"[{{AdhocTag}}] > 1\",\r\n  \"assetType\": \"\",\r\n  \"minDuration\":\"00:00:01\"\r\n}"
+								},
+								"url": {
+									"raw": "{{APIURL}}/{{ApiVersion}}/getAdhocEvents",
+									"host": [
+										"{{APIURL}}"
+									],
+									"path": [
+										"{{ApiVersion}}",
+										"getAdhocEvents"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				}
+			],
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"pm.environment.set(\"ApiVersion\", \"v2\");"
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				}
+			]
+		}
+	]
+}

@@ -6,9 +6,19 @@
       "Bash(uv run ruff check:*)",
       "Bash(uv run mypy:*)",
       "SlashCommand(/bmad:bmm:workflows:code-review)",
-      "SlashCommand(/bmad:bmm:workflows:story-done:*)",
-      "SlashCommand(/bmad:bmm:workflows:create-story:*)",
-      "Bash(curl -s \"https://readapi.canarylabs.com/25.4/\")"
+      "SlashCommand(/bmad:bmm:workflows:story-done:*)"
+      "SlashCommand(/bmad:bmm:workflows:prd)",
+      "SlashCommand(/bmad:bmm:workflows:architecture)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.canarylabs.com)",
+      "WebFetch(domain:docs.canarylabs.com)",
+      "WebFetch(domain:readapi.canarylabs.com)",
+      "WebFetch(domain:helpcenter.canarylabs.com)",
+      "SlashCommand(/bmad:bmm:workflows:solutioning-gate-check)",
+      "SlashCommand(/bmad:bmm:workflows:create-story)",
+      "Bash(if not exist \"C:\\Github\\BD\\BD-hackaton-2025-10\\docs\\stories\" mkdir \"C:\\Github\\BD\\BD-hackaton-2025-10\\docs\\stories\")",
+      "Bash(test:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": [],
     "ask": []
