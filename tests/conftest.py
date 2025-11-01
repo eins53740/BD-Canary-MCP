@@ -6,9 +6,17 @@ load_dotenv() before any test modules are imported.
 """
 
 import os
+import sys
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+
+# Ensure src/ is on sys.path for src-layout imports during testing
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SRC_PATH = PROJECT_ROOT.parent / "src"
+if str(SRC_PATH) not in sys.path:
+    sys.path.insert(0, str(SRC_PATH))
 
 
 @pytest.fixture(scope="session", autouse=True)

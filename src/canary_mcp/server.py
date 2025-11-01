@@ -1,8 +1,11 @@
 """Main MCP server module for Canary Historian integration."""
 
+import asyncio
 import os
+import re
+from collections import OrderedDict
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Optional
 
 import httpx
 from dotenv import load_dotenv
@@ -22,6 +25,195 @@ mcp = FastMCP("Canary MCP Server")
 
 # Get logger instance
 log = get_logger(__name__)
+
+# Common stop words filtered from natural language descriptions when extracting
+# candidate keywords for tag lookup. These focus the search on process terms.
+STOP_WORDS = {
+    "the",
+    "a",
+    "an",
+    "for",
+    "and",
+    "or",
+    "to",
+    "of",
+    "in",
+    "on",
+    "at",
+    "by",
+    "from",
+    "with",
+    "tag",
+    "tags",
+    "data",
+    "value",
+    "values",
+    "reading",
+    "measure",
+    "measurement",
+    "sensor",
+    "please",
+    "show",
+    "get",
+    "find",
+    "average",
+    "mean",
+    "give",
+    "need",
+    "looking",
+    "latest",
+    "current",
+}
+
+
+def _deduplicate_sequence(items: list[str]) -> list[str]:
+    """Deduplicate a list while preserving order."""
+    return list(OrderedDict.fromkeys(items))
+
+
+def extract_keywords(description: str, min_length: int = 2) -> list[str]:
+    """
+    Extract meaningful keywords from a natural-language description.
+
+    Args:
+        description: Free-form natural language query
+        min_length: Minimum word length to be considered a keyword
+
+    Returns:
+        list[str]: Ordered list of unique keywords
+    """
+    if not description:
+        return []
+
+    # Split on non-alphanumeric characters and lowercase tokens
+    raw_tokens = re.findall(r"[A-Za-z0-9]+", description.lower())
+
+    filtered_tokens: list[str] = []
+    for token in raw_tokens:
+        if len(token) < min_length:
+            continue
+        if token in STOP_WORDS:
+            continue
+        filtered_tokens.append(token)
+
+    return _deduplicate_sequence(filtered_tokens)
+
+
+def _collect_metadata_text(metadata: dict[str, Any]) -> str:
+    """
+    Flatten metadata dictionary into a searchable text blob.
+
+    Args:
+        metadata: Tag metadata dictionary
+
+    Returns:
+        str: Lowercase text containing string representations of metadata values
+    """
+    if not metadata:
+        return ""
+
+    fragments: list[str] = []
+
+    def _walk(value: Any) -> None:
+        if value is None:
+            return
+        if isinstance(value, str):
+            fragments.append(value.lower())
+        elif isinstance(value, (int, float)):
+            fragments.append(str(value).lower())
+        elif isinstance(value, list):
+            for item in value:
+                _walk(item)
+        elif isinstance(value, dict):
+            for nested_val in value.values():
+                _walk(nested_val)
+
+    _walk(metadata)
+    return " ".join(fragments)
+
+
+def _score_tag_candidate(
+    keywords: list[str],
+    *,
+    name: str,
+    path: str,
+    description: str = "",
+    metadata: Optional[dict[str, Any]] = None,
+) -> tuple[float, dict[str, list[str]]]:
+    """
+    Compute a relevance score for a tag candidate against a keyword list.
+
+    Args:
+        keywords: Keywords derived from the user description
+        name: Tag name
+        path: Full tag path
+        description: Tag description
+        metadata: Additional metadata properties
+
+    Returns:
+        tuple[float, dict[str, list[str]]]: Score and keyword matches by field
+    """
+    if metadata is None:
+        metadata = {}
+
+    name_text = (name or "").lower()
+    path_text = (path or "").lower()
+    description_text = (description or "").lower()
+    metadata_text = _collect_metadata_text(metadata)
+
+    matched: dict[str, list[str]] = {
+        "name": [],
+        "path": [],
+        "description": [],
+        "metadata": [],
+    }
+
+    score = 0.0
+    NAME_WEIGHT = 5.0
+    PATH_WEIGHT = 3.0
+    DESCRIPTION_WEIGHT = 2.0
+    METADATA_WEIGHT = 1.0
+    STARTS_WITH_BONUS = 1.5
+    EXACT_MATCH_BONUS = 3.0
+
+    for keyword in keywords:
+        if not keyword:
+            continue
+
+        # Tag name weighting
+        if keyword in name_text:
+            occurrences = name_text.count(keyword)
+            score += occurrences * NAME_WEIGHT
+            matched["name"].append(keyword)
+
+            if name_text.startswith(keyword):
+                score += STARTS_WITH_BONUS
+            if name_text == keyword:
+                score += EXACT_MATCH_BONUS
+
+        # Tag path weighting (less than name)
+        if keyword in path_text:
+            occurrences = path_text.count(keyword)
+            score += occurrences * PATH_WEIGHT
+            matched["path"].append(keyword)
+
+        # Description weighting (lower weight)
+        if keyword in description_text:
+            occurrences = description_text.count(keyword)
+            score += occurrences * DESCRIPTION_WEIGHT
+            matched["description"].append(keyword)
+
+        # Additional metadata weighting (lowest priority)
+        if metadata_text and keyword in metadata_text:
+            occurrences = metadata_text.count(keyword)
+            score += occurrences * METADATA_WEIGHT
+            matched["metadata"].append(keyword)
+
+    # Deduplicate matched keyword lists
+    for key in matched:
+        matched[key] = _deduplicate_sequence(matched[key])
+
+    return score, matched
 
 
 def parse_time_expression(time_expr: str) -> str:
@@ -448,6 +640,322 @@ async def get_tag_metadata(tag_path: str) -> dict[str, Any]:
             "tag_path": tag_path,
         }
 
+
+async def _get_tag_metadata_cached(
+    tag_path: str,
+    *,
+    bypass_cache: bool,
+    cache,
+) -> tuple[dict[str, Any], bool]:
+    """
+    Retrieve tag metadata with optional caching.
+
+    Args:
+        tag_path: Full tag path to retrieve metadata for
+        bypass_cache: If True, skip cache lookup
+        cache: Cache store instance
+
+    Returns:
+        tuple[dict[str, Any], bool]: Metadata dictionary and cache-hit flag
+    """
+    cache_key = cache._generate_cache_key("tag_metadata", tag_path)
+
+    if not bypass_cache:
+        cached_metadata = cache.get(cache_key)
+        if cached_metadata is not None:
+            return cached_metadata, True
+
+    metadata: dict[str, Any] = {}
+    try:
+        metadata_result = await get_tag_metadata.fn(tag_path)
+    except Exception as exc:  # pragma: no cover - defensive logging
+        log.error(
+            "get_tag_path_metadata_unexpected_error",
+            tag_path=tag_path,
+            error=str(exc),
+            request_id=get_request_id(),
+            exc_info=True,
+        )
+        return metadata, False
+
+    if metadata_result.get("success"):
+        metadata = metadata_result.get("metadata", {}) or {}
+        cache.set(cache_key, metadata, category="metadata")
+    else:
+        log.warning(
+            "get_tag_path_metadata_failed",
+            tag_path=tag_path,
+            error=metadata_result.get("error"),
+            request_id=get_request_id(),
+        )
+
+    return metadata, False
+
+
+@mcp.tool()
+async def get_tag_path(
+    description: str,
+    max_results: int = 5,
+    bypass_cache: bool = False,
+) -> dict[str, Any]:
+    """
+    Resolve a natural-language tag description to the best-matching tag path.
+
+    Args:
+        description: Natural-language description of the desired tag
+        max_results: Maximum number of candidate tags to return
+        bypass_cache: If True, skip cached results and fetch fresh data
+
+    Returns:
+        dict[str, Any]: Response containing the most likely tag path and candidates
+    """
+    request_id = set_request_id()
+    log.info(
+        "get_tag_path_called",
+        description=description,
+        bypass_cache=bypass_cache,
+        max_results=max_results,
+        request_id=request_id,
+        tool="get_tag_path",
+    )
+
+    async with MetricsTimer("get_tag_path") as timer:
+        cache = get_cache_store()
+        description_normalized = (description or "").strip()
+
+        # Validate input
+        if not description_normalized:
+            timer.cache_hit = False
+            return {
+                "success": False,
+                "error": "Description cannot be empty",
+                "description": description,
+                "keywords": [],
+                "most_likely_path": None,
+                "candidates": [],
+                "alternatives": [],
+                "cached": False,
+            }
+
+        keywords = extract_keywords(description_normalized)
+        if not keywords:
+            timer.cache_hit = False
+            return {
+                "success": False,
+                "error": "Unable to extract meaningful keywords from description",
+                "description": description,
+                "keywords": [],
+                "most_likely_path": None,
+                "candidates": [],
+                "alternatives": [],
+                "cached": False,
+            }
+
+        if max_results <= 0:
+            max_results = 5
+
+        cache_key = cache._generate_cache_key("get_tag_path", description_normalized.lower())
+
+        if not bypass_cache:
+            cached_result = cache.get(cache_key)
+            if cached_result:
+                timer.cache_hit = True
+                cached_result["cached"] = True
+                log.info(
+                    "get_tag_path_cache_hit",
+                    description=description_normalized,
+                    keyword_count=len(keywords),
+                    request_id=get_request_id(),
+                )
+                return cached_result
+
+        timer.cache_hit = False
+
+        # Determine search patterns using keywords
+        search_patterns: list[str] = []
+        combined_pattern = " ".join(keywords)
+        if combined_pattern:
+            search_patterns.append(combined_pattern)
+
+        for keyword in keywords[:3]:
+            if keyword not in search_patterns:
+                search_patterns.append(keyword)
+
+        candidate_map: dict[str, dict[str, Any]] = {}
+
+        # Initial candidate search leveraging existing search_tags tool
+        for pattern in search_patterns:
+            try:
+                search_result = await search_tags.fn(pattern, bypass_cache=bypass_cache)
+            except Exception as exc:  # pragma: no cover - defensive logging
+                log.error(
+                    "get_tag_path_search_exception",
+                    pattern=pattern,
+                    error=str(exc),
+                    request_id=get_request_id(),
+                    exc_info=True,
+                )
+                continue
+
+            if not search_result.get("success"):
+                log.warning(
+                    "get_tag_path_search_failed",
+                    pattern=pattern,
+                    error=search_result.get("error"),
+                    request_id=get_request_id(),
+                )
+                continue
+
+            for tag in search_result.get("tags", []):
+                if not isinstance(tag, dict):
+                    continue
+
+                path = tag.get("path") or tag.get("name")
+                if not path:
+                    continue
+
+                candidate_entry = candidate_map.setdefault(
+                    path,
+                    {
+                        "name": tag.get("name", path.split(".")[-1]),
+                        "path": path,
+                        "dataType": tag.get("dataType", "unknown"),
+                        "description": tag.get("description", ""),
+                        "search_sources": set(),
+                    },
+                )
+                candidate_entry["search_sources"].add(pattern)
+
+        if not candidate_map:
+            result = {
+                "success": False,
+                "description": description,
+                "keywords": keywords,
+                "error": "No tags found matching the description",
+                "most_likely_path": None,
+                "candidates": [],
+                "alternatives": [],
+                "cached": False,
+            }
+            cache.set(cache_key, result, category="metadata")
+            log.info(
+                "get_tag_path_no_candidates",
+                description=description_normalized,
+                keyword_count=len(keywords),
+                request_id=get_request_id(),
+            )
+            return result
+
+        candidate_paths = list(candidate_map.keys())
+        metadata_limit = min(
+            len(candidate_paths),
+            max(max_results * 3, max_results),
+        )
+        candidate_paths = candidate_paths[:metadata_limit]
+
+        metadata_tasks = [
+            _get_tag_metadata_cached(path, bypass_cache=bypass_cache, cache=cache)
+            for path in candidate_paths
+        ]
+
+        metadata_results = await asyncio.gather(*metadata_tasks, return_exceptions=True)
+
+        candidates: list[dict[str, Any]] = []
+
+        for path, metadata_result in zip(candidate_paths, metadata_results):
+            metadata_cached = False
+            metadata: dict[str, Any] = {}
+
+            if isinstance(metadata_result, Exception):
+                log.error(
+                    "get_tag_path_metadata_exception",
+                    tag_path=path,
+                    error=str(metadata_result),
+                    request_id=get_request_id(),
+                    exc_info=True,
+                )
+            else:
+                metadata, metadata_cached = metadata_result
+
+            base_info = candidate_map[path]
+            candidate_name = metadata.get("name", base_info.get("name", ""))
+            candidate_description = metadata.get("description") or base_info.get("description", "")
+            candidate_data_type = metadata.get("dataType", base_info.get("dataType", "unknown"))
+
+            score, matched_keywords = _score_tag_candidate(
+                keywords,
+                name=candidate_name,
+                path=metadata.get("path", path),
+                description=candidate_description,
+                metadata=metadata,
+            )
+
+            candidates.append(
+                {
+                    "path": metadata.get("path", path),
+                    "name": candidate_name,
+                    "dataType": candidate_data_type,
+                    "description": candidate_description,
+                    "score": round(score, 4),
+                    "matched_keywords": {field: matches for field, matches in matched_keywords.items() if matches},
+                    "search_sources": sorted(base_info["search_sources"]),
+                    "metadata": metadata,
+                    "metadata_cached": metadata_cached,
+                }
+            )
+
+        # In case additional candidates were discovered but metadata not fetched
+        if len(candidate_map) > len(candidates):
+            for path in list(candidate_map.keys())[metadata_limit:]:
+                base_info = candidate_map[path]
+                score, matched_keywords = _score_tag_candidate(
+                    keywords,
+                    name=base_info.get("name", ""),
+                    path=path,
+                    description=base_info.get("description", ""),
+                    metadata={},
+                )
+                candidates.append(
+                    {
+                        "path": path,
+                        "name": base_info.get("name", ""),
+                        "dataType": base_info.get("dataType", "unknown"),
+                        "description": base_info.get("description", ""),
+                        "score": round(score, 4),
+                        "matched_keywords": {field: matches for field, matches in matched_keywords.items() if matches},
+                        "search_sources": sorted(base_info["search_sources"]),
+                        "metadata": {},
+                        "metadata_cached": False,
+                    }
+                )
+
+        candidates.sort(key=lambda item: item["score"], reverse=True)
+
+        trimmed_candidates = candidates[:max_results]
+        most_likely_path = trimmed_candidates[0]["path"] if trimmed_candidates else None
+        alternatives = [candidate["path"] for candidate in trimmed_candidates[1:]]
+
+        result = {
+            "success": most_likely_path is not None,
+            "description": description,
+            "keywords": keywords,
+            "most_likely_path": most_likely_path,
+            "candidates": trimmed_candidates,
+            "alternatives": alternatives,
+            "cached": False,
+        }
+
+        cache.set(cache_key, result, category="metadata")
+
+        log.info(
+            "get_tag_path_success",
+            description=description_normalized,
+            keyword_count=len(keywords),
+            candidate_count=len(trimmed_candidates),
+            request_id=get_request_id(),
+        )
+
+        return result
 
 @mcp.tool()
 async def list_namespaces() -> dict[str, Any]:

@@ -8,6 +8,7 @@ Complete reference for all MCP tools provided by the Canary MCP Server.
 
 - [Core Data Access Tools](#core-data-access-tools)
   - [search_tags](#search_tags)
+  - [get_tag_path](#get_tag_path)
   - [get_tag_metadata](#get_tag_metadata)
   - [read_timeseries](#read_timeseries)
   - [list_namespaces](#list_namespaces)
@@ -67,6 +68,72 @@ Assistant uses: search_tags(search_pattern="Kiln6*Temperature")
 **Error Handling:**
 - Returns `success: false` with error message on failure
 - Empty pattern returns error
+
+---
+
+### get_tag_path
+
+Resolve a natural-language description into the most likely Canary tag path.
+
+**Purpose**: Help engineers locate tags without remembering exact paths by combining search, metadata enrichment, and relevance scoring.
+
+**Parameters:**
+- `description` (string, required): Natural-language description of the desired signal.
+- `max_results` (integer, optional): Number of ranked candidates to return (default: 5).
+- `bypass_cache` (boolean, optional): Skip cached responses and force fresh API calls (default: false).
+
+**Returns:**
+```json
+{
+  "success": true,
+  "description": "temperature on kiln shell in section 15",
+  "keywords": ["temperature", "kiln", "shell", "section", "15"],
+  "most_likely_path": "Plant.Kiln.Section15.ShellTemp",
+  "alternatives": [
+    "Plant.Kiln.Section15.ShellPressure",
+    "Plant.Kiln.Cooling.WaterTemp"
+  ],
+  "candidates": [
+    {
+      "path": "Plant.Kiln.Section15.ShellTemp",
+      "name": "KilnShellTemp",
+      "dataType": "float",
+      "description": "Temperature sensor located on kiln shell section 15",
+      "score": 18.5,
+      "matched_keywords": {
+        "name": ["kiln", "temperature"],
+        "description": ["shell", "section"]
+      },
+      "search_sources": [
+        "temperature kiln shell section 15",
+        "temperature"
+      ],
+      "metadata": {
+        "units": "degC",
+        "properties": {
+          "area": "Kiln",
+          "asset": "Section15"
+        }
+      },
+      "metadata_cached": false
+    }
+  ],
+  "cached": false
+}
+```
+
+**Caching**: Final responses are cached with the metadata TTL. Intermediate `browseTags` and `getTagProperties` calls share the metadata cache. Use `bypass_cache=true` when fresh data is required.
+
+**Ranking Logic:**
+- Keywords matched in the tag `name` carry the highest weight.
+- Path, description, and metadata matches contribute additional score with decreasing weight.
+- Exact and prefix matches receive a small bonus to break ties.
+
+**Example Usage:**
+```
+User: "What's the tag for the kiln shell temperature in section 15?"
+Assistant uses: get_tag_path(description="kiln shell temperature section 15")
+```
 
 ---
 
