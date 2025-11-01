@@ -229,21 +229,164 @@ print(response)
 # Output: "pong - Canary MCP Server is running!"
 ```
 
+### Connecting to Claude Desktop
+
+The primary way to use this MCP server is through Claude Desktop. Follow these steps to connect:
+
+#### 1. Locate Claude Desktop Configuration File
+
+The configuration file is located at:
+```
+%APPDATA%\Claude\claude_desktop_config.json
+```
+
+Full path (Windows):
+```
+C:\Users\<YourUsername>\AppData\Roaming\Claude\claude_desktop_config.json
+```
+
+#### 2. Add MCP Server Configuration
+
+Create or edit the config file with the following content:
+
+```json
+{
+  "mcpServers": {
+    "canary-mcp-server": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "C:\\Github\\BD\\BD-hackaton-2025-10",
+        "run",
+        "python",
+        "-m",
+        "canary_mcp.server"
+      ],
+      "env": {
+        "PYTHONPATH": "C:\\Github\\BD\\BD-hackaton-2025-10\\src"
+      }
+    }
+  }
+}
+```
+
+**Important Notes:**
+- Replace `C:\\Github\\BD\\BD-hackaton-2025-10` with your actual project path
+- Use double backslashes (`\\`) in JSON for Windows paths
+- Requires Claude Desktop version 0.7.0+ (MCP support)
+
+#### 3. Restart Claude Desktop
+
+Close Claude Desktop completely (check system tray) and restart it. The MCP server should now be connected.
+
+#### 4. Verify Connection
+
+In Claude Desktop, you should see:
+- MCP server indicator showing "Connected" status
+- "canary-mcp-server" listed in available servers
+- Available tools in the interface
+
+#### 5. Use the MCP Tools
+
+You can now interact with Canary Historian data using natural language:
+
+```
+"Use the list_namespaces tool to show me available Canary namespaces"
+
+"Use the search_tags tool to find all temperature sensors"
+
+"Use the read_timeseries tool to get data for tag 'Secil.Line1.Temperature'
+from yesterday to now"
+
+"Use the get_server_info tool to check the Canary server connection"
+```
+
+#### Available MCP Tools
+
+- **`ping`** - Test MCP server connection
+- **`list_namespaces`** - Browse Canary hierarchical structure
+- **`search_tags`** - Find tags by pattern matching
+- **`get_tag_metadata`** - Get detailed tag information
+- **`read_timeseries`** - Query historical time-series data
+- **`get_server_info`** - Check Canary server health and info
+
+**Detailed Setup Guide:** See [docs/installation/claude-desktop-setup.md](docs/installation/claude-desktop-setup.md)
+
 ## Configuration
 
 Configuration is managed through environment variables. Copy `.env.example` to `.env` and customize:
 
 ```bash
-# Canary API Configuration (Story 1.2+)
-CANARY_API_URL=https://your-canary-server/api
+# Required: Canary API Configuration
+CANARY_SAF_BASE_URL=https://scunscanary.secil.pt/api/v1
+CANARY_VIEWS_BASE_URL=https://scunscanary.secil.pt
 CANARY_API_TOKEN=your-token-here
 
-# Server Configuration
+# Optional: Server Configuration
 MCP_SERVER_HOST=localhost
 MCP_SERVER_PORT=3000
 
-# Logging
+# Optional: Logging
 LOG_LEVEL=INFO
+
+# Optional: Performance Settings
+CANARY_TIMEOUT=30
+CANARY_POOL_SIZE=10
+CANARY_RETRY_ATTEMPTS=6
+```
+
+**Key Configuration Variables:**
+
+- **`CANARY_SAF_BASE_URL`** - Base URL for Canary SAF (Store and Forward) API
+- **`CANARY_VIEWS_BASE_URL`** - Base URL for Canary Views API
+- **`CANARY_API_TOKEN`** - Authentication token (required, keep secret!)
+- **`LOG_LEVEL`** - Logging verbosity: DEBUG, INFO, WARNING, ERROR, CRITICAL
+- **`CANARY_TIMEOUT`** - Request timeout in seconds (default: 30)
+- **`CANARY_RETRY_ATTEMPTS`** - Number of retry attempts for failed requests (default: 6)
+
+See `.env.example` for the complete list of available configuration options including performance tuning, circuit breaker settings, and session management.
+
+## Documentation
+
+Comprehensive documentation is available in the `docs/` directory:
+
+### API Reference
+
+**[API Documentation (docs/API.md)](docs/API.md)** - Complete reference for all MCP tools:
+- **Core Data Access Tools**: search_tags, get_tag_metadata, read_timeseries, list_namespaces, get_server_info
+- **Performance & Monitoring Tools**: get_metrics, get_metrics_summary
+- **Cache Management Tools**: get_cache_stats, invalidate_cache, cleanup_expired_cache
+- **Error Codes**: Authentication, connection, timeout, circuit breaker errors
+- **Best Practices**: Caching strategy, performance optimization, query patterns
+
+### Example Queries
+
+**[Example Query Library (docs/examples.md)](docs/examples.md)** - 20+ real-world examples covering:
+- **Validation Use Cases**: Sensor validation, cross-validation, data quality checks
+- **Troubleshooting Use Cases**: Anomaly diagnosis, pattern identification, performance comparison
+- **Optimization Use Cases**: Operating setpoint optimization, energy waste detection, stability analysis
+- **Reporting Use Cases**: Daily reports, compliance reporting, shift handovers
+- **Integration Examples**: Maintenance alerts, predictive maintenance, energy management
+
+### Additional Documentation
+
+- **[Deployment Guide](docs/DEPLOYMENT.md)** - Complete site rollout and deployment procedures
+- **[Architecture](docs/architecture.md)** - System architecture and design decisions
+- **[Multi-Site Configuration](docs/multi-site-config.md)** - Managing multiple Canary sites
+- **[Troubleshooting Guide](docs/troubleshooting/)** - Common issues and solutions
+- **[PRD & Epics](docs/PRD.md)** - Product requirements and feature planning
+
+### Quick Links
+
+```
+"Find all temperature sensors for Kiln 6"
+→ See examples.md: Example 1 (Sensor Validation)
+
+"Show me performance from yesterday"
+→ See examples.md: Example 6 (Historical Comparison)
+
+"What tools are available?"
+→ See API.md: Core Data Access Tools
 ```
 
 ## Development
@@ -340,9 +483,11 @@ See [LICENSE](LICENSE) file.
 ## Support
 
 For questions or issues:
-1. Check `docs/` for detailed documentation
-2. Review test files for usage examples
-3. See Canary API docs: https://readapi.canarylabs.com/25.4/
+1. **[API Documentation](docs/API.md)** - Complete tool reference with error codes
+2. **[Example Query Library](docs/examples.md)** - 20+ real-world use cases
+3. **[Troubleshooting Guide](docs/troubleshooting/)** - Common issues and solutions
+4. Review test files for usage examples (`tests/integration/`)
+5. Canary API docs: https://readapi.canarylabs.com/25.4/
 
 ---
 

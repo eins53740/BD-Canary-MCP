@@ -2,6 +2,7 @@
 
 import asyncio
 import os
+import random
 from datetime import datetime, timedelta
 from functools import wraps
 from typing import Any, Callable, Optional, TypeVar, cast
@@ -9,6 +10,7 @@ from typing import Any, Callable, Optional, TypeVar, cast
 import httpx
 from dotenv import load_dotenv
 
+from canary_mcp.circuit_breaker import CircuitBreakerError, get_circuit_breaker
 from canary_mcp.exceptions import CanaryAuthError, ConfigurationError
 from canary_mcp.logging_setup import get_logger
 
@@ -27,15 +29,19 @@ def retry_with_backoff(
     base_delay: float = 1.0,
     max_delay: float = 60.0,
     exponential_base: float = 2.0,
+    jitter: bool = True,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
-    Decorator that implements retry logic with exponential backoff.
+    Decorator that implements retry logic with exponential backoff and jitter.
+
+    Story 2.3: Enhanced with jitter to prevent thundering herd problem.
 
     Args:
         max_attempts: Maximum number of retry attempts (default from env or 3)
         base_delay: Initial delay between retries in seconds
         max_delay: Maximum delay between retries in seconds
         exponential_base: Base for exponential backoff calculation
+        jitter: Add random jitter to delay (default: True)
 
     Returns:
         Decorated function with retry logic
@@ -66,13 +72,19 @@ def retry_with_backoff(
                     # Calculate delay with exponential backoff
                     delay = min(base_delay * (exponential_base ** (attempt - 1)), max_delay)
 
+                    # Add jitter to prevent thundering herd (Story 2.3)
+                    if jitter:
+                        # Add random jitter: delay ± 25%
+                        jitter_factor = random.uniform(0.75, 1.25)
+                        delay = delay * jitter_factor
+
                     log.warning(
                         "retry_attempt",
                         function=func.__name__,
                         attempt=attempt,
                         max_attempts=max_attempts,
                         error=str(e),
-                        retry_delay=delay,
+                        retry_delay=f"{delay:.2f}",
                     )
 
                     await asyncio.sleep(delay)
@@ -127,6 +139,10 @@ class CanaryAuthClient:
         )
         self.request_timeout = int(os.getenv("CANARY_REQUEST_TIMEOUT_SECONDS", "10"))
 
+        # Connection pool configuration (Story 2.1)
+        self.pool_size = int(os.getenv("CANARY_POOL_SIZE", "10"))
+        self.connection_timeout = int(os.getenv("CANARY_TIMEOUT", "30"))
+
         # Session state
         self._session_token: Optional[str] = None
         self._token_expires_at: Optional[datetime] = None
@@ -136,7 +152,17 @@ class CanaryAuthClient:
 
     async def __aenter__(self) -> "CanaryAuthClient":
         """Async context manager entry."""
-        self._client = httpx.AsyncClient(timeout=self.request_timeout)
+        # Configure connection pooling with httpx.Limits (Story 2.1)
+        limits = httpx.Limits(
+            max_connections=self.pool_size,
+            max_keepalive_connections=self.pool_size,
+        )
+        timeout = httpx.Timeout(self.connection_timeout)
+
+        self._client = httpx.AsyncClient(
+            timeout=timeout,
+            limits=limits,
+        )
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:  # type: ignore

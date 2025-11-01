@@ -9,7 +9,9 @@ from dotenv import load_dotenv
 from fastmcp import FastMCP
 
 from canary_mcp.auth import CanaryAuthError, CanaryAuthClient
+from canary_mcp.cache import get_cache_store
 from canary_mcp.logging_setup import configure_logging, get_logger
+from canary_mcp.metrics import get_metrics_collector, MetricsTimer
 from canary_mcp.request_context import set_request_id, get_request_id
 
 # Load environment variables
@@ -91,15 +93,16 @@ def ping() -> str:
 
 
 @mcp.tool()
-async def search_tags(search_pattern: str) -> dict[str, Any]:
+async def search_tags(search_pattern: str, bypass_cache: bool = False) -> dict[str, Any]:
     """
     Search for Canary tags by name pattern.
 
     This tool searches for industrial process tags in the Canary historian
-    that match the provided search pattern.
+    that match the provided search pattern. Results are cached for performance.
 
     Args:
         search_pattern: Tag name or pattern to search for (supports wildcards)
+        bypass_cache: If True, skip cache and fetch fresh data (default: False)
 
     Returns:
         dict[str, Any]: Dictionary containing search results with keys:
@@ -107,6 +110,7 @@ async def search_tags(search_pattern: str) -> dict[str, Any]:
             - count: Total number of tags found
             - success: Boolean indicating if operation succeeded
             - pattern: The search pattern used
+            - cached: Boolean indicating if result came from cache
 
     Raises:
         Exception: If authentication fails or API request errors occur
@@ -115,142 +119,173 @@ async def search_tags(search_pattern: str) -> dict[str, Any]:
     log.info(
         "search_tags_called",
         search_pattern=search_pattern,
+        bypass_cache=bypass_cache,
         request_id=request_id,
         tool="search_tags",
     )
 
-    try:
-        # Validate search pattern
-        if not search_pattern or not search_pattern.strip():
+    async with MetricsTimer("search_tags") as timer:
+        try:
+            # Check cache first (unless bypassed)
+            cache = get_cache_store()
+            cache_key = cache._generate_cache_key("search", search_pattern)
+
+            if not bypass_cache:
+                cached_result = cache.get(cache_key)
+                if cached_result:
+                    timer.cache_hit = True
+                    log.info(
+                        "search_tags_cache_hit",
+                        pattern=search_pattern,
+                        request_id=get_request_id(),
+                    )
+                    cached_result["cached"] = True
+                    return cached_result
+
+            timer.cache_hit = False
+
+            # Validate search pattern
+            if not search_pattern or not search_pattern.strip():
+                return {
+                    "success": False,
+                    "error": "Search pattern cannot be empty",
+                    "tags": [],
+                    "count": 0,
+                    "pattern": search_pattern,
+                    "cached": False,
+                }
+
+            # Get Canary Views base URL from environment
+            views_base_url = os.getenv("CANARY_VIEWS_BASE_URL", "")
+            if not views_base_url:
+                raise ValueError("CANARY_VIEWS_BASE_URL not configured")
+
+            # Authenticate and get API token
+            async with CanaryAuthClient() as client:
+                api_token = await client.get_valid_token()
+
+                # Query Canary API for tag search
+                # Using browseTags endpoint to search for tags
+                search_url = f"{views_base_url}/api/v2/browseTags"
+
+                async with httpx.AsyncClient(timeout=10.0) as http_client:
+                    response = await http_client.post(
+                        search_url,
+                        json={
+                            "apiToken": api_token,
+                            "search": search_pattern,
+                            "deep": True,
+                        },
+                    )
+
+                    response.raise_for_status()
+                    data = response.json()
+
+                    # Parse tag data from response
+                    tags = []
+                    if isinstance(data, dict) and "tags" in data:
+                        tag_list = data.get("tags", [])
+                        for tag in tag_list:
+                            if isinstance(tag, dict):
+                                tags.append(
+                                    {
+                                        "name": tag.get("name", ""),
+                                        "path": tag.get("path", tag.get("name", "")),
+                                        "dataType": tag.get("dataType", "unknown"),
+                                        "description": tag.get("description", ""),
+                                    }
+                                )
+
+                    result = {
+                        "success": True,
+                        "tags": tags,
+                        "count": len(tags),
+                        "pattern": search_pattern,
+                        "cached": False,
+                    }
+
+                    # Cache the result
+                    cache.set(cache_key, result, category="metadata")
+
+                    log.info(
+                        "search_tags_success",
+                        pattern=search_pattern,
+                        tag_count=len(tags),
+                        request_id=get_request_id(),
+                    )
+                    return result
+
+        except CanaryAuthError as e:
+            error_msg = f"Authentication failed: {str(e)}"
+            log.error(
+                "search_tags_auth_failed",
+                error=error_msg,
+                pattern=search_pattern,
+                request_id=get_request_id(),
+            )
             return {
                 "success": False,
-                "error": "Search pattern cannot be empty",
+                "error": error_msg,
                 "tags": [],
                 "count": 0,
                 "pattern": search_pattern,
+                "cached": False,
             }
 
-        # Get Canary Views base URL from environment
-        views_base_url = os.getenv("CANARY_VIEWS_BASE_URL", "")
-        if not views_base_url:
-            raise ValueError("CANARY_VIEWS_BASE_URL not configured")
+        except httpx.HTTPStatusError as e:
+            error_msg = (
+                f"API request failed with status {e.response.status_code}: {e.response.text}"
+            )
+            log.error(
+                "search_tags_api_error",
+                error=error_msg,
+                status_code=e.response.status_code,
+                pattern=search_pattern,
+                request_id=get_request_id(),
+            )
+            return {
+                "success": False,
+                "error": error_msg,
+                "tags": [],
+                "count": 0,
+                "pattern": search_pattern,
+                "cached": False,
+            }
 
-        # Authenticate and get API token
-        async with CanaryAuthClient() as client:
-            api_token = await client.get_valid_token()
+        except httpx.RequestError as e:
+            error_msg = f"Network error accessing Canary API: {str(e)}"
+            log.error(
+                "search_tags_network_error",
+                error=error_msg,
+                pattern=search_pattern,
+                request_id=get_request_id(),
+            )
+            return {
+                "success": False,
+                "error": error_msg,
+                "tags": [],
+                "count": 0,
+                "pattern": search_pattern,
+                "cached": False,
+            }
 
-            # Query Canary API for tag search
-            # Using browseTags endpoint to search for tags
-            search_url = f"{views_base_url}/api/v2/browseTags"
-
-            async with httpx.AsyncClient(timeout=10.0) as http_client:
-                response = await http_client.post(
-                    search_url,
-                    json={
-                        "apiToken": api_token,
-                        "search": search_pattern,
-                        "deep": True,
-                    },
-                )
-
-                response.raise_for_status()
-                data = response.json()
-
-                # Parse tag data from response
-                tags = []
-                if isinstance(data, dict) and "tags" in data:
-                    tag_list = data.get("tags", [])
-                    for tag in tag_list:
-                        if isinstance(tag, dict):
-                            tags.append(
-                                {
-                                    "name": tag.get("name", ""),
-                                    "path": tag.get("path", tag.get("name", "")),
-                                    "dataType": tag.get("dataType", "unknown"),
-                                    "description": tag.get("description", ""),
-                                }
-                            )
-
-                log.info(
-                    "search_tags_success",
-                    pattern=search_pattern,
-                    tag_count=len(tags),
-                    request_id=get_request_id(),
-                )
-                return {
-                    "success": True,
-                    "tags": tags,
-                    "count": len(tags),
-                    "pattern": search_pattern,
-                }
-
-    except CanaryAuthError as e:
-        error_msg = f"Authentication failed: {str(e)}"
-        log.error(
-            "search_tags_auth_failed",
-            error=error_msg,
-            pattern=search_pattern,
-            request_id=get_request_id(),
-        )
-        return {
-            "success": False,
-            "error": error_msg,
-            "tags": [],
-            "count": 0,
-            "pattern": search_pattern,
-        }
-
-    except httpx.HTTPStatusError as e:
-        error_msg = (
-            f"API request failed with status {e.response.status_code}: {e.response.text}"
-        )
-        log.error(
-            "search_tags_api_error",
-            error=error_msg,
-            status_code=e.response.status_code,
-            pattern=search_pattern,
-            request_id=get_request_id(),
-        )
-        return {
-            "success": False,
-            "error": error_msg,
-            "tags": [],
-            "count": 0,
-            "pattern": search_pattern,
-        }
-
-    except httpx.RequestError as e:
-        error_msg = f"Network error accessing Canary API: {str(e)}"
-        log.error(
-            "search_tags_network_error",
-            error=error_msg,
-            pattern=search_pattern,
-            request_id=get_request_id(),
-        )
-        return {
-            "success": False,
-            "error": error_msg,
-            "tags": [],
-            "count": 0,
-            "pattern": search_pattern,
-        }
-
-    except Exception as e:
-        error_msg = f"Unexpected error searching tags: {str(e)}"
-        log.error(
-            "search_tags_unexpected_error",
-            error=error_msg,
-            pattern=search_pattern,
-            request_id=get_request_id(),
-            exc_info=True,
-        )
-        return {
-            "success": False,
-            "error": error_msg,
-            "tags": [],
-            "count": 0,
-            "pattern": search_pattern,
-        }
+        except Exception as e:
+            error_msg = f"Unexpected error searching tags: {str(e)}"
+            log.error(
+                "search_tags_unexpected_error",
+                error=error_msg,
+                pattern=search_pattern,
+                request_id=get_request_id(),
+                exc_info=True,
+            )
+            return {
+                "success": False,
+                "error": error_msg,
+                "tags": [],
+                "count": 0,
+                "pattern": search_pattern,
+                "cached": False,
+            }
 
 
 @mcp.tool()
@@ -627,6 +662,7 @@ async def read_timeseries(
                         "tags": tag_list,
                         "startTime": parsed_start_time,
                         "endTime": parsed_end_time,
+                        "pageSize": page_size,
                     },
                 )
 
@@ -918,6 +954,446 @@ async def get_server_info() -> dict[str, Any]:
             "error": error_msg,
             "server_info": {},
             "mcp_info": {},
+        }
+
+
+@mcp.tool()
+def get_metrics() -> str:
+    """
+    Get performance metrics in Prometheus format.
+
+    Story 2.1: Returns collected metrics including request counts, latencies,
+    cache hit/miss rates, and connection pool statistics.
+
+    Returns:
+        str: Metrics formatted in Prometheus text exposition format
+
+    Example:
+        ```
+        # HELP canary_requests_total Total number of requests by tool
+        # TYPE canary_requests_total counter
+        canary_requests_total{tool_name="search_tags",status_code="200"} 42
+        ...
+        ```
+    """
+    request_id = set_request_id()
+    log.info("get_metrics_called", request_id=request_id, tool="get_metrics")
+
+    try:
+        collector = get_metrics_collector()
+        prometheus_output = collector.export_prometheus()
+
+        log.info(
+            "get_metrics_success",
+            metrics_size_bytes=len(prometheus_output),
+            request_id=get_request_id(),
+        )
+
+        return prometheus_output
+
+    except Exception as e:
+        error_msg = f"Failed to export metrics: {str(e)}"
+        log.error(
+            "get_metrics_error",
+            error=error_msg,
+            request_id=get_request_id(),
+            exc_info=True,
+        )
+        return f"# Error exporting metrics: {error_msg}\n"
+
+
+@mcp.tool()
+def get_metrics_summary() -> dict[str, Any]:
+    """
+    Get human-readable summary of performance metrics.
+
+    Story 2.1: Returns aggregated metrics including request counts, latency percentiles,
+    and cache statistics for all MCP tools.
+
+    Returns:
+        dict[str, Any]: Dictionary containing metric summaries with keys:
+            - total_requests: Total number of requests processed
+            - by_tool: Per-tool statistics (counts, latencies, cache stats)
+            - cache_stats: Overall cache hit/miss counts
+            - active_connections: Current connection pool usage
+
+    Example:
+        ```json
+        {
+            "total_requests": 156,
+            "by_tool": {
+                "search_tags": {
+                    "request_count": 42,
+                    "latency": {"median": 1.2, "p95": 3.5, "p99": 5.1},
+                    "cache_hits": 10,
+                    "cache_misses": 32
+                }
+            },
+            "cache_stats": {"total_hits": 45, "total_misses": 111},
+            "active_connections": 3
+        }
+        ```
+    """
+    request_id = set_request_id()
+    log.info("get_metrics_summary_called", request_id=request_id, tool="get_metrics_summary")
+
+    try:
+        collector = get_metrics_collector()
+        summary = collector.get_summary_stats()
+
+        log.info(
+            "get_metrics_summary_success",
+            total_requests=summary.get("total_requests", 0),
+            tools_tracked=len(summary.get("by_tool", {})),
+            request_id=get_request_id(),
+        )
+
+        return {
+            "success": True,
+            "metrics": summary,
+        }
+
+    except Exception as e:
+        error_msg = f"Failed to get metrics summary: {str(e)}"
+        log.error(
+            "get_metrics_summary_error",
+            error=error_msg,
+            request_id=get_request_id(),
+            exc_info=True,
+        )
+        return {
+            "success": False,
+            "error": error_msg,
+            "metrics": {},
+        }
+
+
+@mcp.tool()
+def get_cache_stats() -> dict[str, Any]:
+    """
+    Get cache statistics.
+
+    Story 2.2: Returns cache performance statistics including hit rate, size, and entry count.
+
+    Returns:
+        dict[str, Any]: Dictionary containing cache statistics with keys:
+            - success: Boolean indicating if operation succeeded
+            - stats: Cache statistics object
+
+    Example:
+        ```json
+        {
+            "success": true,
+            "stats": {
+                "entry_count": 42,
+                "total_size_mb": 12.5,
+                "max_size_mb": 100,
+                "cache_hits": 150,
+                "cache_misses": 30,
+                "hit_rate_percent": 83.3,
+                "evictions": 5
+            }
+        }
+        ```
+    """
+    request_id = set_request_id()
+    log.info("get_cache_stats_called", request_id=request_id, tool="get_cache_stats")
+
+    try:
+        cache = get_cache_store()
+        stats = cache.get_stats()
+
+        log.info(
+            "get_cache_stats_success",
+            entry_count=stats.get("entry_count", 0),
+            hit_rate=stats.get("hit_rate_percent", 0),
+            request_id=get_request_id(),
+        )
+
+        return {
+            "success": True,
+            "stats": stats,
+        }
+
+    except Exception as e:
+        error_msg = f"Failed to get cache statistics: {str(e)}"
+        log.error(
+            "get_cache_stats_error",
+            error=error_msg,
+            request_id=get_request_id(),
+            exc_info=True,
+        )
+        return {
+            "success": False,
+            "error": error_msg,
+            "stats": {},
+        }
+
+
+@mcp.tool()
+def invalidate_cache(pattern: str = "") -> dict[str, Any]:
+    """
+    Invalidate cache entries matching pattern.
+
+    Story 2.2: Clears cached data, optionally filtering by pattern.
+    Use this when configuration changes or fresh data is required.
+
+    Args:
+        pattern: SQL LIKE pattern for keys (empty string = invalidate all)
+
+    Returns:
+        dict[str, Any]: Dictionary containing invalidation results with keys:
+            - success: Boolean indicating if operation succeeded
+            - count: Number of entries invalidated
+            - pattern: The pattern used (if any)
+
+    Example:
+        ```json
+        {
+            "success": true,
+            "count": 15,
+            "pattern": "search:%"
+        }
+        ```
+    """
+    request_id = set_request_id()
+    log.info(
+        "invalidate_cache_called",
+        pattern=pattern or "ALL",
+        request_id=request_id,
+        tool="invalidate_cache",
+    )
+
+    try:
+        cache = get_cache_store()
+
+        # Invalidate matching entries
+        count = cache.invalidate(pattern if pattern else None)
+
+        log.info(
+            "invalidate_cache_success",
+            pattern=pattern or "ALL",
+            count=count,
+            request_id=get_request_id(),
+        )
+
+        return {
+            "success": True,
+            "count": count,
+            "pattern": pattern or "ALL",
+        }
+
+    except Exception as e:
+        error_msg = f"Failed to invalidate cache: {str(e)}"
+        log.error(
+            "invalidate_cache_error",
+            error=error_msg,
+            pattern=pattern,
+            request_id=get_request_id(),
+            exc_info=True,
+        )
+        return {
+            "success": False,
+            "error": error_msg,
+            "count": 0,
+        }
+
+
+@mcp.tool()
+def cleanup_expired_cache() -> dict[str, Any]:
+    """
+    Remove expired entries from cache.
+
+    Story 2.2: Cleans up expired cache entries to free storage space.
+    This is done automatically but can be triggered manually.
+
+    Returns:
+        dict[str, Any]: Dictionary containing cleanup results with keys:
+            - success: Boolean indicating if operation succeeded
+            - count: Number of expired entries removed
+
+    Example:
+        ```json
+        {
+            "success": true,
+            "count": 8
+        }
+        ```
+    """
+    request_id = set_request_id()
+    log.info("cleanup_expired_cache_called", request_id=request_id, tool="cleanup_expired_cache")
+
+    try:
+        cache = get_cache_store()
+        count = cache.cleanup_expired()
+
+        log.info(
+            "cleanup_expired_cache_success",
+            count=count,
+            request_id=get_request_id(),
+        )
+
+        return {
+            "success": True,
+            "count": count,
+        }
+
+    except Exception as e:
+        error_msg = f"Failed to cleanup expired cache: {str(e)}"
+        log.error(
+            "cleanup_expired_cache_error",
+            error=error_msg,
+            request_id=get_request_id(),
+            exc_info=True,
+        )
+        return {
+            "success": False,
+            "error": error_msg,
+            "count": 0,
+        }
+
+
+@mcp.tool()
+def get_health() -> dict[str, Any]:
+    """
+    Get MCP server health status including circuit breaker state.
+
+    Story 2.3: Advanced Error Handling & Retry Logic
+    Exposes circuit breaker state and system health for monitoring.
+
+    Returns:
+        dict[str, Any]: Dictionary containing health status with keys:
+            - status: Overall health status ("healthy", "degraded", "unhealthy")
+            - timestamp: Current timestamp
+            - circuit_breakers: Dictionary of circuit breaker states
+            - cache_health: Cache system health information
+            - metrics_summary: Performance metrics summary
+
+    Example:
+        ```json
+        {
+            "status": "healthy",
+            "timestamp": "2025-11-01T10:00:00",
+            "circuit_breakers": {
+                "canary-api": {
+                    "state": "closed",
+                    "failure_count": 0,
+                    "state_changes": 2
+                }
+            },
+            "cache_health": {
+                "operational": true,
+                "entry_count": 42,
+                "hit_rate_percent": 75.5
+            }
+        }
+        ```
+    """
+    from datetime import datetime
+    from canary_mcp.circuit_breaker import get_circuit_breaker
+
+    request_id = set_request_id()
+    log.info("get_health_called", request_id=request_id, tool="get_health")
+
+    try:
+        # Get circuit breaker states
+        circuit_breakers = {}
+
+        # Check canary-api circuit breaker (if it exists)
+        try:
+            canary_cb = get_circuit_breaker("canary-api")
+            circuit_breakers["canary-api"] = canary_cb.get_stats()
+        except Exception:
+            # Circuit breaker may not exist yet
+            circuit_breakers["canary-api"] = {
+                "state": "closed",
+                "failure_count": 0,
+                "message": "Not initialized yet"
+            }
+
+        # Get cache health
+        cache_health = {}
+        try:
+            cache = get_cache_store()
+            cache_stats = cache.get_stats()
+
+            total_accesses = cache_stats.get("total_accesses", 0)
+            hit_rate = 0.0
+            if total_accesses > 0:
+                hits = cache_stats.get("cache_hits", 0)
+                hit_rate = (hits / total_accesses) * 100
+
+            cache_health = {
+                "operational": True,
+                "entry_count": cache_stats.get("entry_count", 0),
+                "size_mb": cache_stats.get("total_size_mb", 0),
+                "hit_rate_percent": round(hit_rate, 2),
+            }
+        except Exception as e:
+            cache_health = {
+                "operational": False,
+                "error": str(e),
+            }
+
+        # Get metrics summary (lightweight)
+        metrics_summary = {}
+        try:
+            collector = get_metrics_collector()
+            stats = collector.get_summary_stats()
+            metrics_summary = {
+                "total_requests": stats.get("total_requests", 0),
+                "active_connections": stats.get("active_connections", 0),
+            }
+        except Exception as e:
+            metrics_summary = {
+                "error": str(e),
+            }
+
+        # Determine overall health status
+        status = "healthy"
+
+        # Check if any circuit breakers are open
+        for cb_name, cb_stats in circuit_breakers.items():
+            if cb_stats.get("state") == "open":
+                status = "unhealthy"
+                break
+            elif cb_stats.get("state") == "half_open":
+                status = "degraded"
+
+        # Check cache health
+        if not cache_health.get("operational", False):
+            if status == "healthy":
+                status = "degraded"
+
+        health_response = {
+            "status": status,
+            "timestamp": datetime.now().isoformat(),
+            "circuit_breakers": circuit_breakers,
+            "cache_health": cache_health,
+            "metrics_summary": metrics_summary,
+        }
+
+        log.info(
+            "get_health_success",
+            status=status,
+            circuit_breaker_count=len(circuit_breakers),
+            request_id=get_request_id(),
+        )
+
+        return health_response
+
+    except Exception as e:
+        error_msg = f"Failed to get health status: {str(e)}"
+        log.error(
+            "get_health_error",
+            error=error_msg,
+            request_id=get_request_id(),
+            exc_info=True,
+        )
+        return {
+            "status": "unhealthy",
+            "timestamp": datetime.now().isoformat(),
+            "error": error_msg,
         }
 
 
