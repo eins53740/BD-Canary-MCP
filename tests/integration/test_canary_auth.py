@@ -115,6 +115,8 @@ async def test_authentication_with_invalid_token():
 @pytest.mark.asyncio
 async def test_authentication_with_missing_credentials():
     """Test authentication failure when credentials are missing."""
+    from canary_mcp.exceptions import ConfigurationError
+
     with patch.dict(
         os.environ,
         {
@@ -124,12 +126,12 @@ async def test_authentication_with_missing_credentials():
         },
         clear=True,
     ):
-        async with CanaryAuthClient() as client:
-            with pytest.raises(CanaryAuthError) as exc_info:
+        with pytest.raises(ConfigurationError) as exc_info:
+            async with CanaryAuthClient() as client:
                 await client.authenticate()
 
-            assert "Missing required credentials" in str(exc_info.value)
-            assert "CANARY_API_TOKEN" in str(exc_info.value)
+        assert "Missing required credentials" in str(exc_info.value)
+        assert "CANARY_API_TOKEN" in str(exc_info.value)
 
 
 @pytest.mark.integration
@@ -256,6 +258,8 @@ async def test_validate_config_success():
 @pytest.mark.asyncio
 async def test_validate_config_failure():
     """Test configuration validation with missing credentials."""
+    from canary_mcp.exceptions import ConfigurationError
+
     with patch.dict(
         os.environ,
         {
@@ -264,7 +268,7 @@ async def test_validate_config_failure():
         },
         clear=True,
     ):
-        with pytest.raises(CanaryAuthError) as exc_info:
+        with pytest.raises(ConfigurationError) as exc_info:
             await validate_config()
 
         assert "Missing required credentials" in str(exc_info.value)

@@ -6,7 +6,8 @@ from unittest.mock import patch
 
 import pytest
 
-from canary_mcp.auth import CanaryAuthClient, CanaryAuthError
+from canary_mcp.auth import CanaryAuthClient
+from canary_mcp.exceptions import CanaryAuthError, ConfigurationError
 
 
 @pytest.mark.unit
@@ -73,7 +74,7 @@ def test_validate_credentials_missing_saf_url():
     ):
         client = CanaryAuthClient()
 
-        with pytest.raises(CanaryAuthError) as exc_info:
+        with pytest.raises(ConfigurationError) as exc_info:
             client._validate_credentials()
 
         assert "CANARY_SAF_BASE_URL" in str(exc_info.value)
@@ -92,7 +93,7 @@ def test_validate_credentials_missing_views_url():
     ):
         client = CanaryAuthClient()
 
-        with pytest.raises(CanaryAuthError) as exc_info:
+        with pytest.raises(ConfigurationError) as exc_info:
             client._validate_credentials()
 
         assert "CANARY_VIEWS_BASE_URL" in str(exc_info.value)
@@ -111,7 +112,7 @@ def test_validate_credentials_missing_api_token():
     ):
         client = CanaryAuthClient()
 
-        with pytest.raises(CanaryAuthError) as exc_info:
+        with pytest.raises(ConfigurationError) as exc_info:
             client._validate_credentials()
 
         assert "CANARY_API_TOKEN" in str(exc_info.value)
@@ -123,7 +124,7 @@ def test_validate_credentials_multiple_missing():
     with patch.dict(os.environ, {}, clear=True):
         client = CanaryAuthClient()
 
-        with pytest.raises(CanaryAuthError) as exc_info:
+        with pytest.raises(ConfigurationError) as exc_info:
             client._validate_credentials()
 
         error_msg = str(exc_info.value)

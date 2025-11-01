@@ -51,7 +51,7 @@ async def test_search_tags_success():
             # First call is auth, second is tag search
             mock_post.side_effect = [mock_auth_response, mock_search_response]
 
-            result = await search_tags.fn("Temperature")
+            result = await search_tags.fn("Temperature", bypass_cache=True)
 
             assert result["success"] is True
             assert result["count"] == 2
@@ -143,7 +143,7 @@ async def test_search_tags_authentication_failure():
                 response=mock_response,
             )
 
-            result = await search_tags.fn("Temperature")
+            result = await search_tags.fn("Temperature", bypass_cache=True)
 
             assert result["success"] is False
             assert "error" in result
@@ -184,7 +184,7 @@ async def test_search_tags_api_error():
                 ),
             ]
 
-            result = await search_tags.fn("Temperature")
+            result = await search_tags.fn("Temperature", bypass_cache=True)
 
             assert result["success"] is False
             assert "error" in result
@@ -208,7 +208,7 @@ async def test_search_tags_network_error():
             # Simulate network error
             mock_post.side_effect = httpx.ConnectError("Connection refused")
 
-            result = await search_tags.fn("Temperature")
+            result = await search_tags.fn("Temperature", bypass_cache=True)
 
             assert result["success"] is False
             assert "error" in result
@@ -223,7 +223,7 @@ async def test_search_tags_network_error():
 async def test_search_tags_missing_config():
     """Test handling of missing configuration."""
     with patch.dict(os.environ, {}, clear=True):
-        result = await search_tags.fn("Temperature")
+        result = await search_tags.fn("Temperature", bypass_cache=True)
 
         assert result["success"] is False
         assert "error" in result
@@ -254,7 +254,7 @@ async def test_search_tags_malformed_response():
         with patch("httpx.AsyncClient.post") as mock_post:
             mock_post.side_effect = [mock_auth_response, mock_search_response]
 
-            result = await search_tags.fn("Temperature")
+            result = await search_tags.fn("Temperature", bypass_cache=True)
 
             # Should succeed but return empty tags
             assert result["success"] is True
