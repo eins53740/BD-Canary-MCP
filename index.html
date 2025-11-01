@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Universal Canary MCP Server</title>
+</head>
+<body>
+<pre>
+
+
+# === BD to the WORLD ===
+
+# Universal Canary MCP Server
+
+Model Context Protocol (MCP) server providing seamless access to Canary Historian plant data for LLM-powered applications.
+
+## Overview
+
+The Universal Canary MCP Server enables LLM clients (Claude Desktop, Continue, etc.) to interact with Canary Historian industrial data through natural language queries. This server implements the MCP protocol standard, exposing tools that allow engineers and analysts to access real-time and historical plant data without manual API integration.
+
+**Project Status:** Story 1.1 Complete - Foundation & Protocol Implementation
+
+## Features
+
+- ✅ **MCP Protocol Implementation** - FastMCP-based server with tool registration
+- ✅ **Ping Tool** - Connection testing and health check
+- ✅ **Environment Configuration** - Flexible configuration via environment variables
+- ✅ **Comprehensive Testing** - Unit and integration tests with 73% coverage
+- 🚧 **Canary API Integration** - Coming in Story 1.2
+- 🚧 **Data Access Tools** - Coming in Stories 1.3-1.7
+
+## Architecture
+
+```
+BD-hackaton-2025-10/
+├── src/
+│   └── canary_mcp/          # Main MCP server package
+│       ├── __init__.py      # Package initialization
+│       └── server.py        # MCP server with tool definitions
+├── tests/
+│   ├── unit/                # Unit tests
+│   │   └── test_project_structure.py
+│   └── integration/         # Integration tests
+│       └── test_mcp_server_startup.py
+├── config/                  # Configuration files
+├── docs/                    # Project documentation
+├── pyproject.toml          # Python project metadata & dependencies
+├── .env.example            # Environment variable template
+└── README.md               # This file
+```
+
+### Component Architecture
+
+```
+┌─────────────────────────────────────────┐
+│   LLM Client (Claude Desktop, etc.)    │
+└────────────────┬────────────────────────┘
+                 │ MCP Protocol
+                 ↓
+┌─────────────────────────────────────────┐
+│      Universal Canary MCP Server        │
+│  ┌───────────────────────────────────┐  │
+│  │  FastMCP Server                   │  │
+│  │  - Tool Registration              │  │
+│  │  - Request Handling               │  │
+│  └───────────────────────────────────┘  │
+│  ┌───────────────────────────────────┐  │
+│  │  MCP Tools                        │  │
+│  │  - ping (connection test)         │  │
+│  │  - [Future: Canary data tools]    │  │
+│  └───────────────────────────────────┘  │
+└─────────────────────────────────────────┘
+                 ↓ (Future)
+┌─────────────────────────────────────────┐
+│      Canary Views Web API               │
+│  - Authentication                       │
+│  - Historical Data Access               │
+│  - Real-time Data Streaming             │
+└─────────────────────────────────────────┘
+```
+
+## Installation
+
+The Canary MCP Server supports two installation methods to accommodate different user needs and environments. Choose the method that best fits your situation.
+
+### Installation Options Overview
+
+| Feature | Non-Admin Windows | Docker |
+|---------|------------------|--------|
+| **Administrator Privileges** | Not required | Required (for Docker Desktop) |
+| **Installation Time** | 10-15 minutes | 5-10 minutes |
+| **Environment Isolation** | Process-level | Complete containerization |
+| **Reproducibility** | Depends on host configuration | Identical across environments |
+| **Resource Usage** | Lower (native process) | Higher (Docker overhead) |
+| **Updates** | Update packages with `uv` | Rebuild Docker image |
+| **Best For** | Company workstations, dev laptops | Production, DevOps workflows |
+| **Configuration** | `.env` file in project root | `.env` file + Docker Compose |
+
+### When to Use Each Method
+
+**Choose Non-Admin Windows Installation if:**
+- You work on a company workstation without administrator privileges
+- You want minimal resource overhead
+- You prefer native Python development workflow
+- You need quick setup without Docker dependencies
+
+**Choose Docker Installation if:**
+- You have Docker Desktop access
+- You need reproducible deployments across environments
+- You want complete environment isolation
+- You're deploying to production or staging environments
+- You're already using containerization in your workflow
+
+### Quick Start Guides
+
+#### Option 1: Non-Admin Windows Installation (Recommended for Workstations)
+
+For users without administrator privileges on Windows workstations.
+
+**Prerequisites:**
+- No administrator privileges required
+- Internet access to download Python and uv
+
+**Quick Setup:**
+```bash
+# 1. Install Python 3.13 portable (download from python.org)
+# 2. Install uv package manager
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# 3. Clone repository
+git clone <repository-url>
+cd BD-hackaton-2025-10
+
+# 4. Install MCP server (user-space)
+uv pip install -e .
+
+# 5. Configure environment
+copy .env.example .env
+# Edit .env with your Canary credentials
+
+# 6. Validate installation
+python scripts/validate_installation.py
+
+# 7. Start server
+python -m canary_mcp.server
+```
+
+**Detailed Guide:** See [docs/installation/non-admin-windows.md](docs/installation/non-admin-windows.md)
+
+**Troubleshooting:** See [docs/installation/troubleshooting.md](docs/installation/troubleshooting.md)
+
+#### Option 2: Docker Installation (Recommended for Production)
+
+For users with Docker Desktop access, ideal for production deployments.
+
+**Prerequisites:**
+- Docker Desktop installed (requires admin for installation)
+- Docker Compose (included with Docker Desktop)
+- At least 4GB RAM allocated to Docker
+- 2GB free disk space
+
+**Quick Setup:**
+```bash
+# 1. Clone repository
+git clone <repository-url>
+cd BD-hackaton-2025-10
+
+# 2. Configure environment
+copy .env.example .env
+# Edit .env with your Canary credentials
+
+# 3. Build Docker image
+docker build -t canary-mcp-server .
+
+# 4. Start container
+docker-compose up -d
+
+# 5. Verify container is running
+docker-compose ps
+
+# 6. View logs
+docker-compose logs -f
+```
+
+**Detailed Guide:** See [docs/installation/docker-installation.md](docs/installation/docker-installation.md)
+
+### Installation Validation
+
+After installation, verify your setup with the validation script:
+
+```bash
+python scripts/validate_installation.py
+```
+
+This script checks:
+- Python version (>= 3.13)
+- uv package manager installation
+- canary-mcp package installation
+- Required dependencies (fastmcp, httpx, python-dotenv, structlog)
+- Configuration file (.env) exists and valid
+- Server can start without errors
+- Logs directory is writable
+
+## Usage
+
+### Running the MCP Server
+
+```bash
+# Start the server
+uv run canary-mcp
+
+# Or run directly
+uv run python -m canary_mcp.server
+```
+
+### Running Tests
+
+```bash
+# Run all tests
+uv run pytest
+
+# Run unit tests only
+uv run pytest -m unit -q
+
+# Run integration tests only
+uv run pytest -m integration -q
+
+# Run with coverage
+uv run pytest --cov=. --cov-report=term-missing -q
+```
+
+### Testing the Ping Tool
+
+```python
+# Python interactive test
+from canary_mcp.server import ping
+
+# Call the ping tool function
+response = ping.fn()
+print(response)
+# Output: "pong - Canary MCP Server is running!"
+```
+
+### Connecting to Claude Desktop
+
+The primary way to use this MCP server is through Claude Desktop. Follow these steps to connect:
+
+#### 1. Locate Claude Desktop Configuration File
+
+The configuration file is located at:
+```
+%APPDATA%\Claude\claude_desktop_config.json
+```
+
+Full path (Windows):
+```
+C:\Users\<YourUsername>\AppData\Roaming\Claude\claude_desktop_config.json
+```
+
+#### 2. Add MCP Server Configuration
+
+Create or edit the config file with the following content:
+
+```json
+{
+  "mcpServers": {
+    "canary-mcp-server": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "C:\\Github\\BD\\BD-hackaton-2025-10",
+        "run",
+        "python",
+        "-m",
+        "canary_mcp.server"
+      ],
+      "env": {
+        "PYTHONPATH": "C:\\Github\\BD\\BD-hackaton-2025-10\\src"
+      }
+    }
+  }
+}
+```
+
+**Important Notes:**
+- Replace `C:\\Github\\BD\\BD-hackaton-2025-10` with your actual project path
+- Use double backslashes (`\\`) in JSON for Windows paths
+- Requires Claude Desktop version 0.7.0+ (MCP support)
+
+#### 3. Restart Claude Desktop
+
+Close Claude Desktop completely (check system tray) and restart it. The MCP server should now be connected.
+
+#### 4. Verify Connection
+
+In Claude Desktop, you should see:
+- MCP server indicator showing "Connected" status
+- "canary-mcp-server" listed in available servers
+- Available tools in the interface
+
+#### 5. Use the MCP Tools
+
+You can now interact with Canary Historian data using natural language:
+
+```
+"Use the list_namespaces tool to show me available Canary namespaces"
+
+"Use the search_tags tool to find all temperature sensors"
+
+"Use the read_timeseries tool to get data for tag 'Secil.Line1.Temperature'
+from yesterday to now"
+
+"Use the get_server_info tool to check the Canary server connection"
+```
+
+#### Available MCP Tools
+
+- **`ping`** - Test MCP server connection
+- **`list_namespaces`** - Browse Canary hierarchical structure
+- **`search_tags`** - Find tags by pattern matching
+- **`get_tag_metadata`** - Get detailed tag information
+- **`read_timeseries`** - Query historical time-series data
+- **`get_server_info`** - Check Canary server health and info
+
+**Detailed Setup Guide:** See [docs/installation/claude-desktop-setup.md](docs/installation/claude-desktop-setup.md)
+
+## Configuration
+
+Configuration is managed through environment variables. Copy `.env.example` to `.env` and customize:
+
+```bash
+# Required: Canary API Configuration
+CANARY_SAF_BASE_URL=https://scunscanary.secil.pt/api/v1
+CANARY_VIEWS_BASE_URL=https://scunscanary.secil.pt
+CANARY_API_TOKEN=your-token-here
+
+# Optional: Server Configuration
+MCP_SERVER_HOST=localhost
+MCP_SERVER_PORT=3000
+
+# Optional: Logging
+LOG_LEVEL=INFO
+
+# Optional: Performance Settings
+CANARY_TIMEOUT=30
+CANARY_POOL_SIZE=10
+CANARY_RETRY_ATTEMPTS=6
+```
+
+**Key Configuration Variables:**
+
+- **`CANARY_SAF_BASE_URL`** - Base URL for Canary SAF (Store and Forward) API
+- **`CANARY_VIEWS_BASE_URL`** - Base URL for Canary Views API
+- **`CANARY_API_TOKEN`** - Authentication token (required, keep secret!)
+- **`LOG_LEVEL`** - Logging verbosity: DEBUG, INFO, WARNING, ERROR, CRITICAL
+- **`CANARY_TIMEOUT`** - Request timeout in seconds (default: 30)
+- **`CANARY_RETRY_ATTEMPTS`** - Number of retry attempts for failed requests (default: 6)
+
+See `.env.example` for the complete list of available configuration options including performance tuning, circuit breaker settings, and session management.
+
+## Documentation
+
+Comprehensive documentation is available in the `docs/` directory:
+
+### API Reference
+
+**[API Documentation (docs/API.md)](docs/API.md)** - Complete reference for all MCP tools:
+- **Core Data Access Tools**: search_tags, get_tag_metadata, read_timeseries, list_namespaces, get_server_info
+- **Performance & Monitoring Tools**: get_metrics, get_metrics_summary
+- **Cache Management Tools**: get_cache_stats, invalidate_cache, cleanup_expired_cache
+- **Error Codes**: Authentication, connection, timeout, circuit breaker errors
+- **Best Practices**: Caching strategy, performance optimization, query patterns
+
+### Example Queries
+
+**[Example Query Library (docs/examples.md)](docs/examples.md)** - 20+ real-world examples covering:
+- **Validation Use Cases**: Sensor validation, cross-validation, data quality checks
+- **Troubleshooting Use Cases**: Anomaly diagnosis, pattern identification, performance comparison
+- **Optimization Use Cases**: Operating setpoint optimization, energy waste detection, stability analysis
+- **Reporting Use Cases**: Daily reports, compliance reporting, shift handovers
+- **Integration Examples**: Maintenance alerts, predictive maintenance, energy management
+
+### Additional Documentation
+
+- **[Deployment Guide](docs/DEPLOYMENT.md)** - Complete site rollout and deployment procedures
+- **[Architecture](docs/architecture.md)** - System architecture and design decisions
+- **[Multi-Site Configuration](docs/multi-site-config.md)** - Managing multiple Canary sites
+- **[Troubleshooting Guide](docs/troubleshooting/)** - Common issues and solutions
+- **[PRD & Epics](docs/PRD.md)** - Product requirements and feature planning
+
+### Quick Links
+
+```
+"Find all temperature sensors for Kiln 6"
+→ See examples.md: Example 1 (Sensor Validation)
+
+"Show me performance from yesterday"
+→ See examples.md: Example 6 (Historical Comparison)
+
+"What tools are available?"
+→ See API.md: Core Data Access Tools
+```
+
+## Development
+
+### Project Structure
+
+- **src/canary_mcp/** - Main application code
+- **tests/** - Test suite (unit and integration)
+- **docs/** - Documentation (PRD, epics, stories)
+- **config/** - Configuration files
+
+### Development Workflow
+
+1. Make changes to source code
+2. Run tests: `uv run pytest`
+3. Check linting: `uvx ruff check .`
+4. Format code: `uvx black .`
+5. Verify coverage: `uv run pytest --cov=. --cov-report=term-missing`
+
+### Adding New MCP Tools
+
+```python
+# In src/canary_mcp/server.py
+
+@mcp.tool()
+def your_tool_name(parameter: str) -> str:
+    """
+    Tool description for LLM clients.
+
+    Args:
+        parameter: Parameter description
+
+    Returns:
+        str: Return value description
+    """
+    # Implementation
+    return "result"
+```
+
+## Roadmap
+
+### ✅ Epic 1 - Story 1.1 (Current)
+- [x] Python 3.13 project with uv
+- [x] FastMCP SDK integration
+- [x] Basic server with ping tool
+- [x] Testing framework (73% coverage)
+- [x] Project documentation
+
+### 🚧 Epic 1 - Remaining Stories
+- Story 1.2: Canary API Authentication & Session Management
+- Story 1.3: list_namespaces Tool & Validation
+- Story 1.4: search_tags Tool & Validation
+- Story 1.5: get_tag_metadata Tool & Validation
+- Story 1.6: read_timeseries Tool & Validation
+- Story 1.7: get_server_info Tool & Validation
+- Stories 1.8-1.11: Testing, error handling, installation, dev environment
+
+### 🎯 Epic 2 - Production Hardening (Future)
+- Performance optimization (caching, connection pooling)
+- Advanced error handling
+- Multi-site configuration
+- Comprehensive documentation
+
+## Testing
+
+### Test Coverage
+
+Current coverage: **73%**
+Target: **75%+** (NFR003)
+
+```bash
+# Generate detailed coverage report
+uv run pytest --cov=src --cov-report=html
+# Open htmlcov/index.html in browser
+```
+
+### Test Categories
+
+- **Unit Tests** (`tests/unit/`) - Fast, isolated component tests
+- **Integration Tests** (`tests/integration/`) - Server startup and tool invocation tests
+- **Contract Tests** (Future) - API contract validation
+
+## Contributing
+
+This is a hackathon project developed following the BMM (BMAD Meta-Method) workflow. See `docs/` for:
+- `PRD.md` - Product Requirements Document
+- `epics.md` - Epic and story breakdown
+- `stories/` - Individual story implementation plans
+
+## License
+
+See [LICENSE](LICENSE) file.
+
+## Support
+
+For questions or issues:
+1. **[API Documentation](docs/API.md)** - Complete tool reference with error codes
+2. **[Example Query Library](docs/examples.md)** - 20+ real-world use cases
+3. **[Troubleshooting Guide](docs/troubleshooting/)** - Common issues and solutions
+4. Review test files for usage examples (`tests/integration/`)
+5. Canary API docs: https://readapi.canarylabs.com/25.4/
+
+---
+
+**Generated with** [Claude Code](https://claude.com/claude-code)
+**MCP Protocol:** https://modelcontextprotocol.io/
+
+</pre>
+<h2>Documentation</h2>
+<ul>
+<li><a href="docs/API.md">API.md</a></li>
+<li><a href="docs/architecture.md">architecture.md</a></li>
+<li><a href="docs/bmm-workflow-status.md">bmm-workflow-status.md</a></li>
+<li><a href="docs/Canary info, Tests, Configs.md">Canary info, Tests, Configs.md</a></li>
+<li><a href="docs/Canary MCP - CanaryTagList.xlsx">Canary MCP - CanaryTagList.xlsx</a></li>
+<li><a href="docs/canary_saf_index.html">canary_saf_index.html</a></li>
+<li><a href="docs/canary_views_index.html">canary_views_index.html</a></li>
+<li><a href="docs/canary-api-review.md">canary-api-review.md</a></li>
+<li><a href="docs/Case Canary MCP.docx">Case Canary MCP.docx</a></li>
+<li><a href="docs/DEPLOYMENT.md">DEPLOYMENT.md</a></li>
+<li><a href="docs/epics.md">epics.md</a></li>
+<li><a href="docs/examples.md">examples.md</a></li>
+<li><a href="docs/implementation-readiness-report-2025-10-31.md">implementation-readiness-report-2025-10-31.md</a></li>
+<li><a href="docs/MCP Canary - Process Historical Data.md">MCP Canary - Process Historical Data.md</a></li>
+<li><a href="docs/MCP_API_semantics_tags.md">MCP_API_semantics_tags.md</a></li>
+<li><a href="docs/multi-site-config.md">multi-site-config.md</a></li>
+<li><a href="docs/PRD.md">PRD.md</a></li>
+<li><a href="docs/product-brief-BD-hackaton-2025-10-2025-10-30.md">product-brief-BD-hackaton-2025-10-2025-10-30.md</a></li>
+<li><a href="docs/sprint-status.yaml">sprint-status.yaml</a></li>
+<li><a href="docs/USER_ONBOARDING_GUIDE.md">USER_ONBOARDING_GUIDE.md</a></li>
+<li><a href="docs/aux_files/_Canary Web Read API v24.postman_environment.json">_Canary Web Read API v24.postman_environment.json</a></li>
+<li><a href="docs/aux_files/_CanaryWebReadAPIv24.postman_collection.json">_CanaryWebReadAPIv24.postman_collection.json</a></li>
+<li><a href="docs/aux_files/Canary MCP - CanaryTagList.xlsx">Canary MCP - CanaryTagList.xlsx</a></li>
+<li><a href="docs/aux_files/Canary Web Read API v24.postman_environment.json.zip">Canary Web Read API v24.postman_environment.json.zip</a></li>
+<li><a href="docs/aux_files/canary1.png">canary1.png</a></li>
+<li><a href="docs/aux_files/canary2.png">canary2.png</a></li>
+<li><a href="docs/development/quick-start.md">quick-start.md</a></li>
+<li><a href="docs/development/TESTING_GUIDE.md">TESTING_GUIDE.md</a></li>
+<li><a href="docs/installation/claude-desktop-setup.md">claude-desktop-setup.md</a></li>
+<li><a href="docs/installation/docker-installation.md">docker-installation.md</a></li>
+<li><a href="docs/installation/MANUAL_INSTALL_STEPS.md">MANUAL_INSTALL_STEPS.md</a></li>
+<li><a href="docs/installation/non-admin-windows.md">non-admin-windows.md</a></li>
+<li><a href="docs/installation/troubleshooting.md">troubleshooting.md</a></li>
+<li><a href="docs/stories/1-1-mcp-server-foundation-protocol-implementation.context.xml">1-1-mcp-server-foundation-protocol-implementation.context.xml</a></li>
+<li><a href="docs/stories/1-1-mcp-server-foundation-protocol-implementation.md">1-1-mcp-server-foundation-protocol-implementation.md</a></li>
+<li><a href="docs/stories/1-10-non-admin-user-installation-docker-alternative.md">1-10-non-admin-user-installation-docker-alternative.md</a></li>
+<li><a href="docs/stories/1-11-local-development-environment-setup-validation.md">1-11-local-development-environment-setup-validation.md</a></li>
+<li><a href="docs/stories/1-2-canary-api-authentication-session-management.context.xml">1-2-canary-api-authentication-session-management.context.xml</a></li>
+<li><a href="docs/stories/1-2-canary-api-authentication-session-management.md">1-2-canary-api-authentication-session-management.md</a></li>
+<li><a href="docs/stories/1-3-list-namespaces-tool-validation.md">1-3-list-namespaces-tool-validation.md</a></li>
+<li><a href="docs/stories/1-4-search-tags-tool-validation.md">1-4-search-tags-tool-validation.md</a></li>
+<li><a href="docs/stories/1-5-get-tag-metadata-tool-validation.md">1-5-get-tag-metadata-tool-validation.md</a></li>
+<li><a href="docs/stories/1-6-read-timeseries-tool-validation.md">1-6-read-timeseries-tool-validation.md</a></li>
+<li><a href="docs/stories/1-7-get-server-info-tool-validation.md">1-7-get-server-info-tool-validation.md</a></li>
+<li><a href="docs/stories/1-8-test-data-fixtures-mock-responses.md">1-8-test-data-fixtures-mock-responses.md</a></li>
+<li><a href="docs/stories/1-9-basic-error-handling-logging.md">1-9-basic-error-handling-logging.md</a></li>
+<li><a href="docs/stories/2-1-connection-pooling-performance-baseline.md">2-1-connection-pooling-performance-baseline.md</a></li>
+<li><a href="docs/troubleshooting/CANARY_API_DIAGNOSIS.md">CANARY_API_DIAGNOSIS.md</a></li>
+<li><a href="docs/troubleshooting/DEBUG_MCP_SERVER.md">DEBUG_MCP_SERVER.md</a></li>
+<li><a href="docs/troubleshooting/FIX_API_ENDPOINTS.md">FIX_API_ENDPOINTS.md</a></li>
+<li><a href="docs/troubleshooting/MCP_SERVER_STATUS.md">MCP_SERVER_STATUS.md</a></li>
+<li><a href="docs-hackaton-2025-10/BMAD-theory/(14) 🚀 BMAD Method – Como multiagentes de IA podem otimizar o desenvolvimento de software _ LinkedIn.pdf">(14) 🚀 BMAD Method – Como multiagentes de IA podem otimizar o desenvolvimento de software _ LinkedIn.pdf</a></li>
+<li><a href="docs-hackaton-2025-10/BMAD-theory/BMAD-METHOD_src_modules_bmm_workflows_README.md at main · bmad-code-org_BMAD-METHOD.pdf">BMAD-METHOD_src_modules_bmm_workflows_README.md at main · bmad-code-org_BMAD-METHOD.pdf</a></li>
+<li><a href="docs-hackaton-2025-10/BMAD-theory/What is BMAD-METHOD™_ A Simple Guide to the Future of AI-Driven Development _ by Vishal Mysore _ Sep, 2025 _ Medium 2.pdf">What is BMAD-METHOD™_ A Simple Guide to the Future of AI-Driven Development _ by Vishal Mysore _ Sep, 2025 _ Medium 2.pdf</a></li>
+<li><a href="docs-hackaton-2025-10/BMAD-theory/What is BMAD-METHOD™_ A Simple Guide to the Future of AI-Driven Development _ by Vishal Mysore _ Sep, 2025 _ Medium.pdf">What is BMAD-METHOD™_ A Simple Guide to the Future of AI-Driven Development _ by Vishal Mysore _ Sep, 2025 _ Medium.pdf</a></li>
+<li><a href="docs-hackaton-2025-10/hackaton-anterior-0/Instructions.properties">Instructions.properties</a></li>
+<li><a href="docs-hackaton-2025-10/hackaton-anterior-0/merged.txt">merged.txt</a></li>
+<li><a href="docs-hackaton-2025-10/hackaton-anterior-0/Product_Manager_Backlog_Specialist_Agent_Instructions.txt">Product_Manager_Backlog_Specialist_Agent_Instructions.txt</a></li>
+<li><a href="docs-hackaton-202se-10/hackaton-anterior-0/QA_Specialist_Agent_Instructions.txt">QA_Specialist_Agent_Instructions.txt</a></li>
+<li><a href="docs-hackaton-2025-10/hackaton-anterior-0/Technical_Architect_Agent_Instructions.txt">Technical_Architect_Agent_Instructions.txt</a></li>
+<li><a href="docs-hackaton-2025-10/laptop-config/Install-HackathonTools 2.ps1">Install-HackathonTools 2.ps1</a></li>
+<li><a href="docs-hackaton-2025-10/laptop-config/Install-HackathonTools 3.ps1">Install-HackathonTools 3.ps1</a></li>
+<li><a href="docs-hackaton-2025-10/laptop-config/Install-HackathonTools 4.ps1">Install-HackathonTools 4.ps1</a></li>
+<li><a href="docs-hackaton-2025-10/laptop-config/Install-HackathonTools.ps1">Install-HackathonTools.ps1</a></li>
+<li><a href="docs-hackaton-2025-10/laptop-config/Uninstall-HackathonTools 1.ps1">Uninstall-HackathonTools 1.ps1</a></li>
+<li><a href="docs-hackaton-2025-10/laptop-config/Uninstall-HackathonTools.ps1">Uninstall-HackathonTools.ps1</a></li>
+<li><a href="docs-hackaton-2025-10/notes-hackaton/BMM answers.txt">BMM answers.txt</a></li>
+<li><a href="docs-hackaton-2025-10/notes-hackaton/Hackathon_Cases_Secil_EN.docx">Hackathon_Cases_Secil_EN.docx</a></li>
+<li><a href="docs-hackaton-2025-10/notes-hackaton/notes.md">notes.md</a></li>
+</ul>
+</body>
+</html>

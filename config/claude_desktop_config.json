@@ -4,7 +4,7 @@
       "command": "uv",
       "args": [
         "--directory",
-        "C:\\Github\\BD\\BD-hackaton-2025-10",
+        "C:\\Users\\bfsd\\Documents\\GitHub\\BD-hackaton-2025-10",
         "run",
         "python",
         "-m",
