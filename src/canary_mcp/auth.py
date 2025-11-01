@@ -1,8 +1,8 @@
 """Canary API authentication and session management module."""
 
 import asyncio
-import logging
 import os
+import random
 from datetime import datetime, timedelta
 from functools import wraps
 from typing import Any, Callable, Optional, TypeVar, cast
@@ -10,21 +10,18 @@ from typing import Any, Callable, Optional, TypeVar, cast
 import httpx
 from dotenv import load_dotenv
 
+from canary_mcp.circuit_breaker import CircuitBreakerError, get_circuit_breaker
+from canary_mcp.exceptions import CanaryAuthError, ConfigurationError
+from canary_mcp.logging_setup import get_logger
+
 # Load environment variables
 load_dotenv()
 
-# Configure logging
-logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
-logger = logging.getLogger(__name__)
+# Get logger instance
+log = get_logger(__name__)
 
 # Type variable for generic function return types
 T = TypeVar("T")
-
-
-class CanaryAuthError(Exception):
-    """Exception raised for authentication errors."""
-
-    pass
 
 
 def retry_with_backoff(
@@ -32,15 +29,19 @@ def retry_with_backoff(
     base_delay: float = 1.0,
     max_delay: float = 60.0,
     exponential_base: float = 2.0,
+    jitter: bool = True,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
-    Decorator that implements retry logic with exponential backoff.
+    Decorator that implements retry logic with exponential backoff and jitter.
+
+    Story 2.3: Enhanced with jitter to prevent thundering herd problem.
 
     Args:
         max_attempts: Maximum number of retry attempts (default from env or 3)
         base_delay: Initial delay between retries in seconds
         max_delay: Maximum delay between retries in seconds
         exponential_base: Base for exponential backoff calculation
+        jitter: Add random jitter to delay (default: True)
 
     Returns:
         Decorated function with retry logic
@@ -60,28 +61,51 @@ def retry_with_backoff(
                 except (httpx.ConnectError, httpx.TimeoutException) as e:
                     last_exception = e
                     if attempt == max_attempts:
-                        logger.error(
-                            f"Function {func.__name__} failed after {max_attempts} attempts"
+                        log.error(
+                            "retry_exhausted",
+                            function=func.__name__,
+                            max_attempts=max_attempts,
+                            error=str(e),
                         )
                         raise
 
                     # Calculate delay with exponential backoff
                     delay = min(base_delay * (exponential_base ** (attempt - 1)), max_delay)
 
-                    logger.warning(
-                        f"Attempt {attempt}/{max_attempts} failed for {func.__name__}: {str(e)}. "
-                        f"Retrying in {delay:.2f} seconds..."
+                    # Add jitter to prevent thundering herd (Story 2.3)
+                    if jitter:
+                        # Add random jitter: delay ± 25%
+                        jitter_factor = random.uniform(0.75, 1.25)
+                        delay = delay * jitter_factor
+
+                    log.warning(
+                        "retry_attempt",
+                        function=func.__name__,
+                        attempt=attempt,
+                        max_attempts=max_attempts,
+                        error=str(e),
+                        retry_delay=f"{delay:.2f}",
                     )
 
                     await asyncio.sleep(delay)
 
                 except CanaryAuthError:
                     # Don't retry authentication errors (likely bad credentials)
+                    log.error(
+                        "auth_error_no_retry",
+                        function=func.__name__,
+                        message="Authentication error - not retrying",
+                    )
                     raise
 
                 except Exception as e:
                     # Log unexpected errors but don't retry
-                    logger.error(f"Unexpected error in {func.__name__}: {str(e)}")
+                    log.error(
+                        "unexpected_error_no_retry",
+                        function=func.__name__,
+                        error=str(e),
+                        exc_info=True,
+                    )
                     raise
 
             # Should not reach here, but just in case
@@ -115,6 +139,10 @@ class CanaryAuthClient:
         )
         self.request_timeout = int(os.getenv("CANARY_REQUEST_TIMEOUT_SECONDS", "10"))
 
+        # Connection pool configuration (Story 2.1)
+        self.pool_size = int(os.getenv("CANARY_POOL_SIZE", "10"))
+        self.connection_timeout = int(os.getenv("CANARY_TIMEOUT", "30"))
+
         # Session state
         self._session_token: Optional[str] = None
         self._token_expires_at: Optional[datetime] = None
@@ -124,7 +152,17 @@ class CanaryAuthClient:
 
     async def __aenter__(self) -> "CanaryAuthClient":
         """Async context manager entry."""
-        self._client = httpx.AsyncClient(timeout=self.request_timeout)
+        # Configure connection pooling with httpx.Limits (Story 2.1)
+        limits = httpx.Limits(
+            max_connections=self.pool_size,
+            max_keepalive_connections=self.pool_size,
+        )
+        timeout = httpx.Timeout(self.connection_timeout)
+
+        self._client = httpx.AsyncClient(
+            timeout=timeout,
+            limits=limits,
+        )
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:  # type: ignore
@@ -137,7 +175,7 @@ class CanaryAuthClient:
         Validate that all required credentials are present.
 
         Raises:
-            CanaryAuthError: If any required credentials are missing
+            ConfigurationError: If any required credentials are missing
         """
         missing_creds = []
 
@@ -149,9 +187,18 @@ class CanaryAuthClient:
             missing_creds.append("CANARY_API_TOKEN")
 
         if missing_creds:
-            raise CanaryAuthError(
-                f"Missing required credentials: {', '.join(missing_creds)}. "
-                "Please set these environment variables in your .env file."
+            log.error(
+                "missing_credentials",
+                missing=missing_creds,
+                count=len(missing_creds),
+            )
+            raise ConfigurationError(
+                what=f"Missing required credentials: {', '.join(missing_creds)}",
+                why="Required environment variables are not set",
+                how_to_fix=(
+                    "Set these environment variables in your .env file: "
+                    f"{', '.join(missing_creds)}"
+                ),
             )
 
     def is_token_expired(self) -> bool:
@@ -292,15 +339,23 @@ class CanaryAuthClient:
         """
         Get a valid session token, refreshing if necessary.
 
-        This method checks if the current token is expired or will expire soon,
-        and automatically refreshes it if needed.
+        For Read API v2, this simply returns the API token directly without exchange.
+        For SAF API v1, this performs session token exchange.
 
         Returns:
-            str: A valid session token
+            str: A valid session token or API token
 
         Raises:
             CanaryAuthError: If token retrieval or refresh fails
         """
+        # Read API v2 uses direct API tokens - check if URL contains /api/v2
+        if "/api/v2" in self.saf_base_url or "/readapi/v2" in self.saf_base_url:
+            # Direct API token mode - no session exchange needed
+            if not self.user_token:
+                raise CanaryAuthError("API token not configured")
+            return self.user_token
+
+        # SAF API v1 mode - use session token exchange
         if self.is_token_expired():
             return await self.refresh_token()
 
@@ -323,22 +378,30 @@ async def validate_config() -> bool:
 
     Raises:
         CanaryAuthError: If configuration is invalid or connection fails
+        ConfigurationError: If required environment variables are missing
     """
-    logger.info("Validating Canary configuration...")
+    log.info("validate_config_started", message="Validating Canary configuration")
 
     async with CanaryAuthClient() as client:
         try:
             # Validate credentials (will raise if missing)
             client._validate_credentials()
-            logger.info("✓ All required credentials present")
+            log.info("credentials_validated", message="All required credentials present")
 
             # Test authentication
             await client.authenticate()
-            logger.info("✓ Successfully authenticated with Canary API")
-            logger.info(f"✓ Session token obtained (expires in {client.session_timeout_ms}ms)")
+            log.info(
+                "auth_test_success",
+                message="Successfully authenticated with Canary API",
+                session_timeout_ms=client.session_timeout_ms,
+            )
 
             return True
 
-        except CanaryAuthError as e:
-            logger.error(f"✗ Configuration validation failed: {str(e)}")
+        except (CanaryAuthError, ConfigurationError) as e:
+            log.error(
+                "validate_config_failed",
+                error=str(e),
+                error_type=type(e).__name__,
+            )
             raise

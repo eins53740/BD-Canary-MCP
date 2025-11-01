@@ -35,27 +35,27 @@ tracking_system: file-system
 story_location: "{project-root}/docs/stories"
 
 development_status:
-  epic-1: backlog
+  epic-1: done
   1-1-mcp-server-foundation-protocol-implementation: done
   1-2-canary-api-authentication-session-management: done
-  1-3-list-namespaces-tool-validation: backlog
-  1-4-search-tags-tool-validation: backlog
-  1-5-get-tag-metadata-tool-validation: backlog
-  1-6-read-timeseries-tool-validation: backlog
-  1-7-get-server-info-tool-validation: backlog
-  1-8-test-data-fixtures-mock-responses: backlog
-  1-9-basic-error-handling-logging: backlog
-  1-10-non-admin-user-installation-docker-alternative: backlog
-  1-11-local-development-environment-setup-validation: backlog
+  1-3-list-namespaces-tool-validation: done
+  1-4-search-tags-tool-validation: done
+  1-5-get-tag-metadata-tool-validation: done
+  1-6-read-timeseries-tool-validation: done
+  1-7-get-server-info-tool-validation: done
+  1-8-test-data-fixtures-mock-responses: done
+  1-9-basic-error-handling-logging: done
+  1-10-non-admin-user-installation-docker-alternative: done
+  1-11-local-development-environment-setup-validation: done
   epic-1-retrospective: optional
 
-  epic-2: backlog
-  2-1-connection-pooling-performance-baseline: backlog
-  2-2-caching-layer-implementation: backlog
-  2-3-advanced-error-handling-retry-logic: backlog
-  2-4-performance-validation-test-suite: backlog
-  2-5-multi-site-configuration-management: backlog
-  2-6-api-documentation-generation: backlog
-  2-7-example-query-library-use-cases: backlog
-  2-8-deployment-guide-site-rollout-documentation: backlog
+  epic-2: done
+  2-1-connection-pooling-performance-baseline: done
+  2-2-caching-layer-implementation: done
+  2-3-advanced-error-handling-retry-logic: done
+  2-4-performance-validation-test-suite: done
+  2-5-multi-site-configuration-management: skipped
+  2-6-api-documentation-generation: done
+  2-7-example-query-library-use-cases: done
+  2-8-deployment-guide-site-rollout-documentation: done
   epic-2-retrospective: optional

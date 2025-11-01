@@ -1,0 +1,77 @@
+# Canary MCP Server - Docker Compose Configuration
+version: '3.8'
+
+services:
+  canary-mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: canary-mcp-server:latest
+    container_name: canary-mcp-server
+
+    # Environment variables from .env file
+    env_file:
+      - .env
+
+    # Additional environment variables
+    environment:
+      # Log level (override if needed)
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      # MCP server name
+      - MCP_SERVER_NAME=Canary MCP Server
+
+    # Volume mounts for persistent storage
+    volumes:
+      # Configuration files (read-only)
+      - ./config:/app/config:ro
+      # Logs directory (read-write)
+      - ./logs:/app/logs:rw
+      # Optional: Mount .env file directly (alternative to env_file)
+      # - ./.env:/app/.env:ro
+
+    # Restart policy
+    restart: unless-stopped
+
+    # Resource limits (adjust as needed)
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import canary_mcp.server; print('healthy')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    # Network mode (adjust as needed)
+    # network_mode: "bridge"
+
+    # Optional: Expose ports (if MCP server needs network access)
+    # ports:
+    #   - "8000:8000"
+
+# Optional: Define custom network
+# networks:
+#   mcp-network:
+#     driver: bridge
+
+# Optional: Define named volumes for better management
+# volumes:
+#   logs-data:
+#     driver: local
+#   config-data:
+#     driver: local
