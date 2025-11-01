@@ -33,12 +33,13 @@ def parse_time_expression(time_expr: str) -> str:
     - "last week" → past 7 days
     - "past 24 hours" → last 24 hours from now
     - "last 30 days" → past 30 days from now
+    - relative time expressions like "now-1d"
 
     Args:
         time_expr: Natural language time expression or ISO timestamp
 
     Returns:
-        str: ISO timestamp string
+        str: ISO timestamp string or the original expression if it's relative
 
     Raises:
         ValueError: If expression cannot be parsed
@@ -46,12 +47,9 @@ def parse_time_expression(time_expr: str) -> str:
     time_expr_lower = time_expr.lower().strip()
     now = datetime.utcnow()
 
-    # Try parsing as ISO timestamp first
-    try:
-        datetime.fromisoformat(time_expr.replace("Z", "+00:00"))
-        return time_expr  # Already ISO format
-    except (ValueError, AttributeError):
-        pass
+    # Pass through relative time expressions
+    if "now-" in time_expr_lower:
+        return time_expr
 
     # Natural language expressions
     if time_expr_lower == "yesterday":
@@ -76,6 +74,13 @@ def parse_time_expression(time_expr: str) -> str:
 
     if time_expr_lower == "now":
         return now.isoformat() + "Z"
+
+    # Try parsing as ISO timestamp as a fallback
+    try:
+        datetime.fromisoformat(time_expr.replace("Z", "+00:00"))
+        return time_expr  # Already ISO format
+    except (ValueError, AttributeError):
+        pass
 
     # If not recognized, raise error
     raise ValueError(f"Unrecognized time expression: {time_expr}")
@@ -559,8 +564,8 @@ async def read_timeseries(
 
     Args:
         tag_names: Single tag name or list of tag names to retrieve data for
-        start_time: Start time (ISO timestamp or natural language like "yesterday")
-        end_time: End time (ISO timestamp or natural language like "now")
+        start_time: Start time (ISO timestamp or relative expression like "now-1d")
+        end_time: End time (ISO timestamp or relative expression like "now")
         page_size: Number of samples per page (default 1000)
 
     Returns:
@@ -569,8 +574,8 @@ async def read_timeseries(
             - count: Total number of data points returned
             - success: Boolean indicating if operation succeeded
             - tag_names: The tag names that were queried
-            - start_time: Parsed start time (ISO format)
-            - end_time: Parsed end time (ISO format)
+            - start_time: The start time used for the query
+            - end_time: The end time used for the query
 
     Raises:
         Exception: If authentication fails or API request errors occur
@@ -605,42 +610,6 @@ async def read_timeseries(
                 "tag_names": tag_list,
             }
 
-        # Parse time expressions
-        try:
-            parsed_start_time = parse_time_expression(start_time)
-            parsed_end_time = parse_time_expression(end_time)
-        except ValueError as e:
-            return {
-                "success": False,
-                "error": f"Invalid time expression: {str(e)}",
-                "data": [],
-                "count": 0,
-                "tag_names": tag_list,
-            }
-
-        # Validate time range
-        try:
-            start_dt = datetime.fromisoformat(parsed_start_time.replace("Z", "+00:00"))
-            end_dt = datetime.fromisoformat(parsed_end_time.replace("Z", "+00:00"))
-            if start_dt >= end_dt:
-                return {
-                    "success": False,
-                    "error": "Start time must be before end time",
-                    "data": [],
-                    "count": 0,
-                    "tag_names": tag_list,
-                    "start_time": parsed_start_time,
-                    "end_time": parsed_end_time,
-                }
-        except (ValueError, AttributeError) as e:
-            return {
-                "success": False,
-                "error": f"Invalid time format: {str(e)}",
-                "data": [],
-                "count": 0,
-                "tag_names": tag_list,
-            }
-
         # Get Canary Views base URL from environment
         views_base_url = os.getenv("CANARY_VIEWS_BASE_URL", "")
         if not views_base_url:
@@ -660,8 +629,8 @@ async def read_timeseries(
                     json={
                         "apiToken": api_token,
                         "tags": tag_list,
-                        "startTime": parsed_start_time,
-                        "endTime": parsed_end_time,
+                        "startTime": start_time,
+                        "endTime": end_time,
                         "pageSize": page_size,
                     },
                 )
@@ -671,50 +640,27 @@ async def read_timeseries(
 
                 # Parse timeseries data from response
                 data_points = []
-                if isinstance(api_response, dict):
-                    # Check if this is a "no data" vs "tag not found" scenario
-                    if "data" in api_response:
-                        raw_data = api_response.get("data", [])
-                        for point in raw_data:
-                            if isinstance(point, dict):
-                                data_points.append(
-                                    {
-                                        "timestamp": point.get(
-                                            "timestamp", point.get("time", "")
-                                        ),
-                                        "value": point.get("value"),
-                                        "quality": point.get("quality", "Unknown"),
-                                        "tagName": point.get("tagName", ""),
-                                    }
-                                )
-                    elif "error" in api_response:
-                        error_msg = api_response.get("error", "Unknown error")
-                        if "not found" in error_msg.lower():
-                            return {
-                                "success": False,
-                                "error": f"Tag not found: {error_msg}",
-                                "data": [],
-                                "count": 0,
-                                "tag_names": tag_list,
-                                "start_time": parsed_start_time,
-                                "end_time": parsed_end_time,
-                            }
-                        return {
-                            "success": False,
-                            "error": error_msg,
-                            "data": [],
-                            "count": 0,
-                            "tag_names": tag_list,
-                            "start_time": parsed_start_time,
-                            "end_time": parsed_end_time,
-                        }
+                if isinstance(api_response, dict) and "data" in api_response:
+                    data_dict = api_response["data"]
+                    if isinstance(data_dict, dict):
+                        for tag_name, points in data_dict.items():
+                            for point in points:
+                                if isinstance(point, dict):
+                                    data_points.append(
+                                        {
+                                            "timestamp": point.get("t"),
+                                            "value": point.get("v"),
+                                            "quality": point.get("q", "Unknown"),
+                                            "tagName": tag_name,
+                                        }
+                                    )
 
                 log.info(
                     "read_timeseries_success",
                     tag_names=tag_list,
                     data_point_count=len(data_points),
-                    start_time=parsed_start_time,
-                    end_time=parsed_end_time,
+                    start_time=start_time,
+                    end_time=end_time,
                     request_id=get_request_id(),
                 )
                 return {
@@ -722,8 +668,8 @@ async def read_timeseries(
                     "data": data_points,
                     "count": len(data_points),
                     "tag_names": tag_list,
-                    "start_time": parsed_start_time,
-                    "end_time": parsed_end_time,
+                    "start_time": start_time,
+                    "end_time": end_time,
                 }
 
     except CanaryAuthError as e:
