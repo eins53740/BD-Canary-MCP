@@ -17,6 +17,49 @@ The Universal Canary MCP Server enables LLM clients (Claude Desktop, Continue, e
 - 🚧 **Canary API Integration** - Coming in Story 1.2
 - 🚧 **Data Access Tools** - Coming in Stories 1.3-1.7
 
+## Quick setup (uv)
+
+Fast path to run locally with uv on Windows, macOS, or Linux.
+
+Prerequisites:
+- Python 3.12 or 3.13 available on PATH (portable Python works on Windows)
+- uv installed
+
+Steps:
+```bash
+# 1) Install uv (one-time)
+# Windows PowerShell
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+# macOS/Linux
+curl -fsSL https://astral.sh/uv/install.sh | sh
+
+# 2) Clone and enter repo
+git clone <repository-url>
+cd BD-Canary-MCP
+
+# 3) Create and activate virtual env + install deps
+uv sync --locked --dev
+
+# 4) Configure environment from template
+copy .env.example .env  # Windows
+# or
+cp .env.example .env    # macOS/Linux
+# Then edit .env with your Canary credentials (no secrets committed)
+
+# 5) Validate installation
+uv run python scripts/validate_installation.py
+
+# 6) Start the MCP server
+uv run canary-mcp
+# or
+uv run python -m canary_mcp.server
+```
+
+Notes:
+- Configuration is loaded from .env using python-dotenv.
+- Use uv run pytest to execute tests; uvx ruff/black for lint/format.
+- For Claude Desktop integration, see the section below.
+
 ## Architecture
 
 ```

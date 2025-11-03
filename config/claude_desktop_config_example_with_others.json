@@ -1,0 +1,52 @@
+{
+  "mcpServers": {
+    "canary-uv": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "D:\\GitHub\\BD-Canary-MCP",
+        "run",
+        "python",
+        "-m",
+        "canary_mcp.server"
+      ],
+      "env": {
+        "CANARY_SAF_BASE_URL": "https://scunscanary.secil.pt:55236/api/v2",
+        "CANARY_VIEWS_BASE_URL": "https://scunscanary.secil.pt:55236",
+        "CANARY_API_TOKEN": "0120fd2e-e9c2-4c8d-8115-a6ceb41490ce"
+      }
+    },
+    "canary-npx": {
+      "command": "node",
+      "args": [
+        "D:\\GitHub\\SECIL\\canary-mcp-server\\canary-mcp-server\\dist\\index.js"
+      ],
+      "env": {
+        "CANARY_BASE_URL": "https://scunscanary.secil.pt:55236/api/v2",
+        "CANARY_API_TOKEN": "0120fd2e-e9c2-4c8d-8115-a6ceb41490ce",
+        "CANARY_TIMEZONE": "Europe/Lisbon"
+      }
+    },
+    "atlassian": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://mcp.atlassian.com/v1/sse"
+      ]
+    },
+    "mcp-installer": {
+      "command": "npx",
+      "args": [
+        "@anaisbetts/mcp-installer"
+      ]
+    },
+    "puppeteer": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-puppeteer"
+      ]
+    }
+  }
+}
