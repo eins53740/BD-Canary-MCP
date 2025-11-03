@@ -119,6 +119,10 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 git clone <repository-url>
 cd BD-hackaton-2025-10
 
+# uv
+uv sync
+uv sync --locked --all-extras --dev
+
 # 4. Install MCP server (user-space)
 uv pip install -e .
 
