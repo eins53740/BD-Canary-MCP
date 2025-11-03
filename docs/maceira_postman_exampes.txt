@@ -1,0 +1,90 @@
+EXAMPLE:
+
+{{APIURL}}/{{ApiVersion}}/browseNodes
+
+{
+    "statusCode": "Good",
+    "errors": [],
+    "nodes": {
+        "SCUNSCANARY": {
+            "fullPath": "SCUNSCANARY",
+            "hasNodes": true,
+            "hasTags": false
+        },
+        "Secil": {
+            "fullPath": "Secil",
+            "hasNodes": true,
+            "hasTags": true
+        }
+    }
+}
+
+
+
+Example 1:
+
+{{APIURL}}/{{ApiVersion}}/browseTags?apiToken={{ApiToken}}&deep=true
+
+
+{
+    "statusCode": "Good",
+    "errors": [],
+    "tags": [
+        "SCUNSCANARY.FlowSpB.Flow.MaceiraKPI.Node Control.Scan Rate",
+        "SCUNSCANARY.KepwareIoT.Secil.Portugal.Cement.Maceira.100 - Raw Materials Handling.111 - Crushing.Normalised.Stoppages.State",
+        "SCUNSCANARY.Secil.Secil.Portugal.Cement.Maceira.400 - Clinker Production.432 - Kiln.Normalised.Analog.Kiln_Shell_Temp_Average_Section_55.Value"
+    ],
+    "continuation": "pathid=SCUNSCANARY.Secil.Secil.Portugal.Cement.Maceira.400 - Clinker Production.432 - Kiln.Normalised.Analog.Kiln_Shell_Temp_Average_Section_55\tindex=1"
+}
+
+
+
+Example 2:
+
+{{APIURL}}/{{ApiVersion}}/getTagData?apiToken={{ApiToken}}&tags=Secil.Secil.Portugal.Cement.Maceira.400 - Clinker Production.432 - Kiln.Normalised.Analog.Kiln_Shell_Temp_Average_Section_55.Value&startTime=now-1h&endTime=now
+
+{
+    "statusCode": "Good",
+    "errors": [],
+    "data": {
+        "Secil.Secil.Portugal.Cement.Maceira.400 - Clinker Production.432 - Kiln.Normalised.Analog.Kiln_Shell_Temp_Average_Section_55.Value": [
+            {
+                "t": "2025-11-01T19:35:24.0110000+00:00",
+                "v": 71.08000183105469
+            },
+            {
+                "t": "2025-11-01T19:59:23.7630000+00:00",
+                "v": 70.87999725341797
+            }
+        ]
+    },
+    "continuation": null
+}
+
+
+
+
+EXAMPLE:
+
+
+POOST:
+{{APIURL}}/{{ApiVersion}}/browseTags
+Body:
+{
+  "apiToken": "{{ApiToken}}",
+  "path": "",
+  "deep": true,
+  "search": "300 - Raw Meal Production.321 - Raw Mill.Normalised.Quality.Raw Meal.ALBITE.Value"
+}
+
+
+oUTPUT:
+{
+    "statusCode": "Good",
+    "errors": [],
+    "tags": [
+        "SCUNSCANARY.KepwareIoT.Secil.Portugal.Cement.Maceira.300 - Raw Meal Production.321 - Raw Mill.Normalised.Quality.Raw Meal.ALBITE.Value",
+        "Secil.Portugal.Cement.Maceira.300 - Raw Meal Production.321 - Raw Mill.Normalised.Quality.Raw Meal.ALBITE.Value"
+    ],
+    "continuation": null
+}
