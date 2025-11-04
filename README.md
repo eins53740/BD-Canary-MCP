@@ -13,6 +13,7 @@ The Universal Canary MCP Server enables LLM clients (Claude Desktop, Continue, e
 - ✅ **MCP Protocol Implementation** - FastMCP-based server with tool registration
 - ✅ **Ping Tool** - Connection testing and health check
 - ✅ **Environment Configuration** - Flexible configuration via environment variables
+- ✅ **Local Tag Dictionary** - Offline index seeded from Canary exports keeps natural-language tag mapping reliable even when API search misses
 - ✅ **Comprehensive Testing** - Unit and integration tests with 73% coverage
 - 🚧 **Canary API Integration** - Coming in Story 1.2
 - 🚧 **Data Access Tools** - Coming in Stories 1.3-1.7
@@ -353,7 +354,9 @@ from yesterday to now"
 - **`ping`** - Test MCP server connection
 - **`list_namespaces`** - Browse Canary hierarchical structure
 - **`search_tags`** - Find tags by pattern matching
+- **Tip:** When using `search_tags`, provide the literal identifier (for example `P431`) without appending wildcard characters—the Canary API handles fuzzy matching internally.
 - **`get_tag_metadata`** - Get detailed tag information
+- **`get_tag_properties`** - Retrieve raw engineering properties and historian metadata for tags
 - **`read_timeseries`** - Query historical time-series data
 - **`get_server_info`** - Check Canary server health and info
 
@@ -368,6 +371,8 @@ Configuration is managed through environment variables. Copy `.env.example` to `
 CANARY_SAF_BASE_URL=https://scunscanary.secil.pt/api/v1
 CANARY_VIEWS_BASE_URL=https://scunscanary.secil.pt
 CANARY_API_TOKEN=your-token-here
+CANARY_TAG_SEARCH_ROOT=Secil.Portugal
+CANARY_TAG_SEARCH_FALLBACKS=
 
 # Optional: Server Configuration
 MCP_SERVER_HOST=localhost
@@ -387,6 +392,8 @@ CANARY_RETRY_ATTEMPTS=6
 - **`CANARY_SAF_BASE_URL`** - Base URL for Canary SAF (Store and Forward) API
 - **`CANARY_VIEWS_BASE_URL`** - Base URL for Canary Views API
 - **`CANARY_API_TOKEN`** - Authentication token (required, keep secret!)
+- **`CANARY_TAG_SEARCH_ROOT`** - Root namespace used when calling `browseTags` (for example `Secil.Portugal`)
+- **`CANARY_TAG_SEARCH_FALLBACKS`** - Additional namespace prefixes (comma-separated) to probe when the root scope is empty
 - **`LOG_LEVEL`** - Logging verbosity: DEBUG, INFO, WARNING, ERROR, CRITICAL
 - **`CANARY_TIMEOUT`** - Request timeout in seconds (default: 30)
 - **`CANARY_RETRY_ATTEMPTS`** - Number of retry attempts for failed requests (default: 6)

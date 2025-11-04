@@ -154,3 +154,65 @@ Output:
     "continuation": null
 }
 
+
+
+GET:
+{{APIURL}}/{{ApiVersion}}/getTagProperties?apiToken={{ApiToken}}&tags=Secil.Portugal.Cement.Maceira.100 - Raw Materials Handling.111 - Crushing.Normalised.Analog.BR5TT_8119.Value
+
+{
+    "statusCode": "Good",
+    "errors": [],
+    "properties": {
+        "Secil.Portugal.Cement.Maceira.100 - Raw Materials Handling.111 - Crushing.Normalised.Analog.BR5TT_8119.Value": {
+            "Source ItemId": "localhost.Secil.Secil.Portugal.Cement.Maceira.100 - Raw Materials Handling.111 - Crushing.Normalised.Analog.BR5TT_8119.Value",
+            "Historian ItemId": "localhost.Secil.Secil.Portugal.Cement.Maceira.100 - Raw Materials Handling.111 - Crushing.Normalised.Analog.BR5TT_8119.Value",
+            "Description": "Temperatura Enrolamento 1 Motor do Britador",
+            "Default High Scale": "150",
+            "Default Low Scale": "0",
+            "retained": "False",
+            "DataPermissions": "user_domainSecil(R);G_UNS_Admin(RW)",
+            "retain": "False",
+            "Units": "°C",
+            "DataPermission": "user_domainSecil(R);G_UNS_Admin(RW)",
+            "delete": "False",
+            "engLow": "0",
+            "documentation": "Temperatura Enrolamento 1 Motor do Britador",
+            "engHigh": "150",
+            "engUnit": "°C"
+        }
+    }
+}
+
+
+POST:
+{{APIURL}}/{{ApiVersion}}/getTagProperties
+Body:
+{
+  "apiToken": "{{ApiToken}}",
+  "tags": ["Secil.Portugal.Cement.Maceira.100 - Raw Materials Handling.111 - Crushing.Normalised.Analog.BR5TT_8119.Value"]
+}
+
+Output:
+{
+    "statusCode": "Good",
+    "errors": [],
+    "properties": {
+        "Secil.Portugal.Cement.Maceira.100 - Raw Materials Handling.111 - Crushing.Normalised.Analog.BR5TT_8119.Value": {
+            "Source ItemId": "localhost.Secil.Secil.Portugal.Cement.Maceira.100 - Raw Materials Handling.111 - Crushing.Normalised.Analog.BR5TT_8119.Value",
+            "Historian ItemId": "localhost.Secil.Secil.Portugal.Cement.Maceira.100 - Raw Materials Handling.111 - Crushing.Normalised.Analog.BR5TT_8119.Value",
+            "Description": "Temperatura Enrolamento 1 Motor do Britador",
+            "Default High Scale": "150",
+            "Default Low Scale": "0",
+            "retained": "False",
+            "DataPermissions": "user_domainSecil(R);G_UNS_Admin(RW)",
+            "retain": "False",
+            "Units": "°C",
+            "DataPermission": "user_domainSecil(R);G_UNS_Admin(RW)",
+            "delete": "False",
+            "engLow": "0",
+            "documentation": "Temperatura Enrolamento 1 Motor do Britador",
+            "engHigh": "150",
+            "engUnit": "°C"
+        }
+    }
+}

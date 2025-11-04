@@ -52,6 +52,7 @@ async def test_get_tag_path_returns_candidates(monkeypatch):
     """The tool should return a ranked candidate list when search yields matches."""
     memory_cache = InMemoryCache()
     monkeypatch.setattr("canary_mcp.server.get_cache_store", lambda: memory_cache)
+    monkeypatch.setattr("canary_mcp.server.get_local_tag_candidates", lambda *args, **kwargs: [])
 
     mock_search = AsyncMock(
         return_value={
@@ -101,6 +102,7 @@ async def test_get_tag_path_validates_description(monkeypatch):
     """Empty descriptions should return an error without invoking downstream calls."""
     memory_cache = InMemoryCache()
     monkeypatch.setattr("canary_mcp.server.get_cache_store", lambda: memory_cache)
+    monkeypatch.setattr("canary_mcp.server.get_local_tag_candidates", lambda *args, **kwargs: [])
 
     # Ensure search_tags is not called
     mock_search = AsyncMock()
@@ -123,6 +125,7 @@ async def test_get_tag_path_handles_no_matches(monkeypatch):
     """When no matches are found the response should indicate failure."""
     memory_cache = InMemoryCache()
     monkeypatch.setattr("canary_mcp.server.get_cache_store", lambda: memory_cache)
+    monkeypatch.setattr("canary_mcp.server.get_local_tag_candidates", lambda *args, **kwargs: [])
 
     search_mock = AsyncMock(
         return_value={
@@ -145,3 +148,59 @@ async def test_get_tag_path_handles_no_matches(monkeypatch):
     assert result["most_likely_path"] is None
     assert result["candidates"] == []
     assert "no tags" in result["error"].lower()
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_get_tag_path_uses_local_index_when_api_returns_nothing(monkeypatch):
+    """The local index should be consulted when the live search yields no hits."""
+    memory_cache = InMemoryCache()
+    monkeypatch.setattr("canary_mcp.server.get_cache_store", lambda: memory_cache)
+
+    search_mock = AsyncMock(
+        return_value={
+            "success": True,
+            "tags": [],
+            "count": 0,
+            "pattern": "kiln shell speed",
+            "cached": False,
+        }
+    )
+    monkeypatch.setattr("canary_mcp.server.search_tags", SimpleNamespace(fn=search_mock))
+
+    local_candidate = {
+        "path": "Plant.Kiln.Line5.ShellSpeed",
+        "name": "ShellSpeed",
+        "description": "Kiln 5 shell speed in rpm",
+        "metadata": {
+            "path": "Plant.Kiln.Line5.ShellSpeed",
+            "description": "Kiln 5 shell speed in rpm",
+            "unit": "rpm",
+            "source": "test",
+        },
+        "matched_tokens": ["kiln", "shell", "speed"],
+    }
+    monkeypatch.setattr(
+        "canary_mcp.server.get_local_tag_candidates",
+        lambda *args, **kwargs: [local_candidate],
+    )
+
+    metadata_payload = (
+        {
+            "name": local_candidate["name"],
+            "path": local_candidate["path"],
+            "description": local_candidate["description"],
+            "dataType": "float",
+        },
+        False,
+    )
+    monkeypatch.setattr(
+        "canary_mcp.server._get_tag_metadata_cached",
+        AsyncMock(return_value=metadata_payload),
+    )
+
+    result = await get_tag_path.fn("Need kiln shell speed for line 5")
+
+    assert result["success"] is True
+    assert result["most_likely_path"] == local_candidate["path"]
+    assert result["candidates"][0]["matched_keywords"]["local_index"] == ["kiln", "shell", "speed"]

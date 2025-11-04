@@ -11,6 +11,7 @@ Complete reference for all MCP tools provided by the Canary MCP Server.
   - [get_tag_path](#get_tag_path)
   - [get_tag_metadata](#get_tag_metadata)
   - [read_timeseries](#read_timeseries)
+  - [get_tag_properties](#get_tag_properties)
   - [list_namespaces](#list_namespaces)
   - [get_server_info](#get_server_info)
 - [Performance & Monitoring Tools](#performance--monitoring-tools)
@@ -38,6 +39,7 @@ Search for Canary tags by name pattern with caching support.
 **Parameters:**
 - `search_pattern` (string, required): Tag name or pattern to search for (supports wildcards)
 - `bypass_cache` (boolean, optional): Skip cache and fetch fresh data (default: false)
+- `search_path` (string, optional): Namespace prefix passed to Canary `browseTags`. Defaults to the `CANARY_TAG_SEARCH_ROOT` environment variable.
 
 **Returns:**
 ```json
@@ -53,11 +55,17 @@ Search for Canary tags by name pattern with caching support.
   ],
   "count": 1,
   "pattern": "Kiln6*",
-  "cached": false
+  "search_path": "Secil.Portugal",
+  "cached": false,
+  "hint": "Use literal identifiers (e.g. 'P431') without adding wildcard characters."
 }
 ```
 
 **Caching**: Results cached for 1 hour (metadata TTL)
+
+**Path Scoping**: The tool posts to `browseTags` using the configured search path (for example `Secil.Portugal`) so queries like `"P431"` resolve correctly even within large historians. If no root path is configured, the server automatically falls back to common site prefixes.
+
+**Hint**: Provide literal identifiers such as `"P431"` without appending wildcard characters (`*`). The Canary API performs its own partial matching and responds more reliably to the raw identifier.
 
 **Example Usage:**
 ```
@@ -75,7 +83,7 @@ Assistant uses: search_tags(search_pattern="Kiln6*Temperature")
 
 Resolve a natural-language description into the most likely Canary tag path.
 
-**Purpose**: Help engineers locate tags without remembering exact paths by combining search, metadata enrichment, and relevance scoring.
+**Purpose**: Help engineers locate tags without remembering exact paths by combining search, metadata enrichment, and relevance scoring. When Canary's live search cannot find a match, the tool now consults a local index derived from `docs/aux_files/Canary_Path_description_maceira.json`, ensuring common plant terminology (for example “kiln 5 shell speed”) still yields meaningful candidates.
 
 **Parameters:**
 - `description` (string, required): Natural-language description of the desired signal.
@@ -228,6 +236,51 @@ Assistant uses: read_timeseries(
   end_time="now"
 )
 ```
+
+---
+
+### get_tag_properties
+
+Retrieve detailed property dictionaries for one or more tags.
+
+**Purpose**: Access engineering units, documentation, and historian metadata stored alongside each tag.
+
+**Parameters:**
+- `tag_paths` (array of strings, required): Fully qualified tag paths to fetch properties for.
+
+**Returns:**
+```json
+{
+  "success": true,
+  "requested": [
+    "Secil.Portugal.Cement.Maceira.100 - Raw Materials Handling.111 - Crushing.Normalised.Analog.BR5TT_8119.Value"
+  ],
+  "properties": {
+    "Secil.Portugal.Cement.Maceira.100 - Raw Materials Handling.111 - Crushing.Normalised.Analog.BR5TT_8119.Value": {
+      "Description": "Temperatura Enrolamento 1 Motor do Britador",
+      "engUnit": "°C",
+      "engLow": "0",
+      "engHigh": "150",
+      "documentation": "Temperatura Enrolamento 1 Motor do Britador",
+      "DataPermissions": "user_domainSecil(R);G_UNS_Admin(RW)"
+    }
+  },
+  "count": 1,
+  "cached": false
+}
+```
+
+**Example Usage:**
+```
+User: "Show me the engineering limits for kiln shell temperature"
+Assistant uses: get_tag_properties(tag_paths=[
+  "Secil.Portugal.Cement.Maceira.400 - Clinker Production.432 - Kiln.Normalised.Analog.Kiln_Shell_Temp_Average_Section_55.Value"
+])
+```
+
+**Error Handling:**
+- Returns `success: false` when no tag paths are supplied.
+- Authentication, HTTP, and network errors surface descriptive messages returned by the Canary API.
 
 ---
 

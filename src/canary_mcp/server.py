@@ -16,6 +16,7 @@ from canary_mcp.cache import get_cache_store
 from canary_mcp.logging_setup import configure_logging, get_logger
 from canary_mcp.metrics import get_metrics_collector, MetricsTimer
 from canary_mcp.request_context import set_request_id, get_request_id
+from canary_mcp.tag_index import get_local_tag_candidates
 
 # Load environment variables
 load_dotenv()
@@ -65,6 +66,21 @@ STOP_WORDS = {
     "current",
 }
 
+SEARCH_TAGS_HINT = "Use literal identifiers (e.g. 'P431') without adding wildcard characters."
+DEFAULT_SEARCH_PATH_FALLBACKS = ("Secil.Portugal",)
+NORMALIZED_PROPERTY_KEY_ALIASES = {
+    "name": ("name", "tagname", "tag"),
+    "path": ("path", "tagpath", "source itemid", "historian itemid"),
+    "dataType": ("datatype", "type", "datatypeid"),
+    "description": ("description", "documentation"),
+    "units": ("units", "unit", "engineeringunits", "engunit", "engunits"),
+    "engHigh": ("enghigh", "defaulthighscale"),
+    "engLow": ("englow", "defaultlowscale"),
+    "minValue": ("minvalue", "min"),
+    "maxValue": ("maxvalue", "max"),
+    "updateRate": ("updaterate", "scanrate"),
+}
+
 
 def _deduplicate_sequence(items: list[str]) -> list[str]:
     """Deduplicate a list while preserving order."""
@@ -97,6 +113,134 @@ def extract_keywords(description: str, min_length: int = 2) -> list[str]:
         filtered_tokens.append(token)
 
     return _deduplicate_sequence(filtered_tokens)
+
+
+def _normalize_property_dict(raw_properties: dict[str, Any]) -> dict[str, Any]:
+    """Normalize property keys returned by Canary into a consistent metadata dict."""
+    if not isinstance(raw_properties, dict):
+        return {}
+
+    normalized_keys: dict[str, Any] = {}
+    for key, value in raw_properties.items():
+        if not isinstance(key, str):
+            continue
+        alias_key = key.lower().replace(" ", "").replace("_", "")
+        normalized_keys[alias_key] = value
+
+    metadata: dict[str, Any] = {}
+    for field, aliases in NORMALIZED_PROPERTY_KEY_ALIASES.items():
+        for alias in aliases:
+            lookup = alias.lower().replace(" ", "").replace("_", "")
+            if lookup in normalized_keys:
+                metadata[field] = normalized_keys[lookup]
+                break
+
+    # Ensure required fields exist even if empty
+    metadata.setdefault("name", "")
+    metadata.setdefault("path", "")
+    metadata.setdefault("dataType", "unknown")
+    metadata.setdefault("description", "")
+    metadata.setdefault("units", "")
+
+    return metadata
+
+
+def _parse_canary_timeseries_payload(api_response: Any) -> tuple[list[dict[str, Any]], Optional[Any]]:
+    """Extract timeseries samples from the Canary API response structure."""
+    data_points: list[dict[str, Any]] = []
+    continuation = None
+
+    if not isinstance(api_response, dict):
+        return data_points, continuation
+
+    continuation = api_response.get("continuation")
+    data_section = api_response.get("data")
+
+    def _extract_samples(tag_name: str, samples: Any) -> None:
+        if not isinstance(samples, list):
+            return
+        for sample in samples:
+            if not isinstance(sample, dict):
+                continue
+            timestamp = sample.get("timestamp") or sample.get("time") or sample.get("t")
+            value = sample.get("value")
+            if value is None and "v" in sample:
+                value = sample.get("v")
+            quality = sample.get("quality", sample.get("q", "Unknown"))
+            data_points.append(
+                {
+                    "timestamp": timestamp,
+                    "value": value,
+                    "quality": quality,
+                    "tagName": sample.get("tagName", tag_name),
+                }
+            )
+
+    if isinstance(data_section, dict):
+        for tag_name, samples in data_section.items():
+            _extract_samples(tag_name, samples)
+    elif isinstance(data_section, list):
+        for sample in data_section:
+            if not isinstance(sample, dict):
+                continue
+            tag_name = sample.get("tagName", "")
+            _extract_samples(tag_name, [sample])
+
+    return data_points, continuation
+
+
+async def _resolve_tag_identifiers(
+    tag_identifiers: list[str],
+    *,
+    include_original: bool = True,
+) -> tuple[list[str], dict[str, str]]:
+    """
+    Expand shorthand tag identifiers into fully qualified paths using search_tags.
+
+    Returns:
+        tuple[list[str], dict[str, str]]: (lookup_paths, resolved_map)
+    """
+    lookup_paths: list[str] = []
+    resolved_map: dict[str, str] = {}
+
+    for identifier in tag_identifiers:
+        if not identifier:
+            continue
+        cleaned = identifier.strip()
+        if not cleaned:
+            continue
+
+        resolved_map.setdefault(cleaned, cleaned)
+
+        if include_original and cleaned not in lookup_paths:
+            lookup_paths.append(cleaned)
+
+        if "." in cleaned:
+            continue
+
+        try:
+            search_result = await search_tags.fn(cleaned, bypass_cache=False)
+        except Exception as exc:  # pragma: no cover - defensive fallback
+            log.warning(
+                "resolve_tag_identifiers_search_error",
+                identifier=cleaned,
+                error=str(exc),
+                request_id=get_request_id(),
+            )
+            continue
+
+        for tag in search_result.get("tags", []):
+            if not isinstance(tag, dict):
+                continue
+            path = tag.get("path") or tag.get("name")
+            if not path:
+                continue
+            if path not in lookup_paths:
+                lookup_paths.append(path)
+            resolved_map.setdefault(cleaned, path)
+            break
+
+    return lookup_paths, resolved_map
 
 
 def _collect_metadata_text(metadata: dict[str, Any]) -> str:
@@ -285,16 +429,26 @@ def ping() -> str:
 
 
 @mcp.tool()
-async def search_tags(search_pattern: str, bypass_cache: bool = False) -> dict[str, Any]:
+async def search_tags(
+    search_pattern: str,
+    bypass_cache: bool = False,
+    search_path: str | None = None,
+) -> dict[str, Any]:
     """
     Search for Canary tags by name pattern.
 
     This tool searches for industrial process tags in the Canary historian
     that match the provided search pattern. Results are cached for performance.
 
+    Hint: search using the literal identifier (for example "P431") without
+    appending wildcard characters. The service applies its own fuzzy matching
+    and performs better with exact fragments.
+
     Args:
         search_pattern: Tag name or pattern to search for (supports wildcards)
         bypass_cache: If True, skip cache and fetch fresh data (default: False)
+        search_path: Optional namespace path to scope the browseTags query.
+            Defaults to the CANARY_TAG_SEARCH_ROOT environment variable when omitted.
 
     Returns:
         dict[str, Any]: Dictionary containing search results with keys:
@@ -302,38 +456,64 @@ async def search_tags(search_pattern: str, bypass_cache: bool = False) -> dict[s
             - count: Total number of tags found
             - success: Boolean indicating if operation succeeded
             - pattern: The search pattern used
+            - search_path: The path used to scope the search (may be empty)
             - cached: Boolean indicating if result came from cache
 
     Raises:
         Exception: If authentication fails or API request errors occur
     """
     request_id = set_request_id()
+
+    configured_search_path = os.getenv("CANARY_TAG_SEARCH_ROOT", "").strip()
+    fallback_paths_env = os.getenv("CANARY_TAG_SEARCH_FALLBACKS", "")
+
+    raw_fallbacks = [p.strip() for p in fallback_paths_env.split(",") if p.strip()]
+    explicitly_provided = search_path is not None
+
+    candidate_paths: list[str] = []
+
+    def _add_path(path: str | None) -> None:
+        if path is None:
+            return
+        trimmed = path.strip()
+        if trimmed not in candidate_paths:
+            candidate_paths.append(trimmed)
+
+    if explicitly_provided:
+        _add_path(search_path)
+    else:
+        _add_path(search_path)
+        _add_path(configured_search_path)
+        for path in raw_fallbacks:
+            _add_path(path)
+        for path in DEFAULT_SEARCH_PATH_FALLBACKS:
+            _add_path(path)
+        _add_path("")  # Allow global search as final fallback
+
+    # Ensure non-empty paths are attempted first for automatic fallback
+    non_empty_paths = [path for path in candidate_paths if path]
+    empty_present = "" in candidate_paths
+    effective_paths = non_empty_paths + ([""] if empty_present else [])
+
+    # If the caller explicitly provided a search_path (including empty string),
+    # respect it and ignore automatic fallbacks.
+    if explicitly_provided:
+        effective_paths = [(search_path or "").strip()]
+
+    primary_search_path = effective_paths[0] if effective_paths else ""
+
     log.info(
         "search_tags_called",
         search_pattern=search_pattern,
         bypass_cache=bypass_cache,
+        search_paths=effective_paths,
         request_id=request_id,
         tool="search_tags",
     )
 
     async with MetricsTimer("search_tags") as timer:
         try:
-            # Check cache first (unless bypassed)
             cache = get_cache_store()
-            cache_key = cache._generate_cache_key("search", search_pattern)
-
-            if not bypass_cache:
-                cached_result = cache.get(cache_key)
-                if cached_result:
-                    timer.cache_hit = True
-                    log.info(
-                        "search_tags_cache_hit",
-                        pattern=search_pattern,
-                        request_id=get_request_id(),
-                    )
-                    cached_result["cached"] = True
-                    return cached_result
-
             timer.cache_hit = False
 
             # Validate search pattern
@@ -344,7 +524,9 @@ async def search_tags(search_pattern: str, bypass_cache: bool = False) -> dict[s
                     "tags": [],
                     "count": 0,
                     "pattern": search_pattern,
+                    "search_path": primary_search_path,
                     "cached": False,
+                    "hint": SEARCH_TAGS_HINT,
                 }
 
             # Get Canary Views base URL from environment
@@ -360,21 +542,46 @@ async def search_tags(search_pattern: str, bypass_cache: bool = False) -> dict[s
                 # Using browseTags endpoint to search for tags
                 search_url = f"{views_base_url}/api/v2/browseTags"
 
-                async with httpx.AsyncClient(timeout=10.0) as http_client:
-                    response = await http_client.post(
-                        search_url,
-                        json={
-                            "apiToken": api_token,
-                            "search": search_pattern,
-                            "deep": True,
-                        },
+                fallback_result: Optional[dict[str, Any]] = None
+
+                for path_option in effective_paths or [""]:
+                    cache_key = cache._generate_cache_key(
+                        "search",
+                        f"{path_option}::{search_pattern}",
                     )
 
-                    response.raise_for_status()
-                    data = response.json()
+                    if not bypass_cache:
+                        cached_result = cache.get(cache_key)
+                        if cached_result:
+                            timer.cache_hit = True
+                            if "hint" not in cached_result:
+                                cached_result["hint"] = SEARCH_TAGS_HINT
+                            log.info(
+                                "search_tags_cache_hit",
+                                pattern=search_pattern,
+                                search_path=path_option,
+                                request_id=get_request_id(),
+                            )
+                            cached_result["cached"] = True
+                            return cached_result
 
-                    # Parse tag data from response
-                    tags = []
+                    payload = {
+                        "apiToken": api_token,
+                        "search": search_pattern,
+                        "deep": True,
+                        "path": path_option,
+                    }
+
+                    async with httpx.AsyncClient(timeout=10.0) as http_client:
+                        response = await http_client.post(
+                            search_url,
+                            json=payload,
+                        )
+
+                        response.raise_for_status()
+                        data = response.json()
+
+                    tags: list[dict[str, Any]] = []
                     if isinstance(data, dict) and "tags" in data:
                         tag_list = data.get("tags", [])
                         for tag in tag_list:
@@ -393,19 +600,33 @@ async def search_tags(search_pattern: str, bypass_cache: bool = False) -> dict[s
                         "tags": tags,
                         "count": len(tags),
                         "pattern": search_pattern,
+                        "search_path": path_option,
                         "cached": False,
+                        "hint": SEARCH_TAGS_HINT,
                     }
 
-                    # Cache the result
-                    cache.set(cache_key, result, category="metadata")
+                    if tags:
+                        cache.set(cache_key, result, category="metadata")
+                        log.info(
+                            "search_tags_success",
+                            pattern=search_pattern,
+                            tag_count=len(tags),
+                            search_path=path_option,
+                            request_id=get_request_id(),
+                        )
+                        return result
 
+                    if fallback_result is None:
+                        fallback_result = result
+
+                if fallback_result is not None:
                     log.info(
-                        "search_tags_success",
+                        "search_tags_no_results",
                         pattern=search_pattern,
-                        tag_count=len(tags),
+                        search_paths=effective_paths,
                         request_id=get_request_id(),
                     )
-                    return result
+                    return fallback_result
 
         except CanaryAuthError as e:
             error_msg = f"Authentication failed: {str(e)}"
@@ -421,7 +642,9 @@ async def search_tags(search_pattern: str, bypass_cache: bool = False) -> dict[s
                 "tags": [],
                 "count": 0,
                 "pattern": search_pattern,
+                "search_path": primary_search_path,
                 "cached": False,
+                "hint": SEARCH_TAGS_HINT,
             }
 
         except httpx.HTTPStatusError as e:
@@ -441,7 +664,9 @@ async def search_tags(search_pattern: str, bypass_cache: bool = False) -> dict[s
                 "tags": [],
                 "count": 0,
                 "pattern": search_pattern,
+                "search_path": primary_search_path,
                 "cached": False,
+                "hint": SEARCH_TAGS_HINT,
             }
 
         except httpx.RequestError as e:
@@ -458,7 +683,9 @@ async def search_tags(search_pattern: str, bypass_cache: bool = False) -> dict[s
                 "tags": [],
                 "count": 0,
                 "pattern": search_pattern,
+                "search_path": primary_search_path,
                 "cached": False,
+                "hint": SEARCH_TAGS_HINT,
             }
 
         except Exception as e:
@@ -476,7 +703,9 @@ async def search_tags(search_pattern: str, bypass_cache: bool = False) -> dict[s
                 "tags": [],
                 "count": 0,
                 "pattern": search_pattern,
+                "search_path": primary_search_path,
                 "cached": False,
+                "hint": SEARCH_TAGS_HINT,
             }
 
 
@@ -518,6 +747,16 @@ async def get_tag_metadata(tag_path: str) -> dict[str, Any]:
                 "tag_path": tag_path,
             }
 
+        # Resolve potential shorthand identifiers (e.g. P431 -> full path)
+        lookup_paths, resolved_map = await _resolve_tag_identifiers([tag_path])
+        if not lookup_paths:
+            return {
+                "success": False,
+                "error": "Unable to resolve tag identifier",
+                "metadata": {},
+                "tag_path": tag_path,
+            }
+
         # Get Canary Views base URL from environment
         views_base_url = os.getenv("CANARY_VIEWS_BASE_URL", "")
         if not views_base_url:
@@ -527,8 +766,6 @@ async def get_tag_metadata(tag_path: str) -> dict[str, Any]:
         async with CanaryAuthClient() as client:
             api_token = await client.get_valid_token()
 
-            # Query Canary API for tag metadata
-            # Using getTagProperties endpoint to get detailed metadata
             metadata_url = f"{views_base_url}/api/v2/getTagProperties"
 
             async with httpx.AsyncClient(timeout=10.0) as http_client:
@@ -536,45 +773,70 @@ async def get_tag_metadata(tag_path: str) -> dict[str, Any]:
                     metadata_url,
                     json={
                         "apiToken": api_token,
-                        "tags": [tag_path],
+                        "tags": lookup_paths,
                     },
                 )
 
                 response.raise_for_status()
                 data = response.json()
 
-                # Parse metadata from response
-                metadata = {}
-                if isinstance(data, dict):
-                    # Extract common metadata fields
-                    metadata = {
-                        "name": data.get("name", data.get("tagName", "")),
-                        "path": data.get("path", data.get("tagPath", tag_path)),
-                        "dataType": data.get("dataType", data.get("type", "unknown")),
-                        "description": data.get("description", ""),
-                        "units": data.get("units", data.get("engineeringUnits", "")),
-                        "minValue": data.get("minValue", data.get("min")),
-                        "maxValue": data.get("maxValue", data.get("max")),
-                        "updateRate": data.get("updateRate", data.get("scanRate")),
-                    }
+        properties_block = {}
+        if isinstance(data, dict):
+            props = data.get("properties")
+            if isinstance(props, dict):
+                properties_block = props
 
-                    # Include any additional properties
-                    properties = data.get("properties", {})
-                    if properties and isinstance(properties, dict):
-                        metadata["properties"] = properties
+        metadata: dict[str, Any] = {}
+        resolved_path = resolved_map.get(tag_path.strip(), tag_path)
+        for candidate in lookup_paths:
+            candidate_properties = properties_block.get(candidate)
+            if isinstance(candidate_properties, dict):
+                normalized = _normalize_property_dict(candidate_properties)
+                normalized["path"] = normalized.get("path") or candidate
+                normalized["name"] = normalized.get("name") or candidate.split(".")[-1]
+                normalized["properties"] = candidate_properties
+                metadata = normalized
+                resolved_path = candidate
+                break
 
-                log.info(
-                    "get_tag_metadata_success",
-                    tag_path=tag_path,
-                    data_type=metadata.get("dataType"),
-                    units=metadata.get("units"),
-                    request_id=get_request_id(),
-                )
-                return {
-                    "success": True,
-                    "metadata": metadata,
-                    "tag_path": tag_path,
-                }
+        if not metadata and isinstance(data, dict):
+            fallback_normalized = _normalize_property_dict(data)
+            if fallback_normalized:
+                fallback_normalized["path"] = fallback_normalized.get("path") or resolved_path
+                fallback_normalized["name"] = fallback_normalized.get("name") or resolved_path.split(".")[-1]
+                if isinstance(data.get("properties"), dict):
+                    fallback_normalized["properties"] = data["properties"]
+                metadata = fallback_normalized
+
+        if not metadata:
+            log.warning(
+                "get_tag_metadata_not_found",
+                tag_path=tag_path,
+                resolved_candidates=lookup_paths,
+                request_id=get_request_id(),
+            )
+            return {
+                "success": False,
+                "error": f"Tag metadata not found for '{tag_path}'",
+                "metadata": {},
+                "tag_path": tag_path,
+                "resolved_path": resolved_path,
+            }
+
+        log.info(
+            "get_tag_metadata_success",
+            tag_path=tag_path,
+            resolved_path=resolved_path,
+            data_type=metadata.get("dataType"),
+            units=metadata.get("units"),
+            request_id=get_request_id(),
+        )
+        return {
+            "success": True,
+            "metadata": metadata,
+            "tag_path": tag_path,
+            "resolved_path": resolved_path,
+        }
 
     except CanaryAuthError as e:
         error_msg = f"Authentication failed: {str(e)}"
@@ -826,6 +1088,42 @@ async def get_tag_path(
                 )
                 candidate_entry["search_sources"].add(pattern)
 
+                if not candidate_entry.get("description") and tag.get("description"):
+                    candidate_entry["description"] = tag.get("description", "")
+
+        if not candidate_map:
+            local_candidates = get_local_tag_candidates(
+                keywords,
+                description=description_normalized,
+                limit=max_results * 6,
+            )
+
+            for candidate in local_candidates:
+                path = candidate.get("path")
+                if not path:
+                    continue
+
+                candidate_entry = candidate_map.setdefault(
+                    path,
+                    {
+                        "name": candidate.get("name", path.split(".")[-1]),
+                        "path": path,
+                        "dataType": candidate.get("dataType", "unknown"),
+                        "description": candidate.get("description", ""),
+                        "search_sources": set(),
+                    },
+                )
+                candidate_entry["search_sources"].add("local-index")
+
+                local_metadata = candidate.get("metadata") or {}
+                if local_metadata:
+                    candidate_entry["local_metadata"] = {**local_metadata}
+
+                matched_tokens = candidate.get("matched_tokens") or []
+                if matched_tokens:
+                    local_keywords = candidate_entry.setdefault("local_keywords", set())
+                    local_keywords.update(matched_tokens)
+
         if not candidate_map:
             result = {
                 "success": False,
@@ -878,28 +1176,41 @@ async def get_tag_path(
                 metadata, metadata_cached = metadata_result
 
             base_info = candidate_map[path]
-            candidate_name = metadata.get("name", base_info.get("name", ""))
-            candidate_description = metadata.get("description") or base_info.get("description", "")
-            candidate_data_type = metadata.get("dataType", base_info.get("dataType", "unknown"))
+            local_metadata = base_info.get("local_metadata") or {}
+            combined_metadata: dict[str, Any] = {}
+            combined_metadata.update(local_metadata)
+            combined_metadata.update(metadata or {})
+
+            candidate_name = combined_metadata.get("name", base_info.get("name", ""))
+            candidate_description = combined_metadata.get("description") or base_info.get("description", "")
+            candidate_data_type = combined_metadata.get("dataType", base_info.get("dataType", "unknown"))
+
+            metadata_path = combined_metadata.get("path", path)
+            if not combined_metadata.get("path"):
+                combined_metadata["path"] = metadata_path
 
             score, matched_keywords = _score_tag_candidate(
                 keywords,
                 name=candidate_name,
-                path=metadata.get("path", path),
+                path=metadata_path,
                 description=candidate_description,
-                metadata=metadata,
+                metadata=combined_metadata,
             )
+
+            local_keywords = base_info.get("local_keywords")
+            if local_keywords:
+                matched_keywords["local_index"] = _deduplicate_sequence(sorted(local_keywords))
 
             candidates.append(
                 {
-                    "path": metadata.get("path", path),
+                    "path": metadata_path,
                     "name": candidate_name,
                     "dataType": candidate_data_type,
                     "description": candidate_description,
                     "score": round(score, 4),
                     "matched_keywords": {field: matches for field, matches in matched_keywords.items() if matches},
                     "search_sources": sorted(base_info["search_sources"]),
-                    "metadata": metadata,
+                    "metadata": combined_metadata,
                     "metadata_cached": metadata_cached,
                 }
             )
@@ -908,13 +1219,17 @@ async def get_tag_path(
         if len(candidate_map) > len(candidates):
             for path in list(candidate_map.keys())[metadata_limit:]:
                 base_info = candidate_map[path]
+                local_metadata = base_info.get("local_metadata") or {}
                 score, matched_keywords = _score_tag_candidate(
                     keywords,
                     name=base_info.get("name", ""),
                     path=path,
                     description=base_info.get("description", ""),
-                    metadata={},
+                    metadata=local_metadata,
                 )
+                local_keywords = base_info.get("local_keywords")
+                if local_keywords:
+                    matched_keywords["local_index"] = _deduplicate_sequence(sorted(local_keywords))
                 candidates.append(
                     {
                         "path": path,
@@ -924,7 +1239,7 @@ async def get_tag_path(
                         "score": round(score, 4),
                         "matched_keywords": {field: matches for field, matches in matched_keywords.items() if matches},
                         "search_sources": sorted(base_info["search_sources"]),
-                        "metadata": {},
+                        "metadata": local_metadata,
                         "metadata_cached": False,
                     }
                 )
@@ -956,6 +1271,186 @@ async def get_tag_path(
         )
 
         return result
+
+
+@mcp.tool()
+async def get_tag_properties(tag_paths: list[str]) -> dict[str, Any]:
+    """
+    Fetch raw tag property dictionaries from Canary getTagProperties API.
+
+    Args:
+        tag_paths: List of fully qualified tag paths to fetch properties for.
+
+    Returns:
+        dict[str, Any]: {
+            "success": bool,
+            "properties": mapping of tag path -> property dict,
+            "count": number of property payloads returned,
+            "requested": original tag_paths,
+            "cached": always False
+        }
+    """
+    request_id = set_request_id()
+    log.info(
+        "get_tag_properties_called",
+        requested_tags=tag_paths,
+        request_id=request_id,
+        tool="get_tag_properties",
+    )
+
+    if not tag_paths or not [path for path in tag_paths if path and path.strip()]:
+        return {
+            "success": False,
+            "error": "At least one non-empty tag path is required",
+            "properties": {},
+            "count": 0,
+            "requested": tag_paths,
+        }
+
+    # Deduplicate and normalize paths while preserving order
+    normalized_inputs: list[str] = []
+    seen = set()
+    for raw_path in tag_paths:
+        if not raw_path:
+            continue
+        cleaned = raw_path.strip()
+        if not cleaned or cleaned in seen:
+            continue
+        normalized_inputs.append(cleaned)
+        seen.add(cleaned)
+
+    if not normalized_inputs:
+        return {
+            "success": False,
+            "error": "Tag paths must be non-empty strings",
+            "properties": {},
+            "count": 0,
+            "requested": tag_paths,
+        }
+
+    lookup_paths, resolved_map = await _resolve_tag_identifiers(normalized_inputs)
+    if not lookup_paths:
+        return {
+            "success": False,
+            "error": "Unable to resolve tag identifiers",
+            "properties": {},
+            "count": 0,
+            "requested": tag_paths,
+        }
+
+    try:
+        views_base_url = os.getenv("CANARY_VIEWS_BASE_URL", "")
+        if not views_base_url:
+            raise ValueError("CANARY_VIEWS_BASE_URL not configured")
+
+        async with CanaryAuthClient() as client:
+            api_token = await client.get_valid_token()
+
+            payload = {
+                "apiToken": api_token,
+                "tags": lookup_paths,
+            }
+            properties_url = f"{views_base_url}/api/v2/getTagProperties"
+
+            async with httpx.AsyncClient(timeout=10.0) as http_client:
+                response = await http_client.post(properties_url, json=payload)
+                response.raise_for_status()
+                data = response.json()
+
+        properties: dict[str, Any] = {}
+
+        if isinstance(data, dict):
+            props_block = data.get("properties")
+            if isinstance(props_block, dict):
+                for path, prop in props_block.items():
+                    if isinstance(prop, dict):
+                        properties[path] = prop
+
+        resolved_paths = {
+            original: resolved_map.get(original, original) for original in normalized_inputs
+        }
+
+        result = {
+            "success": True,
+            "requested": normalized_inputs,
+            "properties": properties,
+            "count": len(properties),
+            "cached": False,
+            "resolved_paths": resolved_paths,
+        }
+
+        log.info(
+            "get_tag_properties_success",
+            requested=len(normalized_inputs),
+            returned=len(properties),
+            request_id=get_request_id(),
+        )
+
+        return result
+
+    except CanaryAuthError as exc:
+        error_msg = f"Authentication failed: {exc}"
+        log.error(
+            "get_tag_properties_auth_failed",
+            error=error_msg,
+            request_id=get_request_id(),
+        )
+        return {
+            "success": False,
+            "error": error_msg,
+            "properties": {},
+            "count": 0,
+            "requested": normalized_inputs,
+        }
+
+    except httpx.HTTPStatusError as exc:
+        error_msg = (
+            f"API request failed with status {exc.response.status_code}: {exc.response.text}"
+        )
+        log.error(
+            "get_tag_properties_api_error",
+            error=error_msg,
+            status_code=exc.response.status_code,
+            request_id=get_request_id(),
+        )
+        return {
+            "success": False,
+            "error": error_msg,
+            "properties": {},
+            "count": 0,
+            "requested": normalized_inputs,
+        }
+
+    except httpx.RequestError as exc:
+        error_msg = f"Network error accessing Canary API: {exc}"
+        log.error(
+            "get_tag_properties_network_error",
+            error=error_msg,
+            request_id=get_request_id(),
+        )
+        return {
+            "success": False,
+            "error": error_msg,
+            "properties": {},
+            "count": 0,
+            "requested": normalized_inputs,
+        }
+
+    except Exception as exc:
+        error_msg = f"Unexpected error retrieving tag properties: {exc}"
+        log.error(
+            "get_tag_properties_unexpected_error",
+            error=error_msg,
+            request_id=get_request_id(),
+            exc_info=True,
+        )
+        return {
+            "success": False,
+            "error": error_msg,
+            "properties": {},
+            "count": 0,
+            "requested": normalized_paths,
+        }
 
 @mcp.tool()
 async def list_namespaces() -> dict[str, Any]:
@@ -1002,13 +1497,33 @@ async def list_namespaces() -> dict[str, Any]:
                 response.raise_for_status()
                 data = response.json()
 
-                # Parse namespace data from response
-                namespaces = []
-                if isinstance(data, dict) and "nodes" in data:
-                    nodes = data.get("nodes", [])
-                    for node in nodes:
-                        if isinstance(node, dict) and "path" in node:
-                            namespaces.append(node["path"])
+                structured_nodes: list[dict[str, Any]] = []
+                if isinstance(data, dict):
+                    nodes = data.get("nodes")
+                    if isinstance(nodes, dict):
+                        for name, node in nodes.items():
+                            if isinstance(node, dict):
+                                structured_nodes.append(
+                                    {
+                                        "name": name,
+                                        "path": node.get("fullPath", node.get("path", name)),
+                                        "hasNodes": node.get("hasNodes", False),
+                                        "hasTags": node.get("hasTags", False),
+                                    }
+                                )
+                    elif isinstance(nodes, list):
+                        for node in nodes:
+                            if isinstance(node, dict):
+                                structured_nodes.append(
+                                    {
+                                        "name": node.get("name", node.get("path")),
+                                        "path": node.get("path", node.get("fullPath")),
+                                        "hasNodes": node.get("hasNodes", False),
+                                        "hasTags": node.get("hasTags", False),
+                                    }
+                                )
+
+                namespaces = [entry.get("path") for entry in structured_nodes if entry.get("path")]
 
                 log.info(
                     "list_namespaces_success",
@@ -1019,6 +1534,7 @@ async def list_namespaces() -> dict[str, Any]:
                     "success": True,
                     "namespaces": namespaces,
                     "count": len(namespaces),
+                    "nodes": structured_nodes,
                 }
 
     except CanaryAuthError as e:
@@ -1052,11 +1568,167 @@ async def list_namespaces() -> dict[str, Any]:
         return {"success": False, "error": error_msg, "namespaces": [], "count": 0}
 
 
+
+@mcp.tool()
+async def get_last_known_values(tag_names: str | list[str], views: Optional[list[str]] = None) -> dict[str, Any]:
+    """Retrieve the most recent sample for one or more tags."""
+    request_id = set_request_id()
+    tag_list_for_log = [tag_names] if isinstance(tag_names, str) else list(tag_names)
+    log.info(
+        "get_last_known_values_called",
+        tag_names=tag_list_for_log,
+        request_id=request_id,
+        tool="get_last_known_values",
+    )
+
+    try:
+        if isinstance(tag_names, str):
+            tag_list = [tag_names]
+        else:
+            tag_list = list(tag_names)
+
+        if not tag_list or all(not tag.strip() for tag in tag_list):
+            return {
+                "success": False,
+                "error": "Tag names cannot be empty",
+                "data": [],
+                "count": 0,
+                "tag_names": tag_list,
+            }
+
+        lookup_tags, resolved_map = await _resolve_tag_identifiers(tag_list, include_original=False)
+        request_tags = lookup_tags or tag_list
+
+        views_base_url = os.getenv("CANARY_VIEWS_BASE_URL", "")
+        if not views_base_url:
+            raise ValueError("CANARY_VIEWS_BASE_URL not configured")
+
+        async with CanaryAuthClient() as client:
+            api_token = await client.get_valid_token()
+
+            data_url = f"{views_base_url}/api/v2/getTagData"
+
+            async with httpx.AsyncClient(timeout=30.0) as http_client:
+                payload = {
+                    "apiToken": api_token,
+                    "tags": request_tags,
+                    "pageSize": 1,
+                }
+                if views:
+                    payload["views"] = views
+                else:
+                    default_view = os.getenv("CANARY_DEFAULT_VIEW")
+                    if default_view:
+                        payload["views"] = [default_view]
+
+                response = await http_client.post(data_url, json=payload)
+                response.raise_for_status()
+                api_response = response.json()
+
+        data_points, _ = _parse_canary_timeseries_payload(api_response)
+
+        if resolved_map:
+            for point in data_points:
+                tag_name = point.get("tagName")
+                original = next((k for k, v in resolved_map.items() if v == tag_name), None)
+                if original:
+                    point["requestedTag"] = original
+
+        if isinstance(api_response, dict) and "error" in api_response:
+            error_msg = api_response.get("error", "Unknown error")
+            return {
+                "success": False,
+                "error": error_msg,
+                "data": [],
+                "count": 0,
+                "tag_names": tag_list,
+            }
+
+        log.info(
+            "get_last_known_values_success",
+            tag_names=tag_list,
+            data_point_count=len(data_points),
+            request_id=get_request_id(),
+        )
+        return {
+            "success": True,
+            "data": data_points,
+            "count": len(data_points),
+            "tag_names": tag_list,
+            "resolved_tag_names": resolved_map,
+        }
+
+    except CanaryAuthError as e:
+        error_msg = f"Authentication failed: {str(e)}"
+        log.error(
+            "get_last_known_values_auth_failed",
+            error=error_msg,
+            tag_names=tag_list if "tag_list" in locals() else [],
+            request_id=get_request_id(),
+        )
+        return {
+            "success": False,
+            "error": error_msg,
+            "data": [],
+            "count": 0,
+            "tag_names": tag_list if "tag_list" in locals() else [],
+        }
+
+    except httpx.HTTPStatusError as e:
+        error_msg = f"API request failed with status {e.response.status_code}: {e.response.text}"
+        log.error(
+            "get_last_known_values_api_error",
+            error=error_msg,
+            status_code=e.response.status_code,
+            tag_names=tag_list if "tag_list" in locals() else [],
+            request_id=get_request_id(),
+        )
+        return {
+            "success": False,
+            "error": error_msg,
+            "data": [],
+            "count": 0,
+            "tag_names": tag_list if "tag_list" in locals() else [],
+        }
+
+    except httpx.RequestError as e:
+        error_msg = f"Network error accessing Canary API: {str(e)}"
+        log.error(
+            "get_last_known_values_network_error",
+            error=error_msg,
+            tag_names=tag_list if "tag_list" in locals() else [],
+            request_id=get_request_id(),
+        )
+        return {
+            "success": False,
+            "error": error_msg,
+            "data": [],
+            "count": 0,
+            "tag_names": tag_list if "tag_list" in locals() else [],
+        }
+
+    except Exception as e:
+        error_msg = f"Unexpected error retrieving last known values: {str(e)}"
+        log.error(
+            "get_last_known_values_unexpected_error",
+            error=error_msg,
+            tag_names=tag_list if "tag_list" in locals() else [],
+            request_id=get_request_id(),
+            exc_info=True,
+        )
+        return {
+            "success": False,
+            "error": error_msg,
+            "data": [],
+            "count": 0,
+            "tag_names": tag_list if "tag_list" in locals() else [],
+        }
 @mcp.tool()
 async def read_timeseries(
     tag_names: str | list[str],
     start_time: str,
     end_time: str,
+    views: Optional[list[str]] = None,
     page_size: int = 1000,
 ) -> dict[str, Any]:
     """
@@ -1155,6 +1827,9 @@ async def read_timeseries(
             raise ValueError("CANARY_VIEWS_BASE_URL not configured")
 
         # Authenticate and get API token
+        lookup_tags, resolved_tag_map = await _resolve_tag_identifiers(tag_list, include_original=False)
+        request_tags = lookup_tags or tag_list
+
         async with CanaryAuthClient() as client:
             api_token = await client.get_valid_token()
 
@@ -1163,76 +1838,95 @@ async def read_timeseries(
             data_url = f"{views_base_url}/api/v2/getTagData"
 
             async with httpx.AsyncClient(timeout=30.0) as http_client:
-                response = await http_client.post(
-                    data_url,
-                    json={
-                        "apiToken": api_token,
-                        "tags": tag_list,
-                        "startTime": parsed_start_time,
-                        "endTime": parsed_end_time,
-                        "pageSize": page_size,
-                    },
-                )
+                payload = {
+                    "apiToken": api_token,
+                    "tags": request_tags,
+                    "startTime": parsed_start_time,
+                    "endTime": parsed_end_time,
+                    "pageSize": page_size,
+                }
+                if views:
+                    payload["views"] = views
+                else:
+                    default_view = os.getenv("CANARY_DEFAULT_VIEW")
+                    if default_view:
+                        payload["views"] = [default_view]
+
+                response = await http_client.post(data_url, json=payload)
 
                 response.raise_for_status()
                 api_response = response.json()
 
-                # Parse timeseries data from response
-                data_points = []
-                if isinstance(api_response, dict):
-                    # Check if this is a "no data" vs "tag not found" scenario
-                    if "data" in api_response:
-                        raw_data = api_response.get("data", [])
-                        for point in raw_data:
-                            if isinstance(point, dict):
-                                data_points.append(
-                                    {
-                                        "timestamp": point.get(
-                                            "timestamp", point.get("time", "")
-                                        ),
-                                        "value": point.get("value"),
-                                        "quality": point.get("quality", "Unknown"),
-                                        "tagName": point.get("tagName", ""),
-                                    }
-                                )
-                    elif "error" in api_response:
-                        error_msg = api_response.get("error", "Unknown error")
-                        if "not found" in error_msg.lower():
-                            return {
-                                "success": False,
-                                "error": f"Tag not found: {error_msg}",
-                                "data": [],
-                                "count": 0,
-                                "tag_names": tag_list,
-                                "start_time": parsed_start_time,
-                                "end_time": parsed_end_time,
-                            }
-                        return {
-                            "success": False,
-                            "error": error_msg,
-                            "data": [],
-                            "count": 0,
-                            "tag_names": tag_list,
-                            "start_time": parsed_start_time,
-                            "end_time": parsed_end_time,
-                        }
+        data_points, continuation = _parse_canary_timeseries_payload(api_response)
 
-                log.info(
-                    "read_timeseries_success",
-                    tag_names=tag_list,
-                    data_point_count=len(data_points),
-                    start_time=parsed_start_time,
-                    end_time=parsed_end_time,
-                    request_id=get_request_id(),
-                )
+        if resolved_tag_map:
+            for point in data_points:
+                tag_name = point.get("tagName")
+                if tag_name in resolved_tag_map.values():
+                    continue
+                original = next((k for k, v in resolved_tag_map.items() if v == tag_name), None)
+                if original:
+                    point["requestedTag"] = original
+
+        if isinstance(api_response, dict) and "error" in api_response:
+            error_msg = api_response.get("error", "Unknown error")
+            if "not found" in error_msg.lower():
                 return {
-                    "success": True,
-                    "data": data_points,
-                    "count": len(data_points),
+                    "success": False,
+                    "error": f"Tag not found: {error_msg}",
+                    "data": [],
+                    "count": 0,
                     "tag_names": tag_list,
                     "start_time": parsed_start_time,
                     "end_time": parsed_end_time,
                 }
+            return {
+                "success": False,
+                "error": error_msg,
+                "data": [],
+                "count": 0,
+                "tag_names": tag_list,
+                "start_time": parsed_start_time,
+                "end_time": parsed_end_time,
+            }
+
+        if not data_points:
+            last_values_result = await get_last_known_values.fn(tag_names=tag_list)
+            if last_values_result.get("success") and last_values_result.get("data"):
+                log.info(
+                    "read_timeseries_fallback_last_known",
+                    tag_names=tag_list,
+                    request_id=get_request_id(),
+                )
+                return {
+                    "success": True,
+                    "data": last_values_result.get("data", []),
+                    "count": last_values_result.get("count", 0),
+                    "tag_names": tag_list,
+                    "start_time": parsed_start_time,
+                    "end_time": parsed_end_time,
+                    "source": "last_known",
+                    "resolved_tag_names": resolved_tag_map,
+                }
+
+        log.info(
+            "read_timeseries_success",
+            tag_names=tag_list,
+            data_point_count=len(data_points),
+            start_time=parsed_start_time,
+            end_time=parsed_end_time,
+            request_id=get_request_id(),
+        )
+        return {
+            "success": True,
+            "data": data_points,
+            "count": len(data_points),
+            "tag_names": tag_list,
+            "start_time": parsed_start_time,
+            "end_time": parsed_end_time,
+            "continuation": continuation,
+            "resolved_tag_names": resolved_tag_map,
+        }
 
     except CanaryAuthError as e:
         error_msg = f"Authentication failed: {str(e)}"
@@ -1377,14 +2071,18 @@ async def get_server_info() -> dict[str, Any]:
                     "connected": True,
                     # Limit to 10 for readability
                     "supported_timezones": (
-                        timezones[:10] if len(timezones) > 10 else timezones
+                        timezones[:10]
+                        if isinstance(timezones, list) and len(timezones) > 10
+                        else timezones
                     ),
-                    "total_timezones": len(timezones),
+                    "total_timezones": len(timezones) if isinstance(timezones, list) else 0,
                     # Limit to 10 for readability
                     "supported_aggregates": (
-                        aggregates[:10] if len(aggregates) > 10 else aggregates
+                        aggregates[:10]
+                        if isinstance(aggregates, list) and len(aggregates) > 10
+                        else aggregates
                     ),
-                    "total_aggregates": len(aggregates),
+                    "total_aggregates": len(aggregates) if isinstance(aggregates, list) else 0,
                 }
 
                 # MCP server info
