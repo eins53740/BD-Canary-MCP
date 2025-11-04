@@ -1765,7 +1765,10 @@ async def get_tag_properties(tag_paths: list[str]) -> dict[str, Any]:
             "requested": tag_paths,
         }
 
-    lookup_paths, resolved_map = await _resolve_tag_identifiers(normalized_inputs)
+    # Resolve identifiers to fully-qualified paths only; exclude original shorthands
+    lookup_paths, resolved_map = await _resolve_tag_identifiers(
+        normalized_inputs, include_original=False
+    )
     if not lookup_paths:
         return {
             "success": False,
@@ -3126,8 +3129,15 @@ def main() -> None:
         file=sys.stderr,
     )
 
-    log.info("MCP server starting", transport="stdio")
-    mcp.run()
+    transport = os.getenv("CANARY_MCP_TRANSPORT", "stdio").lower()
+    if transport == "http":
+        host = os.getenv("CANARY_MCP_HOST", "0.0.0.0")
+        port = int(os.getenv("CANARY_MCP_PORT", "6000"))
+        log.info("MCP server starting", transport=transport, host=host, port=port)
+        mcp.run(transport="http", host=host, port=port)
+    else:
+        log.info("MCP server starting", transport="stdio")
+        mcp.run()
     log.info("MCP server stopped")
 
 
