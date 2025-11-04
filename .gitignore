@@ -187,3 +187,43 @@ cython_debug/
 #.vscode/
 .venv/
 .pytest_cache/
+docs/aux_files/mcp debug aux/2merge/part_B_3.json
+docs/aux_files/mcp debug aux/2merge/part_Ignition_6.json
+docs/aux_files/mcp debug aux/2merge/part_Ignition_5.json
+docs/aux_files/mcp debug aux/2merge/part_Ignition_4.json
+docs/aux_files/mcp debug aux/2merge/part_Ignition_3.json
+docs/aux_files/mcp debug aux/2merge/part_Ignition_2.json
+docs/aux_files/mcp debug aux/2merge/part_Ignition_1.json
+docs/aux_files/mcp debug aux/2merge/part_B_9_transformed_with_properties.json
+docs/aux_files/mcp debug aux/2merge/part_B_9.json
+docs/aux_files/mcp debug aux/2merge/part_B_8_transformed_with_properties.json
+docs/aux_files/mcp debug aux/2merge/part_B_8.json
+docs/aux_files/mcp debug aux/2merge/part_B_7_transformed_with_properties.json
+docs/aux_files/mcp debug aux/2merge/part_B_7.json
+docs/aux_files/mcp debug aux/2merge/part_B_6_transformed_with_properties.json
+docs/aux_files/mcp debug aux/2merge/part_B_6.json
+docs/aux_files/mcp debug aux/2merge/part_B_5_xxx.txt
+docs/aux_files/mcp debug aux/2merge/part_B_5_transformed_with_properties.json
+docs/aux_files/mcp debug aux/2merge/part_B_4_transformed_with_properties.json
+docs/aux_files/mcp debug aux/2merge/part_B_4.json
+docs/aux_files/mcp debug aux/2merge/part_B_3_transformed_with_properties.json
+docs/aux_files/mcp debug aux/2merge/part_B_2_transformed_with_properties.json
+docs/aux_files/mcp debug aux/2merge/part_B_2.json
+docs/aux_files/mcp debug aux/2merge/part_B_1_transformed_with_properties.json
+docs/aux_files/mcp debug aux/2merge/part_B_13_transformed_with_properties.json
+docs/aux_files/mcp debug aux/2merge/part_B_13.json
+docs/aux_files/mcp debug aux/2merge/part_B_12_transformed_with_properties.json
+docs/aux_files/mcp debug aux/2merge/part_B_12.json
+docs/aux_files/mcp debug aux/2merge/part_B_11_transformed_with_properties.json
+docs/aux_files/mcp debug aux/2merge/part_B_11.json
+docs/aux_files/mcp debug aux/2merge/part_B_10_transformed_with_properties.json
+docs/aux_files/mcp debug aux/2merge/part_B_10.json
+docs/aux_files/mcp debug aux/2merge/part_B_1.json
+docs/aux_files/mcp debug aux/points/TagListExport-kepware.csv
+docs/aux_files/mcp debug aux/points/TagListExport-sys.csv
+docs/aux_files/mcp debug aux/points/TagListExport1.csv
+docs/aux_files/mcp debug aux/points/TagListExport2.csv
+docs/aux_files/mcp debug aux/points/TagListExport3.csv
+docs/aux_files/mcp debug aux/points/TagListExport4.csv
+docs/aux_files/mcp debug aux/points/dbirth.json
+docs/aux_files/mcp debug aux/points/ignition.json

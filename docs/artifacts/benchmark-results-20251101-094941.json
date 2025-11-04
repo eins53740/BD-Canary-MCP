@@ -1,0 +1,25 @@
+{
+  "timestamp": "2025-11-01T09:49:40.798904",
+  "scenarios": {
+    "single_query": {
+      "name": "single_query",
+      "queries": 10,
+      "errors": 0,
+      "latency": {
+        "median": 0.10620009899139404,
+        "p95": 0.12124252319335938,
+        "p99": 0.12124252319335938,
+        "min": 0.10046195983886719,
+        "max": 0.12124252319335938
+      },
+      "pass": true
+    }
+  },
+  "summary": {
+    "passed": 2,
+    "failed": 0,
+    "success_rate": 100.0,
+    "overall_pass": true
+  },
+  "pass": true
+}
