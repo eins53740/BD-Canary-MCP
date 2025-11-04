@@ -1,14 +1,18 @@
 # Canary MCP Remote HTTP Deployment
 
-This guide documents the migration of the Canary MCP server from local STDIO operation to a remotely hosted HTTP endpoint on `vmhost8.secil.pt`. The server continues to use native FastMCP transport, now exposed over HTTP so that all enterprise users can connect without local installations.
+This guide documents the migration of the Canary MCP server from local STDIO operation to a remotely hosted HTTP endpoint on `vmhost8.secil.pt`. The server continues to use native FastMCP transport, now exposed over HTTP so that all enterprise users can connect without local installations. Instructions cover both Linux (systemd) and Windows Server 2022 Standard environments.
 
 ## 1. Deployment Decisions
 - **Transport**: FastMCP native HTTP transport (`CANARY_MCP_TRANSPORT=http`).
-- **Host / Port**: Bind to `0.0.0.0:6000` on the VM and place behind the corporate reverse proxy (TLS termination recommended at the edge).
-- **Runtime**: Python 3.12 in a dedicated virtual environment, running under a `canarymcp` service user.
-- **Service Manager**: `systemd` for automatic start-on-boot and crash recovery.
+- **Host / Port**: Bind to `0.0.0.0:6000` (listen on all interfaces) unless you have a stricter requirement. Setting `CANARY_MCP_HOST` to `0.0.0.0` makes the service remotely reachable via any of the machine’s IP addresses. Use the actual server IP only if you want to restrict binding to a single interface.
+- **Runtime**: Python 3.12 in a dedicated virtual environment, running under a service account.
+- **Service Manager**: `systemd` on Linux; NSSM (or Task Scheduler) on Windows to provide Windows-service semantics.
 
-## 2. Preparing `vmhost8.secil.pt`
+---
+
+## 2. Linux Deployment (systemd)
+
+### 2.1 Prepare `vmhost8.secil.pt`
 1. **Create service account**
    ```bash
    sudo useradd --system --create-home --shell /usr/sbin/nologin canarymcp
@@ -46,7 +50,7 @@ This guide documents the migration of the Canary MCP server from local STDIO ope
    sudo -u canarymcp cp /tmp/maceira_postman_exampes.txt /opt/canary-mcp/docs/aux_files/
    ```
 
-## 3. Environment Configuration
+### 2.2 Environment Configuration
 Update `/opt/canary-mcp/.env` (permissions 600) with production values:
 ```
 CANARY_SAF_BASE_URL=https://<canary-saf-host>
@@ -60,7 +64,7 @@ CANARY_TAG_NOTES_PATH=/opt/canary-mcp/docs/aux_files/maceira_postman_exampes.txt
 ```
 Add any credentials (Vault secrets, API keys) required by `CanaryAuthClient`. Ensure secrets are pulled via company mechanism; never hard-code them in the repo.
 
-## 4. systemd Service
+### 2.3 systemd Service
 Create `/etc/systemd/system/canary-mcp.service`:
 ```ini
 [Unit]
@@ -92,7 +96,90 @@ sudo systemctl enable --now canary-mcp.service
 sudo systemctl status canary-mcp.service
 ```
 
-## 5. Network & Reverse Proxy
+---
+
+## 3. Windows Server 2022 Standard Deployment
+
+### 3.1 Install prerequisites
+1. **Create working directory and service account (optional but recommended)**
+   ```powershell
+   New-LocalUser -Name "canarymcp" -NoPassword
+   Add-LocalGroupMember -Group "Users" -Member "canarymcp"
+   New-Item -ItemType Directory -Path "C:\CanaryMCP" -Force | Out-Null
+   ```
+   Sign in as the service account (or use `runas`) for the remainder of the commands so files inherit the correct ownership.
+
+2. **Install Python 3.12**
+   - Download the Windows x64 installer from https://www.python.org/downloads/windows/.
+   - Install for “All Users”, add Python to PATH, and enable the “pip” feature.
+
+3. **Create virtual environment and install package**
+   ```powershell
+   cd C:\CanaryMCP
+   python -m venv .venv
+   .\.venv\Scripts\python -m pip install --upgrade pip
+   # Copy the wheel built from CI or your dev machine to C:\CanaryMCP
+   .\.venv\Scripts\python -m pip install .\canary_mcp-*.whl
+   ```
+
+4. **Copy auxiliary assets**
+   ```powershell
+   New-Item -ItemType Directory -Path "C:\CanaryMCP\docs\aux_files" -Force | Out-Null
+   Copy-Item C:\temp\Canary_Path_description_maceira.json C:\CanaryMCP\docs\aux_files\
+   Copy-Item C:\temp\maceira_postman_exampes.txt C:\CanaryMCP\docs\aux_files\
+   ```
+
+### 3.2 Configure environment variables
+Create `C:\CanaryMCP\.env` with:
+```
+CANARY_SAF_BASE_URL=https://<canary-saf-host>
+CANARY_VIEWS_BASE_URL=https://<canary-views-host>
+CANARY_TIMEZONE=Europe/Lisbon
+CANARY_MCP_TRANSPORT=http
+CANARY_MCP_HOST=0.0.0.0
+CANARY_MCP_PORT=6000
+CANARY_TAG_METADATA_PATH=C:\CanaryMCP\docs\aux_files\Canary_Path_description_maceira.json
+CANARY_TAG_NOTES_PATH=C:\CanaryMCP\docs\aux_files\maceira_postman_exampes.txt
+```
+Ensure `.env` is ACL-restricted (for example, grant read access only to `canarymcp` and Administrators).
+
+### 3.3 Run as a Windows service
+The two most common approaches:
+
+1. **NSSM (Non-Sucking Service Manager)**  
+   - Download NSSM from https://nssm.cc/download and place `nssm.exe` in `C:\Windows\System32`.
+   - Register the service:
+     ```powershell
+     nssm install CanaryMCP "C:\CanaryMCP\.venv\Scripts\python.exe"
+     nssm set CanaryMCP AppDirectory "C:\CanaryMCP"
+     nssm set CanaryMCP AppParameters "-m canary_mcp.server"
+     nssm set CanaryMCP AppEnvironmentExtra "PYTHONUNBUFFERED=1" "LOG_LEVEL=INFO"
+     New-Item -ItemType Directory -Path "C:\CanaryMCP\logs" -Force | Out-Null
+     nssm set CanaryMCP AppStdout "C:\CanaryMCP\logs\server.log"
+     nssm set CanaryMCP AppStderr "C:\CanaryMCP\logs\server.err.log"
+     nssm start CanaryMCP
+     ```
+     NSSM automatically restarts the process on failure. Make sure the logs directory exists and has write permission for the service account.
+
+2. **Task Scheduler (fallback)**  
+   - Create a scheduled task that runs `python -m canary_mcp.server` at startup, configured to run whether or not the user is logged on.  
+   - Set the task to restart on failure and to run using the `canarymcp` account.
+
+Whichever option you use, verify the service is reachable:
+```powershell
+Invoke-WebRequest http://localhost:6000/mcp/v1/health
+```
+
+### 3.4 Windows firewall and reverse proxy
+- Allow inbound TCP 6000 (or the chosen port) in Windows Defender Firewall:
+  ```powershell
+  New-NetFirewallRule -DisplayName "Canary MCP HTTP" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 6000
+  ```
+- If the server is published externally, front it with IIS/ARR or an internal reverse proxy that terminates TLS and optionally enforces authentication (AD, mTLS, etc.).
+
+---
+
+## 4. Network & Reverse Proxy
 1. **Firewall**: allow inbound traffic from the corporate network to TCP 6000 (or the proxy port).
 2. **TLS termination** (recommended):
    - Configure Nginx/HAProxy on `vmhost8` (or edge gateway) to listen on `https://vmhost8.secil.pt/mcp` and forward to `http://127.0.0.1:6000`.
