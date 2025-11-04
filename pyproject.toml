@@ -39,6 +39,7 @@ markers = [
     "unit: Unit tests",
     "integration: Integration tests",
     "contract: Contract tests",
+    "docker: Docker tests",
 ]
 asyncio_mode = "auto"
 

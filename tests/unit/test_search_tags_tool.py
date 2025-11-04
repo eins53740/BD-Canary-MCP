@@ -177,7 +177,7 @@ async def test_search_tags_includes_configured_path_in_payload():
         with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
             mock_post.side_effect = [mock_auth_response, mock_search_response]
 
-            result = await search_tags.fn("P431")
+            result = await search_tags.fn("P431", bypass_cache=True)
 
             assert len(mock_post.await_args_list) >= 2
             browse_call = mock_post.await_args_list[1]
@@ -217,7 +217,7 @@ async def test_search_tags_falls_back_to_default_when_no_root(monkeypatch):
         with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
             mock_post.side_effect = [mock_auth_response, mock_search_response]
 
-            result = await search_tags.fn("P431")
+            result = await search_tags.fn("P431", bypass_cache=True)
 
             assert len(mock_post.await_args_list) >= 2
             browse_call = mock_post.await_args_list[1]
@@ -254,7 +254,7 @@ async def test_search_tags_data_parsing_empty_tags():
         with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
             mock_post.side_effect = [mock_auth_response, mock_search_response]
 
-            result = await search_tags.fn("NonExistent")
+            result = await search_tags.fn("NonExistent", bypass_cache=True)
 
             assert result["success"] is True
             assert result["count"] == 0
@@ -287,7 +287,7 @@ async def test_search_tags_response_format_success():
         with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
             mock_post.side_effect = [mock_auth_response, mock_search_response]
 
-            result = await search_tags.fn("Pattern")
+            result = await search_tags.fn("Pattern", bypass_cache=True)
 
             # Verify response structure
             assert "success" in result

@@ -4,7 +4,7 @@ import asyncio
 import os
 import re
 from collections import OrderedDict
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, Optional
 
 import httpx
@@ -82,6 +82,30 @@ NORMALIZED_PROPERTY_KEY_ALIASES = {
 }
 
 
+def _parse_iso_timestamp(value: Any) -> Optional[datetime]:
+    """Parse ISO timestamps while handling Z suffix and fractional seconds."""
+    if isinstance(value, datetime):
+        return value
+    if not isinstance(value, str) or not value:
+        return None
+    cleaned = value.strip()
+    if not cleaned:
+        return None
+    if cleaned.endswith("Z"):
+        cleaned = cleaned[:-1] + "+00:00"
+    try:
+        return datetime.fromisoformat(cleaned)
+    except ValueError:
+        return None
+
+
+def _isoformat_utc(dt: datetime) -> str:
+    """Format a datetime as UTC ISO string with trailing Z."""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
+    return dt.isoformat().replace("+00:00", "Z")
+
+
 def _deduplicate_sequence(items: list[str]) -> list[str]:
     """Deduplicate a list while preserving order."""
     return list(OrderedDict.fromkeys(items))
@@ -134,6 +158,12 @@ def _normalize_property_dict(raw_properties: dict[str, Any]) -> dict[str, Any]:
             if lookup in normalized_keys:
                 metadata[field] = normalized_keys[lookup]
                 break
+
+    # If 'name' is not set but 'description' is available and looks like a name, use it
+    if not metadata.get("name") and metadata.get("description"):
+        desc = metadata.get("description", "")
+        if desc and len(desc) < 100:  # Short descriptions might be names
+            metadata["name"] = desc
 
     # Ensure required fields exist even if empty
     metadata.setdefault("name", "")
@@ -237,7 +267,7 @@ async def _resolve_tag_identifiers(
                 continue
             if path not in lookup_paths:
                 lookup_paths.append(path)
-            resolved_map.setdefault(cleaned, path)
+            resolved_map[cleaned] = path
             break
 
     return lookup_paths, resolved_map
@@ -380,7 +410,7 @@ def parse_time_expression(time_expr: str) -> str:
         ValueError: If expression cannot be parsed
     """
     time_expr_lower = time_expr.lower().strip()
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
 
     # Try parsing as ISO timestamp first
     try:
@@ -392,26 +422,26 @@ def parse_time_expression(time_expr: str) -> str:
     # Natural language expressions
     if time_expr_lower == "yesterday":
         target = now - timedelta(days=1)
-        return target.replace(hour=0, minute=0, second=0, microsecond=0).isoformat() + "Z"
+        return _isoformat_utc(target.replace(hour=0, minute=0, second=0, microsecond=0))
 
     if "last week" in time_expr_lower or "past week" in time_expr_lower:
         target = now - timedelta(days=7)
-        return target.isoformat() + "Z"
+        return _isoformat_utc(target)
 
     if "past 24 hours" in time_expr_lower or "last 24 hours" in time_expr_lower:
         target = now - timedelta(hours=24)
-        return target.isoformat() + "Z"
+        return _isoformat_utc(target)
 
     if "last 30 days" in time_expr_lower or "past 30 days" in time_expr_lower:
         target = now - timedelta(days=30)
-        return target.isoformat() + "Z"
+        return _isoformat_utc(target)
 
     if "last 7 days" in time_expr_lower or "past 7 days" in time_expr_lower:
         target = now - timedelta(days=7)
-        return target.isoformat() + "Z"
+        return _isoformat_utc(target)
 
     if time_expr_lower == "now":
-        return now.isoformat() + "Z"
+        return _isoformat_utc(now)
 
     # If not recognized, raise error
     raise ValueError(f"Unrecognized time expression: {time_expr}")
@@ -1366,9 +1396,7 @@ async def get_tag_properties(tag_paths: list[str]) -> dict[str, Any]:
                     if isinstance(prop, dict):
                         properties[path] = prop
 
-        resolved_paths = {
-            original: resolved_map.get(original, original) for original in normalized_inputs
-        }
+        resolved_paths = resolved_map
 
         result = {
             "success": True,
@@ -1449,7 +1477,7 @@ async def get_tag_properties(tag_paths: list[str]) -> dict[str, Any]:
             "error": error_msg,
             "properties": {},
             "count": 0,
-            "requested": normalized_paths,
+            "requested": normalized_inputs,
         }
 
 @mcp.tool()
@@ -1609,10 +1637,17 @@ async def get_last_known_values(tag_names: str | list[str], views: Optional[list
             data_url = f"{views_base_url}/api/v2/getTagData"
 
             async with httpx.AsyncClient(timeout=30.0) as http_client:
+                lookback_hours = max(1, int(os.getenv("CANARY_LAST_VALUE_LOOKBACK_HOURS", "24")))
+                page_size = max(1, int(os.getenv("CANARY_LAST_VALUE_PAGE_SIZE", "500")))
+                now_utc = datetime.now(UTC)
+                start_window = now_utc - timedelta(hours=lookback_hours)
+
                 payload = {
                     "apiToken": api_token,
                     "tags": request_tags,
-                    "pageSize": 1,
+                    "startTime": _isoformat_utc(start_window),
+                    "endTime": _isoformat_utc(now_utc),
+                    "pageSize": page_size,
                 }
                 if views:
                     payload["views"] = views
@@ -1626,6 +1661,25 @@ async def get_last_known_values(tag_names: str | list[str], views: Optional[list
                 api_response = response.json()
 
         data_points, _ = _parse_canary_timeseries_payload(api_response)
+
+        latest_by_tag: dict[str, dict[str, Any]] = {}
+        for point in data_points:
+            tag_name = point.get("tagName")
+            ts = _parse_iso_timestamp(point.get("timestamp"))
+            if not tag_name or ts is None:
+                continue
+            existing = latest_by_tag.get(tag_name)
+            if not existing or ts > existing["_ts"]:
+                cloned = dict(point)
+                cloned["_ts"] = ts
+                latest_by_tag[tag_name] = cloned
+
+        if latest_by_tag:
+            data_points = []
+            for entry in latest_by_tag.values():
+                entry.pop("_ts", None)
+                data_points.append(entry)
+            data_points.sort(key=lambda item: _parse_iso_timestamp(item.get("timestamp")) or datetime.min.replace(tzinfo=UTC), reverse=True)
 
         if resolved_map:
             for point in data_points:

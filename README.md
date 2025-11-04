@@ -14,6 +14,7 @@ The Universal Canary MCP Server enables LLM clients (Claude Desktop, Continue, e
 - ✅ **Ping Tool** - Connection testing and health check
 - ✅ **Environment Configuration** - Flexible configuration via environment variables
 - ✅ **Local Tag Dictionary** - Offline index seeded from Canary exports keeps natural-language tag mapping reliable even when API search misses
+- ✅ **Auto Tag Resolution** - Short identifiers (for example `P431`) transparently resolve to fully-qualified Canary paths across all tools
 - ✅ **Comprehensive Testing** - Unit and integration tests with 73% coverage
 - 🚧 **Canary API Integration** - Coming in Story 1.2
 - 🚧 **Data Access Tools** - Coming in Stories 1.3-1.7
@@ -373,6 +374,9 @@ CANARY_VIEWS_BASE_URL=https://scunscanary.secil.pt
 CANARY_API_TOKEN=your-token-here
 CANARY_TAG_SEARCH_ROOT=Secil.Portugal
 CANARY_TAG_SEARCH_FALLBACKS=
+CANARY_LAST_VALUE_LOOKBACK_HOURS=24
+CANARY_LAST_VALUE_PAGE_SIZE=500
+
 
 # Optional: Server Configuration
 MCP_SERVER_HOST=localhost
@@ -394,6 +398,8 @@ CANARY_RETRY_ATTEMPTS=6
 - **`CANARY_API_TOKEN`** - Authentication token (required, keep secret!)
 - **`CANARY_TAG_SEARCH_ROOT`** - Root namespace used when calling `browseTags` (for example `Secil.Portugal`)
 - **`CANARY_TAG_SEARCH_FALLBACKS`** - Additional namespace prefixes (comma-separated) to probe when the root scope is empty
+- **`CANARY_LAST_VALUE_LOOKBACK_HOURS`** - Window (hours) used when retrieving last known values
+- **`CANARY_LAST_VALUE_PAGE_SIZE`** - Maximum samples requested to resolve last values
 - **`LOG_LEVEL`** - Logging verbosity: DEBUG, INFO, WARNING, ERROR, CRITICAL
 - **`CANARY_TIMEOUT`** - Request timeout in seconds (default: 30)
 - **`CANARY_RETRY_ATTEMPTS`** - Number of retry attempts for failed requests (default: 6)

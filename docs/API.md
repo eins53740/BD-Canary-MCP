@@ -41,6 +41,8 @@ Search for Canary tags by name pattern with caching support.
 - `bypass_cache` (boolean, optional): Skip cache and fetch fresh data (default: false)
 - `search_path` (string, optional): Namespace prefix passed to Canary `browseTags`. Defaults to the `CANARY_TAG_SEARCH_ROOT` environment variable.
 
+
+**Fallbacks**: When the requested window has no samples, the tool automatically returns the latest known values (configurable via `CANARY_LAST_VALUE_LOOKBACK_HOURS`) and marks the response with `"source": "last_known"`. Tags are auto-resolved to their fully qualified paths, which are exposed via `resolved_tag_names`.
 **Returns:**
 ```json
 {
@@ -152,7 +154,7 @@ Retrieve detailed metadata for specific tags.
 **Purpose**: Understand tag properties (units, data type, ranges) before querying timeseries data.
 
 **Parameters:**
-- `tag_path` (string, required): Full path or name of the tag
+- `tag_path` (string, required): Full path or short identifier for the tag
 
 **Returns:**
 ```json
@@ -164,15 +166,23 @@ Retrieve detailed metadata for specific tags.
     "dataType": "float",
     "units": "°C",
     "description": "Kiln 6 inlet temperature",
-    "minValue": 0,
-    "maxValue": 1500,
-    "updateRate": "1s"
+    "engHigh": "1500",
+    "engLow": "0",
+    "updateRate": "1s",
+    "properties": {
+      "Description": "Kiln 6 inlet temperature",
+      "Units": "°C",
+      "Default High Scale": "1500",
+      "Default Low Scale": "0"
+    }
   },
-  "tag_path": "Kiln6.Temperature"
+  "tag_path": "Kiln6.Temperature",
+  "resolved_path": "Maceira.Cement.Kiln6.Temperature"
 }
 ```
 
 **Caching**: Metadata cached for 1 hour
+**Auto-Resolution**: Short identifiers (for example `P431`) are automatically expanded via `search_tags` before querying Canary, ensuring the correct fully qualified path is returned.
 
 **Example Usage:**
 ```
@@ -189,7 +199,7 @@ Retrieve historical timeseries data for tags.
 **Purpose**: Analyze plant performance and troubleshoot operational issues.
 
 **Parameters:**
-- `tag_name` (string, required): Tag name or path
+- `tag_names` (string or array, required): One or more tag identifiers (shorthand like `P431` is supported)
 - `start_time` (string, required): Start time (ISO format or natural language)
 - `end_time` (string, required): End time (ISO format or natural language)
 - `bypass_cache` (boolean, optional): Skip cache (default: false)
@@ -209,19 +219,24 @@ Retrieve historical timeseries data for tags.
     {
       "timestamp": "2024-01-15T10:00:00Z",
       "value": 850.5,
-      "quality": "good"
+      "quality": "Good",
+      "tagName": "Maceira.400 - Clinker Production.431 - Kiln.Normalised.Energy.P431.Value",
+      "requestedTag": "P431"
     },
     {
       "timestamp": "2024-01-15T10:01:00Z",
       "value": 851.2,
-      "quality": "good"
+      "quality": "Good",
+      "tagName": "Maceira.400 - Clinker Production.431 - Kiln.Normalised.Energy.P431.Value",
+      "requestedTag": "P431"
     }
   ],
-  "tag": "Kiln6.Temperature",
-  "start": "2024-01-15T10:00:00Z",
-  "end": "2024-01-15T10:10:00Z",
+  "tag_names": ["P431"],
+  "start_time": "2024-01-15T10:00:00Z",
+  "end_time": "2024-01-15T10:10:00Z",
   "count": 10,
-  "cached": true
+  "continuation": null,
+  "resolved_tag_names": {"P431": "Maceira.400 - Clinker Production.431 - Kiln.Normalised.Energy.P431.Value"}
 }
 ```
 
@@ -253,20 +268,22 @@ Retrieve detailed property dictionaries for one or more tags.
 {
   "success": true,
   "requested": [
-    "Secil.Portugal.Cement.Maceira.100 - Raw Materials Handling.111 - Crushing.Normalised.Analog.BR5TT_8119.Value"
+    "P431"
   ],
   "properties": {
-    "Secil.Portugal.Cement.Maceira.100 - Raw Materials Handling.111 - Crushing.Normalised.Analog.BR5TT_8119.Value": {
-      "Description": "Temperatura Enrolamento 1 Motor do Britador",
-      "engUnit": "°C",
+    "Secil.Portugal.Cement.Maceira.400 - Clinker Production.431 - Kiln.Normalised.Energy.P431.Value": {
+      "Description": "Kiln 5 power consumption",
+      "Units": "kW",
       "engLow": "0",
-      "engHigh": "150",
-      "documentation": "Temperatura Enrolamento 1 Motor do Britador",
+      "engHigh": "8000",
       "DataPermissions": "user_domainSecil(R);G_UNS_Admin(RW)"
     }
   },
   "count": 1,
-  "cached": false
+  "cached": false,
+  "resolved_paths": {
+    "P431": "Secil.Portugal.Cement.Maceira.400 - Clinker Production.431 - Kiln.Normalised.Energy.P431.Value"
+  }
 }
 ```
 
@@ -298,24 +315,31 @@ Discover available namespaces in the Canary historian.
 {
   "success": true,
   "namespaces": [
+    "Maceira",
+    "Maceira.Cement",
+    "Maceira.Cement.Kiln6"
+  ],
+  "nodes": [
     {
       "name": "Maceira",
       "path": "Maceira",
-      "children": [
-        {
-          "name": "Cement",
-          "path": "Maceira.Cement",
-          "children": [
-            {
-              "name": "Kiln6",
-              "path": "Maceira.Cement.Kiln6"
-            }
-          ]
-        }
-      ]
+      "hasNodes": true,
+      "hasTags": true
+    },
+    {
+      "name": "Maceira.Cement",
+      "path": "Maceira.Cement",
+      "hasNodes": true,
+      "hasTags": true
+    },
+    {
+      "name": "Maceira.Cement.Kiln6",
+      "path": "Maceira.Cement.Kiln6",
+      "hasNodes": false,
+      "hasTags": true
     }
   ],
-  "count": 1
+  "count": 3
 }
 ```
 

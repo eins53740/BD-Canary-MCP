@@ -72,7 +72,9 @@ If you prefer to use Python directly without uv:
         "CANARY_VIEWS_BASE_URL": "https://scunscanary.secil.pt",
         "CANARY_API_TOKEN": "your-api-token-here",
         "CANARY_TAG_SEARCH_ROOT": "Secil.Portugal",
-        "CANARY_TAG_SEARCH_FALLBACKS": "Secil.Portugal"
+        "CANARY_TAG_SEARCH_FALLBACKS": "Secil.Portugal",
+        "CANARY_LAST_VALUE_LOOKBACK_HOURS": "24",
+        "CANARY_LAST_VALUE_PAGE_SIZE": "500"
       }
     }
   }
