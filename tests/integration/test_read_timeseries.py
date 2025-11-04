@@ -131,8 +131,10 @@ async def test_read_timeseries_multiple_tags():
         }
         mock_data_response.raise_for_status = MagicMock()
 
-        with patch("httpx.AsyncClient.post") as mock_post:
+        with patch("httpx.AsyncClient.post") as mock_post, \
+             patch("canary_mcp.server.search_tags.fn") as mock_search:
             mock_post.side_effect = [mock_auth_response, mock_data_response]
+            mock_search.return_value = {"success": True, "tags": [{"path": "Tag1"}, {"path": "Tag2"}]}
 
             result = await read_timeseries.fn(
                 ["Tag1", "Tag2"], "2025-10-30T00:00:00Z", "2025-10-31T00:00:00Z"
@@ -191,12 +193,10 @@ async def test_read_timeseries_tag_not_found():
         mock_auth_response.json.return_value = {"sessionToken": "session-123"}
         mock_auth_response.raise_for_status = MagicMock()
 
-        mock_data_response = MagicMock()
-        mock_data_response.json.return_value = {"error": "Tag not found: NonExistent"}
-        mock_data_response.raise_for_status = MagicMock()
-
-        with patch("httpx.AsyncClient.post") as mock_post:
+        with patch("httpx.AsyncClient.post") as mock_post, \
+             patch("canary_mcp.server.search_tags.fn") as mock_search:
             mock_post.side_effect = [mock_auth_response, mock_data_response]
+            mock_search.return_value = {"success": True, "tags": []}
 
             result = await read_timeseries.fn(
                 "NonExistent", "2025-10-30T00:00:00Z", "2025-10-31T00:00:00Z"
