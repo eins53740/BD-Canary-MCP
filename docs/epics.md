@@ -490,3 +490,106 @@ So that [benefit/value].
 ---
 
 **For implementation:** Use the `create-story` workflow to generate individual story implementation plans from this epic breakdown.
+
+---
+
+## Epic 3: Semantic Tag Search
+
+**Estimated Stories:** 5 stories
+
+**Goal:** Introduce a new "get_tag_path" MCP tool that uses natural language processing to find the most likely tag path from a user's descriptive query, making the server more intuitive and user-friendly.
+
+**Epic Completion Criteria:** A user can provide a natural language query like "average temperature for the kiln shell in section 15" to the `get_tag_path` tool and receive the correct, full tag path as a result.
+
+---
+
+### Story 3.1: `get_tag_path` Tool Foundation
+
+As a **Plant Engineer**,
+I want a new MCP tool called `get_tag_path` that accepts a natural language description,
+So that I can start the process of finding a tag without knowing any part of its path.
+
+**Acceptance Criteria:**
+1. New `get_tag_path` MCP tool is created in `server.py`.
+2. Tool accepts a single string argument `description`.
+3. The tool performs an initial search using the existing `search_tags` logic.
+4. The tool extracts and cleans keywords from the input description (e.g., removes stop words).
+5. A basic list of candidate tags is returned if any are found.
+6. Validation test: `test_get_tag_path_foundation.py` confirms the tool can be called and returns initial candidates.
+
+**Prerequisites:** Epic 1 complete.
+
+---
+
+### Story 3.2: Tag Ranking and Scoring Algorithm
+
+As a **Data Analyst**,
+I want the `get_tag_path` tool to intelligently rank search results,
+So that the most relevant tag is presented first.
+
+**Acceptance Criteria:**
+1. A scoring algorithm is implemented within the `get_tag_path` tool.
+2. The algorithm calculates a relevance score for each candidate tag.
+3. Scoring is weighted, prioritizing keywords found in the tag's `name` over its `path`.
+4. The candidate list returned by the tool is sorted by this score in descending order.
+5. The top-scoring tag is identified as the `most_likely_path` in the response.
+6. Validation test: `test_tag_scoring.py` confirms that known tags are scored and ranked correctly based on test queries.
+
+**Prerequisites:** Story 3.1
+
+---
+
+### Story 3.3: Integration with `getTagProperties`
+
+As a **Data Analyst**,
+I want the `get_tag_path` tool to use a tag's full metadata in its ranking,
+So that the search is more accurate by considering the tag's description and other properties.
+
+**Acceptance Criteria:**
+1. The `get_tag_path` tool now calls the `get_tag_metadata` logic for each candidate tag.
+2. The scoring algorithm is enhanced to include the tag's `description` and other relevant metadata fields.
+3. Keywords found in the description add to the tag's relevance score (with a lower weight than name or path).
+4. The tool's response includes the description of the top candidates to provide more context to the user.
+5. Validation test: `test_metadata_integration.py` confirms that a tag's description influences its final score.
+
+**Prerequisites:** Story 3.2
+
+---
+
+### Story 3.4: Caching Strategy for `get_tag_path`
+
+As a **Developer**,
+I want the `get_tag_path` tool to cache its results,
+So that repeated queries are faster and the load on the Canary API is reduced.
+
+**Acceptance Criteria:**
+1. The `get_tag_path` tool is integrated with the existing caching store (`get_cache_store()`)
+2. Intermediate API calls (`browseTags`, `getTagProperties`) made within the tool are cached.
+3. The final ranked result of a `get_tag_path` query is itself cached.
+4. The cache can be bypassed with a `bypass_cache` parameter in the tool.
+5. Cache hit/miss rates for this tool are added to the server's metrics.
+6. Validation test: `test_get_tag_path_caching.py` confirms that repeated calls are served from the cache and that the bypass works.
+
+**Prerequisites:** Story 3.3, Story 2.2 (Caching Layer Implementation)
+
+---
+
+### Story 3.5: Tool Validation and Testing
+
+As a **Developer**,
+I want a comprehensive set of tests for the `get_tag_path` tool,
+So that I can ensure its accuracy, performance, and reliability.
+
+**Acceptance Criteria:**
+1. Unit tests are created for the scoring algorithm, testing various keyword combinations.
+2. Integration tests are created to validate the entire `get_tag_path` workflow with mock API responses.
+3. An end-to-end validation test (`test_get_tag_path.py`) is created to run against a live (or mocked) Canary instance.
+4. The test suite includes scenarios with no matches, one match, and multiple matches.
+5. All new code is included in the project's test coverage.
+
+**Prerequisites:** Story 3.4
+
+---
+
+**Epic 3 Complete!** All 5 stories deliver a powerful, user-friendly semantic search tool that makes finding tags in the Canary Historian more intuitive.
+
