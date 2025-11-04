@@ -184,6 +184,16 @@ uv run python -c "from canary_mcp.auth import CanaryAuthClient; import asyncio; 
 
 ## Connection Validation
 
+### MCP Inspector (Interactive Test)
+
+Use the MCP Inspector to validate the server interactively from this directory:
+
+```bash
+npx @modelcontextprotocol/inspector uv --directory . run canary-mcp
+```
+
+This opens the Inspector UI in your browser and starts the server via uv.
+
 ### Test 1: Ping Tool
 
 ```bash
