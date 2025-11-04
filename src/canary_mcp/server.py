@@ -1,28 +1,44 @@
 """Main MCP server module for Canary Historian integration."""
 
 import asyncio
+import json
 import os
 import re
 from collections import OrderedDict
 from datetime import UTC, datetime, timedelta
+from functools import lru_cache
+from pathlib import Path
+from textwrap import dedent
 from typing import Any, Optional
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import httpx
 from dotenv import load_dotenv
 from fastmcp import FastMCP
+from fastmcp.prompts import Message
 
-from canary_mcp.auth import CanaryAuthError, CanaryAuthClient
+from canary_mcp.auth import CanaryAuthClient, CanaryAuthError
 from canary_mcp.cache import get_cache_store
 from canary_mcp.logging_setup import configure_logging, get_logger
-from canary_mcp.metrics import get_metrics_collector, MetricsTimer
-from canary_mcp.request_context import set_request_id, get_request_id
+from canary_mcp.metrics import MetricsTimer, get_metrics_collector
+from canary_mcp.request_context import get_request_id, set_request_id
 from canary_mcp.tag_index import get_local_tag_candidates
 
 # Load environment variables
 load_dotenv()
 
 # Initialize FastMCP server
-mcp = FastMCP("Canary MCP Server")
+mcp = FastMCP(
+    "Canary MCP Server",
+    instructions=(
+        "Expose Canary historian metadata, guide natural-language requests toward precise tag "
+        "paths, and lean on the tag catalog resource plus the tag_lookup_workflow prompt to "
+        "clarify any ambiguous user intent. Interpret time ranges with the Canary relative time "
+        "standard (see resource://canary/time-standards) and convert results from the "
+        "Europe/Lisbon timezone to UTC. When requesting data for more than one tag, prefer the "
+        "historian POST endpoints instead of multi-tag GET queries."
+    ),
+)
 
 # Get logger instance
 log = get_logger(__name__)
@@ -66,7 +82,30 @@ STOP_WORDS = {
     "current",
 }
 
-SEARCH_TAGS_HINT = "Use literal identifiers (e.g. 'P431') without adding wildcard characters."
+REPO_ROOT = Path(__file__).resolve().parents[2]
+TAG_METADATA_PATH = Path(
+    os.getenv(
+        "CANARY_TAG_METADATA_PATH",
+        REPO_ROOT / "docs" / "aux_files" / "Canary_Path_description_maceira.json",
+    )
+)
+TAG_NOTES_PATH = Path(
+    os.getenv(
+        "CANARY_TAG_NOTES_PATH",
+        REPO_ROOT / "docs" / "aux_files" / "maceira_postman_exampes.txt",
+    )
+)
+DEFAULT_TIMEZONE = os.getenv("CANARY_TIMEZONE", "Europe/Lisbon")
+try:
+    DEFAULT_TZINFO = ZoneInfo(DEFAULT_TIMEZONE)
+except ZoneInfoNotFoundError:
+    DEFAULT_TZINFO = UTC
+
+SEARCH_TAGS_HINT = (
+    "Describe the process area and distinctive identifiers (e.g. 'Maceira kiln shell temperature "
+    "P431'). Prefer exact fragments over wildcards; combine with resource://canary/tag-catalog to "
+    "confirm descriptions and units."
+)
 DEFAULT_SEARCH_PATH_FALLBACKS = ("Secil.Portugal",)
 NORMALIZED_PROPERTY_KEY_ALIASES = {
     "name": ("name", "tagname", "tag"),
@@ -80,6 +119,57 @@ NORMALIZED_PROPERTY_KEY_ALIASES = {
     "maxValue": ("maxvalue", "max"),
     "updateRate": ("updaterate", "scanrate"),
 }
+
+RELATIVE_TIME_GUIDE = dedent(
+    """\
+    Relative Times
+    Descriptions of relative time units and how they can be used
+    Usage
+    DateTime
+    Use relative units to represent a date/time. Example: Now - 1Month + 3Days
+    TimeSpan
+    Use relative units to represent a timespan. Example: 8Hours + 30Minutes + 15Seconds
+    Units
+    Now
+    Use this to represent the current date/time
+    Year
+    Use this to represent the current year or to add/subtract years
+    Month
+    Use this to represent the start of the current month or to add/subtract months
+    Week
+    Use this to represent the start of the current week (Sunday) or to add/subtract weeks
+    Day
+    Use this to represent the start of the current day or to add/subtract days
+    Hour
+    Use this to represent the start of the current hour or to add/subtract hours
+    Minute
+    Use this to represent the start of the current minute or to add/subtract minutes
+    Second
+    Use this to represent the start of the current second or to add/subtract seconds
+    Millisecond
+    Use this to add/subtract milliseconds
+    Beginning
+    Use this to represent the minimum date/time value
+    Ending
+    Use this to represent the maximum date/time value
+    DateTime Examples
+    Minute - 30Minutes
+    A date/time 30 minutes before the start of the current minute
+    Day - 1Week
+    7 days previous to the start of the current day
+    Week - 4Hours
+    4 hours previous to the start of the current week (Sunday)
+    Hour
+    Start of the current hour
+    TimeSpan Examples
+    4Hours + 30Minutes
+    4 hours and 30 minutes
+    1Week
+    7 days
+    90Seconds
+    1 minute and 30 seconds
+    """
+)
 
 
 def _parse_iso_timestamp(value: Any) -> Optional[datetime]:
@@ -102,8 +192,8 @@ def _parse_iso_timestamp(value: Any) -> Optional[datetime]:
 def _isoformat_utc(dt: datetime) -> str:
     """Format a datetime as UTC ISO string with trailing Z."""
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=UTC)
-    return dt.isoformat().replace("+00:00", "Z")
+        dt = dt.replace(tzinfo=DEFAULT_TZINFO)
+    return dt.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _deduplicate_sequence(items: list[str]) -> list[str]:
@@ -175,7 +265,107 @@ def _normalize_property_dict(raw_properties: dict[str, Any]) -> dict[str, Any]:
     return metadata
 
 
-def _parse_canary_timeseries_payload(api_response: Any) -> tuple[list[dict[str, Any]], Optional[Any]]:
+@lru_cache(maxsize=1)
+def _load_tag_catalog() -> list[dict[str, Any]]:
+    """Load curated tag metadata from the auxiliary Canary catalog."""
+    try:
+        raw_text = TAG_METADATA_PATH.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        log.warning(
+            "tag_catalog_missing",
+            path=str(TAG_METADATA_PATH),
+        )
+        return []
+    except OSError as exc:
+        log.error(
+            "tag_catalog_unreadable",
+            path=str(TAG_METADATA_PATH),
+            error=str(exc),
+        )
+        return []
+
+    try:
+        payload = json.loads(raw_text)
+    except json.JSONDecodeError as exc:
+        log.error(
+            "tag_catalog_invalid_json",
+            path=str(TAG_METADATA_PATH),
+            error=str(exc),
+        )
+        return []
+
+    catalog: list[dict[str, Any]] = []
+
+    def _append_entry(entry: dict[str, Any]) -> None:
+        path = str(entry.get("path", "")).strip()
+        if not path:
+            return
+        catalog.append(
+            {
+                "path": path,
+                "description": entry.get("description", "").strip(),
+                "unit": entry.get("unit", "").strip(),
+                "keywords": entry.get("keywords", []),
+                "plant": entry.get("plant", "").strip(),
+                "equipment": entry.get("equipment", "").strip(),
+            }
+        )
+
+    if isinstance(payload, list):
+        for block in payload:
+            if isinstance(block, dict) and isinstance(block.get("tags"), list):
+                for tag_entry in block["tags"]:
+                    if isinstance(tag_entry, dict):
+                        _append_entry(tag_entry)
+
+    # Deduplicate by path while preserving order
+    deduped: dict[str, dict[str, Any]] = OrderedDict()
+    for entry in catalog:
+        deduped.setdefault(entry["path"], entry)
+
+    return list(deduped.values())
+
+
+@lru_cache(maxsize=1)
+def _load_tag_examples() -> list[str]:
+    """Load plain-text request/response examples to assist LLM disambiguation."""
+    try:
+        raw_text = TAG_NOTES_PATH.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        log.warning("tag_notes_missing", path=str(TAG_NOTES_PATH))
+        return []
+    except OSError as exc:
+        log.error("tag_notes_unreadable", path=str(TAG_NOTES_PATH), error=str(exc))
+        return []
+
+    examples: list[str] = []
+    for line in raw_text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("{{APIURL}}"):
+            examples.append(stripped)
+    return examples
+
+
+def _build_asset_catalog() -> dict[str, Any]:
+    """Build the structured payload exposed via the catalog resource/tool."""
+    tags = _load_tag_catalog()
+    examples = _load_tag_examples()
+    return {
+        "site": "Maceira",
+        "default_timezone": DEFAULT_TIMEZONE,
+        "total_tags": len(tags),
+        "tags": tags,
+        "examples": examples,
+        "source_files": {
+            "metadata": str(TAG_METADATA_PATH),
+            "examples": str(TAG_NOTES_PATH),
+        },
+    }
+
+
+def _parse_canary_timeseries_payload(
+    api_response: Any,
+) -> tuple[list[dict[str, Any]], Optional[Any]]:
     """Extract timeseries samples from the Canary API response structure."""
     data_points: list[dict[str, Any]] = []
     continuation = None
@@ -400,6 +590,9 @@ def parse_time_expression(time_expr: str) -> str:
     - "past 24 hours" → last 24 hours from now
     - "last 30 days" → past 30 days from now
 
+    Natural language expressions are interpreted using the configured
+    CANARY_TIMEZONE (defaults to Europe/Lisbon) before being converted to UTC.
+
     Args:
         time_expr: Natural language time expression or ISO timestamp
 
@@ -410,7 +603,7 @@ def parse_time_expression(time_expr: str) -> str:
         ValueError: If expression cannot be parsed
     """
     time_expr_lower = time_expr.lower().strip()
-    now = datetime.now(UTC)
+    now = datetime.now(DEFAULT_TZINFO)
 
     # Try parsing as ISO timestamp first
     try:
@@ -422,7 +615,8 @@ def parse_time_expression(time_expr: str) -> str:
     # Natural language expressions
     if time_expr_lower == "yesterday":
         target = now - timedelta(days=1)
-        return _isoformat_utc(target.replace(hour=0, minute=0, second=0, microsecond=0))
+        start_of_day = target.replace(hour=0, minute=0, second=0, microsecond=0)
+        return _isoformat_utc(start_of_day)
 
     if "last week" in time_expr_lower or "past week" in time_expr_lower:
         target = now - timedelta(days=7)
@@ -458,6 +652,210 @@ def ping() -> str:
     return "pong - Canary MCP Server is running!"
 
 
+@mcp.resource(
+    "resource://canary/tag-catalog",
+    title="Maceira Tag Catalog",
+    description=(
+        "Structured metadata for the Secil Maceira site, including tag paths, descriptions, "
+        "and engineering units gathered from Canary auxiliary files."
+    ),
+    mime_type="application/json",
+    tags={"metadata", "catalog"},
+)
+def maceira_tag_catalog() -> dict[str, Any]:
+    """Expose the curated tag catalog as an MCP resource."""
+    return _build_asset_catalog()
+
+
+@mcp.resource(
+    "resource://canary/time-standards",
+    title="Canary Relative Time Standards",
+    description=(
+        "Reference guide for Canary relative time expressions and Europe/Lisbon timezone defaults "
+        "used in historian queries."
+    ),
+    mime_type="application/json",
+    tags={"metadata", "time"},
+)
+def canary_time_standards() -> dict[str, Any]:
+    """Expose the relative time guidance and default timezone for MCP clients."""
+    return {
+        "default_timezone": DEFAULT_TIMEZONE,
+        "timezone_note": (
+            f"Interpret natural-language expressions in {DEFAULT_TIMEZONE} before converting to UTC."
+        ),
+        "relative_time_reference": RELATIVE_TIME_GUIDE,
+        "examples": [
+            "DateTime: Now - 1Month + 3Days",
+            "TimeSpan: 4Hours + 30Minutes + 15Seconds",
+            "Minute - 30Minutes",
+            "Day - 1Week",
+            "Week - 4Hours",
+        ],
+    }
+
+
+@mcp.tool()
+def get_asset_catalog(
+    refresh: bool = False,
+    limit: int = 200,
+    include_examples: bool = False,
+) -> dict[str, Any]:
+    """
+    Retrieve curated metadata for Secil Maceira sensors, devices, and historian tags.
+
+    This tool compiles information from the Canary auxiliary catalog so LLM or MCP clients
+    can convert natural-language requests into concrete historian paths. Pair this with
+    the `tag_lookup_workflow` prompt and the `search_tags` tool when the user provides only
+    a partial description.
+
+    Args:
+        refresh: When True, reload the auxiliary files from disk (default: False)
+        limit: Maximum number of tag entries to return inline (default: 200)
+        include_examples: When True, include the raw request examples from the source file
+
+    Returns:
+        dict[str, Any]: Keys include
+            - success: Whether metadata was loaded
+            - tags: Inline sample of tag entries limited by ``limit``
+            - examples: Optional example list (present when include_examples=True)
+            - total_tags: Number of tag entries available in the catalog
+            - summary: Metadata about the returned sample (site, counts, truncation)
+            - resource_uri: The canonical MCP resource URI for the catalog
+            - refreshed: Whether the cache was refreshed this call
+            - hint: Guidance for follow-up actions
+    """
+    request_id = set_request_id()
+    log.info(
+        "get_asset_catalog_called",
+        refresh=refresh,
+        limit=limit,
+        include_examples=include_examples,
+        request_id=request_id,
+    )
+
+    if refresh:
+        _load_tag_catalog.cache_clear()
+        _load_tag_examples.cache_clear()
+
+    catalog = _build_asset_catalog()
+    success = bool(catalog.get("tags"))
+
+    tags: list[dict[str, Any]] = list(catalog.get("tags", []))
+    total_tags = len(tags)
+
+    safe_limit = max(0, min(limit, 1000))  # Hard cap to avoid oversized payloads
+    truncated = total_tags > safe_limit >= 0
+    tags_slice = tags[:safe_limit] if safe_limit else []
+
+    examples: list[str] = catalog.get("examples", []) if include_examples else []
+    if include_examples and examples:
+        # Guard against excessively large example payloads by trimming to 25 entries
+        examples = examples[:25]
+
+    log.info(
+        "get_asset_catalog_completed",
+        success=success,
+        tag_count=total_tags,
+        returned=len(tags_slice),
+        truncated=truncated,
+        request_id=get_request_id(),
+    )
+    return {
+        "success": success,
+        "tags": tags_slice,
+        "examples": examples,
+        "total_tags": total_tags,
+        "summary": {
+            "site": catalog.get("site"),
+            "default_timezone": catalog.get("default_timezone"),
+            "returned": len(tags_slice),
+            "total": total_tags,
+            "limit": safe_limit,
+            "truncated": truncated,
+        },
+        "resource_uri": "resource://canary/tag-catalog",
+        "refreshed": refresh,
+        "hint": (
+            SEARCH_TAGS_HINT
+            + (
+                " Call read_resource('resource://canary/tag-catalog') for the full catalog."
+                if truncated
+                else ""
+            )
+        ),
+    }
+
+
+@mcp.prompt(
+    "tag_lookup_workflow",
+    description=(
+        "Workflow for translating natural-language requests into precise Canary tag paths."
+    ),
+    tags={"workflow", "metadata"},
+)
+def tag_lookup_workflow() -> list[Message]:
+    """
+    Step-by-step workflow guiding an LLM to resolve user requests into historian tag paths.
+    """
+    return [
+        Message(
+            role="system",
+            content=(
+                "You help operators navigate the Canary historian. Default to the "
+                f"{DEFAULT_TIMEZONE} timezone and prefer the Secil Maceira namespace."
+            ),
+        ),
+        Message(
+            role="user",
+            content=(
+                "Follow this workflow:\n"
+                "1. Clarify the process area, equipment, and any identifiers in the request.\n"
+                "2. Check `resource://canary/tag-catalog` via `get_asset_catalog` for an exact "
+                "match on description or unit.\n"
+                "3. When no match is found, call `search_tags` with the strongest keyword "
+                "(avoid wildcards) and review returned paths.\n"
+                "4. Confirm engineering units and descriptions with `get_tag_properties` if "
+                "available before recommending a path.\n"
+                "5. Return the fully qualified historian path(s) and highlight confidence or "
+                "follow-up checks the user should perform."
+            ),
+        ),
+    ]
+
+
+@mcp.prompt(
+    "timeseries_query_workflow",
+    description="Workflow for retrieving historical samples from the Canary historian.",
+    tags={"workflow", "timeseries"},
+)
+def timeseries_query_workflow() -> list[Message]:
+    """Workflow prompting for safe historical data retrieval."""
+    return [
+        Message(
+            role="system",
+            content=(
+                "Assist with querying historical data while respecting Canary API constraints "
+                f"and the default {DEFAULT_TIMEZONE} timezone."
+            ),
+        ),
+        Message(
+            role="user",
+            content=(
+                "1. Resolve tag paths using the tag lookup workflow first.\n"
+                "2. Define start and end times using the Canary relative time grammar (see "
+                "`resource://canary/time-standards`); interpret expressions in "
+                f"{DEFAULT_TIMEZONE} before converting to UTC.\n"
+                "3. Call `read_timeseries` with ISO timestamps and moderate page_size (<=1000). "
+                "When retrieving more than one tag, use the historian POST endpoints instead of "
+                "multi-tag GET requests.\n"
+                "4. Inspect the response for continuation tokens and iterate if needed.\n"
+                "5. Summarise the retrieved data, noting gaps or quality issues."
+            ),
+        ),
+    ]
+
+
 @mcp.tool()
 async def search_tags(
     search_pattern: str,
@@ -470,9 +868,10 @@ async def search_tags(
     This tool searches for industrial process tags in the Canary historian
     that match the provided search pattern. Results are cached for performance.
 
-    Hint: search using the literal identifier (for example "P431") without
-    appending wildcard characters. The service applies its own fuzzy matching
-    and performs better with exact fragments.
+    Hint: combine this tool with the `tag_lookup_workflow` prompt and the
+    `resource://canary/tag-catalog` metadata. Start from literal identifiers
+    (for example "P431") without introducing wildcards—Canary performs its own
+    fuzzy matching and rewards precise fragments.
 
     Args:
         search_pattern: Tag name or pattern to search for (supports wildcards)
@@ -833,7 +1232,9 @@ async def get_tag_metadata(tag_path: str) -> dict[str, Any]:
             fallback_normalized = _normalize_property_dict(data)
             if fallback_normalized:
                 fallback_normalized["path"] = fallback_normalized.get("path") or resolved_path
-                fallback_normalized["name"] = fallback_normalized.get("name") or resolved_path.split(".")[-1]
+                fallback_normalized["name"] = (
+                    fallback_normalized.get("name") or resolved_path.split(".")[-1]
+                )
                 if isinstance(data.get("properties"), dict):
                     fallback_normalized["properties"] = data["properties"]
                 metadata = fallback_normalized
@@ -884,9 +1285,7 @@ async def get_tag_metadata(tag_path: str) -> dict[str, Any]:
         }
 
     except httpx.HTTPStatusError as e:
-        error_msg = (
-            f"API request failed with status {e.response.status_code}: {e.response.text}"
-        )
+        error_msg = f"API request failed with status {e.response.status_code}: {e.response.text}"
         log.error(
             "get_tag_metadata_api_error",
             error=error_msg,
@@ -1212,8 +1611,12 @@ async def get_tag_path(
             combined_metadata.update(metadata or {})
 
             candidate_name = combined_metadata.get("name", base_info.get("name", ""))
-            candidate_description = combined_metadata.get("description") or base_info.get("description", "")
-            candidate_data_type = combined_metadata.get("dataType", base_info.get("dataType", "unknown"))
+            candidate_description = combined_metadata.get("description") or base_info.get(
+                "description", ""
+            )
+            candidate_data_type = combined_metadata.get(
+                "dataType", base_info.get("dataType", "unknown")
+            )
 
             metadata_path = combined_metadata.get("path", path)
             if not combined_metadata.get("path"):
@@ -1238,7 +1641,9 @@ async def get_tag_path(
                     "dataType": candidate_data_type,
                     "description": candidate_description,
                     "score": round(score, 4),
-                    "matched_keywords": {field: matches for field, matches in matched_keywords.items() if matches},
+                    "matched_keywords": {
+                        field: matches for field, matches in matched_keywords.items() if matches
+                    },
                     "search_sources": sorted(base_info["search_sources"]),
                     "metadata": combined_metadata,
                     "metadata_cached": metadata_cached,
@@ -1267,7 +1672,9 @@ async def get_tag_path(
                         "dataType": base_info.get("dataType", "unknown"),
                         "description": base_info.get("description", ""),
                         "score": round(score, 4),
-                        "matched_keywords": {field: matches for field, matches in matched_keywords.items() if matches},
+                        "matched_keywords": {
+                            field: matches for field, matches in matched_keywords.items() if matches
+                        },
                         "search_sources": sorted(base_info["search_sources"]),
                         "metadata": local_metadata,
                         "metadata_cached": False,
@@ -1480,6 +1887,7 @@ async def get_tag_properties(tag_paths: list[str]) -> dict[str, Any]:
             "requested": normalized_inputs,
         }
 
+
 @mcp.tool()
 async def list_namespaces() -> dict[str, Any]:
     """
@@ -1596,9 +2004,10 @@ async def list_namespaces() -> dict[str, Any]:
         return {"success": False, "error": error_msg, "namespaces": [], "count": 0}
 
 
-
 @mcp.tool()
-async def get_last_known_values(tag_names: str | list[str], views: Optional[list[str]] = None) -> dict[str, Any]:
+async def get_last_known_values(
+    tag_names: str | list[str], views: Optional[list[str]] = None
+) -> dict[str, Any]:
     """Retrieve the most recent sample for one or more tags."""
     request_id = set_request_id()
     tag_list_for_log = [tag_names] if isinstance(tag_names, str) else list(tag_names)
@@ -1679,7 +2088,11 @@ async def get_last_known_values(tag_names: str | list[str], views: Optional[list
             for entry in latest_by_tag.values():
                 entry.pop("_ts", None)
                 data_points.append(entry)
-            data_points.sort(key=lambda item: _parse_iso_timestamp(item.get("timestamp")) or datetime.min.replace(tzinfo=UTC), reverse=True)
+            data_points.sort(
+                key=lambda item: _parse_iso_timestamp(item.get("timestamp"))
+                or datetime.min.replace(tzinfo=UTC),
+                reverse=True,
+            )
 
         if resolved_map:
             for point in data_points:
@@ -1777,6 +2190,8 @@ async def get_last_known_values(tag_names: str | list[str], views: Optional[list
             "count": 0,
             "tag_names": tag_list if "tag_list" in locals() else [],
         }
+
+
 @mcp.tool()
 async def read_timeseries(
     tag_names: str | list[str],
@@ -1808,6 +2223,10 @@ async def read_timeseries(
 
     Raises:
         Exception: If authentication fails or API request errors occur
+
+    Note:
+        When retrieving data for multiple tags, the MCP issues POST requests to the Canary
+        historian. Avoid multi-tag GET queries to remain compatible with the API.
     """
     request_id = set_request_id()
     # Normalize tag_names for logging
@@ -1881,7 +2300,9 @@ async def read_timeseries(
             raise ValueError("CANARY_VIEWS_BASE_URL not configured")
 
         # Authenticate and get API token
-        lookup_tags, resolved_tag_map = await _resolve_tag_identifiers(tag_list, include_original=False)
+        lookup_tags, resolved_tag_map = await _resolve_tag_identifiers(
+            tag_list, include_original=False
+        )
         request_tags = lookup_tags or tag_list
 
         async with CanaryAuthClient() as client:
@@ -1999,9 +2420,7 @@ async def read_timeseries(
         }
 
     except httpx.HTTPStatusError as e:
-        error_msg = (
-            f"API request failed with status {e.response.status_code}: {e.response.text}"
-        )
+        error_msg = f"API request failed with status {e.response.status_code}: {e.response.text}"
         log.error(
             "read_timeseries_api_error",
             error=error_msg,
@@ -2106,11 +2525,22 @@ async def get_server_info() -> dict[str, Any]:
                 aggregates_data = aggregates_response.json()
 
                 # Parse server capabilities
-                timezones = []
+                raw_timezones: list[str] = []
                 if isinstance(timezones_data, dict):
-                    timezones = timezones_data.get("timeZones", [])
+                    raw_timezones = list(timezones_data.get("timeZones", []))
                 elif isinstance(timezones_data, list):
-                    timezones = timezones_data
+                    raw_timezones = list(timezones_data)
+
+                preferred_timezone = DEFAULT_TIMEZONE
+                timezones: list[str] = []
+                for tz in raw_timezones:
+                    if isinstance(tz, str) and tz not in timezones:
+                        timezones.append(tz)
+
+                if preferred_timezone:
+                    if preferred_timezone in timezones:
+                        timezones.remove(preferred_timezone)
+                    timezones.insert(0, preferred_timezone)
 
                 aggregates = []
                 if isinstance(aggregates_data, dict):
@@ -2126,10 +2556,15 @@ async def get_server_info() -> dict[str, Any]:
                     # Limit to 10 for readability
                     "supported_timezones": (
                         timezones[:10]
-                        if isinstance(timezones, list) and len(timezones) > 10
+                        if len(timezones) > 10
                         else timezones
                     ),
-                    "total_timezones": len(timezones) if isinstance(timezones, list) else 0,
+                    "total_timezones": len(timezones),
+                    "default_timezone": preferred_timezone,
+                    "timezone_hint": (
+                        f"Natural-language time ranges are interpreted in {preferred_timezone} "
+                        "before converting to UTC."
+                    ),
                     # Limit to 10 for readability
                     "supported_aggregates": (
                         aggregates[:10]
@@ -2175,9 +2610,7 @@ async def get_server_info() -> dict[str, Any]:
         }
 
     except httpx.HTTPStatusError as e:
-        error_msg = (
-            f"API request failed with status {e.response.status_code}: {e.response.text}"
-        )
+        error_msg = f"API request failed with status {e.response.status_code}: {e.response.text}"
         log.error(
             "get_server_info_api_error",
             error=error_msg,
@@ -2550,6 +2983,7 @@ def get_health() -> dict[str, Any]:
         ```
     """
     from datetime import datetime
+
     from canary_mcp.circuit_breaker import get_circuit_breaker
 
     request_id = set_request_id()
@@ -2568,7 +3002,7 @@ def get_health() -> dict[str, Any]:
             circuit_breakers["canary-api"] = {
                 "state": "closed",
                 "failure_count": 0,
-                "message": "Not initialized yet"
+                "message": "Not initialized yet",
             }
 
         # Get cache health
@@ -2684,13 +3118,11 @@ def main() -> None:
     # stdout is reserved for MCP JSON protocol messages
     print("Starting Canary MCP Server...", file=sys.stderr)
     print(
-        "WARNING: Configuration validation disabled - "
-        "server will start but API calls may fail",
+        "WARNING: Configuration validation disabled - server will start but API calls may fail",
         file=sys.stderr,
     )
     print(
-        "         Please verify your CANARY_SAF_BASE_URL "
-        "and CANARY_VIEWS_BASE_URL settings",
+        "         Please verify your CANARY_SAF_BASE_URL and CANARY_VIEWS_BASE_URL settings",
         file=sys.stderr,
     )
 
