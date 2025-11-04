@@ -88,3 +88,69 @@ oUTPUT:
     ],
     "continuation": null
 }
+
+
+
+{{APIURL}}/{{ApiVersion}}/getTagData?apiToken={{ApiToken}}&tags=Secil.Portugal.Cement.Maceira.400 - Clinker Production.432 - Kiln.Normalised.Analog.Kiln_Shell_Temp_Average_Section_55.Value
+
+
+{
+    "statusCode": "Good",
+    "errors": [],
+    "data": {
+        "Secil.Portugal.Cement.Maceira.400 - Clinker Production.432 - Kiln.Normalised.Analog.Kiln_Shell_Temp_Average_Section_55.Value": [
+            {
+                "t": "2025-11-04T00:02:40.0000000+00:00",
+                "v": 203.32000732421875
+            }
+        ]
+    },
+ 
+   "continuation": null
+}
+
+
+{{APIURL}}/{{ApiVersion}}/getTagData?apiToken={{ApiToken}}&tags=Secil.Secil.Portugal.Cement.Maceira.400 - Clinker Production.432 - Kiln.Normalised.Analog.Kiln_Shell_Temp_Average_Section_50.Value&startTime=now-1h&endTime=now
+
+{
+    "statusCode": "Good",
+    "errors": [],
+    "data": {
+        "Secil.Secil.Portugal.Cement.Maceira.400 - Clinker Production.432 - Kiln.Normalised.Analog.Kiln_Shell_Temp_Average_Section_50.Value": [
+            {
+                "t": "2025-11-03T23:58:41.0360000+00:00",
+                "v": 263.17999267578125
+            }
+        ]
+    },
+    "continuation": null
+}
+
+
+
+
+POST:
+{{APIURL}}/{{ApiVersion}}/browseTags
+
+Body:
+{
+  "apiToken": "{{ApiToken}}",
+  "path": "",
+  "deep": true,
+  "search": "P431"
+}
+
+
+Output:
+{
+    "statusCode": "Good",
+    "errors": [],
+    "tags": [
+        "SCUNSCANARY.Secil2.Secil.Portugal.Cement.Maceira.400 - Clinker Production.431 - Kiln.Normalised.Energy.P431.Value",
+        "SCUNSCANARY.Test.Secil.Portugal.Cement.Maceira.400 - Clinker Production.431 - Kiln.Normalised.Energy.P431.Value",
+        "Secil.Portugal.Cement.Maceira.400 - Clinker Production.431 - Kiln.Normalised.Energy.P431.Value",
+        "Secil.Test.Portugal.Cement.Maceira.400 - Clinker Production.431 - Kiln.Normalised.Energy.P431.Value"
+    ],
+    "continuation": null
+}
+
