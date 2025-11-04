@@ -70,7 +70,11 @@ If you prefer to use Python directly without uv:
         "PYTHONPATH": "C:\\Github\\BD\\BD-hackaton-2025-10\\src",
         "CANARY_SAF_BASE_URL": "https://scunscanary.secil.pt/api/v1",
         "CANARY_VIEWS_BASE_URL": "https://scunscanary.secil.pt",
-        "CANARY_API_TOKEN": "your-api-token-here"
+        "CANARY_API_TOKEN": "your-api-token-here",
+        "CANARY_TAG_SEARCH_ROOT": "Secil.Portugal",
+        "CANARY_TAG_SEARCH_FALLBACKS": "Secil.Portugal",
+        "CANARY_LAST_VALUE_LOOKBACK_HOURS": "24",
+        "CANARY_LAST_VALUE_PAGE_SIZE": "500"
       }
     }
   }

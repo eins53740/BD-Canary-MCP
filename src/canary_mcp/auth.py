@@ -252,6 +252,16 @@ class CanaryAuthClient:
             # Extract session token
             session_token_raw = data.get("sessionToken")
             if not session_token_raw or not isinstance(session_token_raw, str):
+                if self.user_token:
+                    log.warning(
+                        "auth_missing_session_token_fallback",
+                        message="Authentication response lacked sessionToken; using API token directly",
+                    )
+                    self._session_token = self.user_token
+                    # Treat direct API tokens as long-lived
+                    self._token_expires_at = datetime.now() + timedelta(days=30)
+                    return self.user_token
+
                 raise CanaryAuthError(
                     "Authentication response missing or invalid 'sessionToken' field"
                 )

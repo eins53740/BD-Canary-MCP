@@ -13,9 +13,54 @@ The Universal Canary MCP Server enables LLM clients (Claude Desktop, Continue, e
 - ✅ **MCP Protocol Implementation** - FastMCP-based server with tool registration
 - ✅ **Ping Tool** - Connection testing and health check
 - ✅ **Environment Configuration** - Flexible configuration via environment variables
+- ✅ **Local Tag Dictionary** - Offline index seeded from Canary exports keeps natural-language tag mapping reliable even when API search misses
+- ✅ **Auto Tag Resolution** - Short identifiers (for example `P431`) transparently resolve to fully-qualified Canary paths across all tools
 - ✅ **Comprehensive Testing** - Unit and integration tests with 73% coverage
 - 🚧 **Canary API Integration** - Coming in Story 1.2
 - 🚧 **Data Access Tools** - Coming in Stories 1.3-1.7
+
+## Quick setup (uv)
+
+Fast path to run locally with uv on Windows, macOS, or Linux.
+
+Prerequisites:
+- Python 3.12 or 3.13 available on PATH (portable Python works on Windows)
+- uv installed
+
+Steps:
+```bash
+# 1) Install uv (one-time)
+# Windows PowerShell
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+# macOS/Linux
+curl -fsSL https://astral.sh/uv/install.sh | sh
+
+# 2) Clone and enter repo
+git clone <repository-url>
+cd BD-Canary-MCP
+
+# 3) Create and activate virtual env + install deps
+uv sync --locked --dev
+
+# 4) Configure environment from template
+copy .env.example .env  # Windows
+# or
+cp .env.example .env    # macOS/Linux
+# Then edit .env with your Canary credentials (no secrets committed)
+
+# 5) Validate installation
+uv run python scripts/validate_installation.py
+
+# 6) Start the MCP server
+uv run canary-mcp
+# or
+uv run python -m canary_mcp.server
+```
+
+Notes:
+- Configuration is loaded from .env using python-dotenv.
+- Use uv run pytest to execute tests; uvx ruff/black for lint/format.
+- For Claude Desktop integration, see the section below.
 
 ## Architecture
 
@@ -118,6 +163,10 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 # 3. Clone repository
 git clone <repository-url>
 cd BD-hackaton-2025-10
+
+# uv
+uv sync
+uv sync --locked --all-extras --dev
 
 # 4. Install MCP server (user-space)
 uv pip install -e .
@@ -306,7 +355,9 @@ from yesterday to now"
 - **`ping`** - Test MCP server connection
 - **`list_namespaces`** - Browse Canary hierarchical structure
 - **`search_tags`** - Find tags by pattern matching
+- **Tip:** When using `search_tags`, provide the literal identifier (for example `P431`) without appending wildcard characters—the Canary API handles fuzzy matching internally.
 - **`get_tag_metadata`** - Get detailed tag information
+- **`get_tag_properties`** - Retrieve raw engineering properties and historian metadata for tags
 - **`read_timeseries`** - Query historical time-series data
 - **`get_server_info`** - Check Canary server health and info
 
@@ -321,6 +372,11 @@ Configuration is managed through environment variables. Copy `.env.example` to `
 CANARY_SAF_BASE_URL=https://scunscanary.secil.pt/api/v1
 CANARY_VIEWS_BASE_URL=https://scunscanary.secil.pt
 CANARY_API_TOKEN=your-token-here
+CANARY_TAG_SEARCH_ROOT=Secil.Portugal
+CANARY_TAG_SEARCH_FALLBACKS=
+CANARY_LAST_VALUE_LOOKBACK_HOURS=24
+CANARY_LAST_VALUE_PAGE_SIZE=500
+
 
 # Optional: Server Configuration
 MCP_SERVER_HOST=localhost
@@ -340,6 +396,10 @@ CANARY_RETRY_ATTEMPTS=6
 - **`CANARY_SAF_BASE_URL`** - Base URL for Canary SAF (Store and Forward) API
 - **`CANARY_VIEWS_BASE_URL`** - Base URL for Canary Views API
 - **`CANARY_API_TOKEN`** - Authentication token (required, keep secret!)
+- **`CANARY_TAG_SEARCH_ROOT`** - Root namespace used when calling `browseTags` (for example `Secil.Portugal`)
+- **`CANARY_TAG_SEARCH_FALLBACKS`** - Additional namespace prefixes (comma-separated) to probe when the root scope is empty
+- **`CANARY_LAST_VALUE_LOOKBACK_HOURS`** - Window (hours) used when retrieving last known values
+- **`CANARY_LAST_VALUE_PAGE_SIZE`** - Maximum samples requested to resolve last values
 - **`LOG_LEVEL`** - Logging verbosity: DEBUG, INFO, WARNING, ERROR, CRITICAL
 - **`CANARY_TIMEOUT`** - Request timeout in seconds (default: 30)
 - **`CANARY_RETRY_ATTEMPTS`** - Number of retry attempts for failed requests (default: 6)

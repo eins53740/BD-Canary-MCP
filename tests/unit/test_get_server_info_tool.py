@@ -38,6 +38,8 @@ def test_get_server_info_response_structure():
             "connected": True,
             "supported_timezones": ["UTC"],
             "total_timezones": 1,
+            "default_timezone": "Europe/Lisbon",
+            "timezone_hint": "Natural-language time ranges are interpreted in Europe/Lisbon before converting to UTC.",
             "supported_aggregates": ["Min"],
             "total_aggregates": 1,
         },
@@ -76,6 +78,8 @@ def test_server_info_keys():
         "connected": True,
         "supported_timezones": ["UTC", "PST"],
         "total_timezones": 2,
+        "default_timezone": "Europe/Lisbon",
+        "timezone_hint": "Natural-language time ranges are interpreted in Europe/Lisbon before converting to UTC.",
         "supported_aggregates": ["Min", "Max"],
         "total_aggregates": 2,
     }
@@ -86,6 +90,8 @@ def test_server_info_keys():
         "connected",
         "supported_timezones",
         "total_timezones",
+        "default_timezone",
+        "timezone_hint",
         "supported_aggregates",
         "total_aggregates",
     }

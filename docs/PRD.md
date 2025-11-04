@@ -265,6 +265,22 @@ With 6 Canary sites planned for deployment (1 POC complete, 5 upcoming), establi
 - Configuration validation tools
 - Deployment guide for site rollout
 
+---
+
+### Epic 3: Semantic Tag Search
+**Estimated Stories:** 5 stories
+
+**Goal:** Introduce a new "get_tag_path" MCP tool that uses natural language processing to find the most likely tag path from a user's descriptive query, making the server more intuitive and user-friendly.
+
+**Epic Completion Criteria:** A user can provide a natural language query like "average temperature for the kiln shell in section 15" to the `get_tag_path` tool and receive the correct, full tag path as a result.
+
+**Key Deliverables:**
+- `get_tag_path` MCP tool with semantic search capabilities
+- Tag ranking and scoring algorithm
+- Integration with `getTagProperties` for more accurate results
+- Caching strategy for the new tool
+- Comprehensive testing and validation
+
 **Deferred to Post-MVP (Phase 1.5):**
 - Error injection testing framework (manual error testing in MVP)
 - Automated multi-site deployment validation scripts (manual validation for sites 2-6)

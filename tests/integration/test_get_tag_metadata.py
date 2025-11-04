@@ -260,10 +260,9 @@ async def test_get_tag_metadata_malformed_response():
 
             result = await get_tag_metadata.fn("Plant.Tag1")
 
-            # Should succeed but return minimal metadata
-            assert result["success"] is True
-            assert result["metadata"]["name"] == ""
-            assert result["metadata"]["dataType"] == "unknown"
+            # Should fail because metadata is not found
+            assert result["success"] is False
+            assert "not found" in result["error"]
 
 
 @pytest.mark.integration

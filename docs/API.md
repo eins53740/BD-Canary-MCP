@@ -8,8 +8,10 @@ Complete reference for all MCP tools provided by the Canary MCP Server.
 
 - [Core Data Access Tools](#core-data-access-tools)
   - [search_tags](#search_tags)
+  - [get_tag_path](#get_tag_path)
   - [get_tag_metadata](#get_tag_metadata)
   - [read_timeseries](#read_timeseries)
+  - [get_tag_properties](#get_tag_properties)
   - [list_namespaces](#list_namespaces)
   - [get_server_info](#get_server_info)
 - [Performance & Monitoring Tools](#performance--monitoring-tools)
@@ -37,7 +39,10 @@ Search for Canary tags by name pattern with caching support.
 **Parameters:**
 - `search_pattern` (string, required): Tag name or pattern to search for (supports wildcards)
 - `bypass_cache` (boolean, optional): Skip cache and fetch fresh data (default: false)
+- `search_path` (string, optional): Namespace prefix passed to Canary `browseTags`. Defaults to the `CANARY_TAG_SEARCH_ROOT` environment variable.
 
+
+**Fallbacks**: When the requested window has no samples, the tool automatically returns the latest known values (configurable via `CANARY_LAST_VALUE_LOOKBACK_HOURS`) and marks the response with `"source": "last_known"`. Tags are auto-resolved to their fully qualified paths, which are exposed via `resolved_tag_names`.
 **Returns:**
 ```json
 {
@@ -52,11 +57,17 @@ Search for Canary tags by name pattern with caching support.
   ],
   "count": 1,
   "pattern": "Kiln6*",
-  "cached": false
+  "search_path": "Secil.Portugal",
+  "cached": false,
+  "hint": "Use literal identifiers (e.g. 'P431') without adding wildcard characters."
 }
 ```
 
 **Caching**: Results cached for 1 hour (metadata TTL)
+
+**Path Scoping**: The tool posts to `browseTags` using the configured search path (for example `Secil.Portugal`) so queries like `"P431"` resolve correctly even within large historians. If no root path is configured, the server automatically falls back to common site prefixes.
+
+**Hint**: Provide literal identifiers such as `"P431"` without appending wildcard characters (`*`). The Canary API performs its own partial matching and responds more reliably to the raw identifier.
 
 **Example Usage:**
 ```
@@ -70,6 +81,72 @@ Assistant uses: search_tags(search_pattern="Kiln6*Temperature")
 
 ---
 
+### get_tag_path
+
+Resolve a natural-language description into the most likely Canary tag path.
+
+**Purpose**: Help engineers locate tags without remembering exact paths by combining search, metadata enrichment, and relevance scoring. When Canary's live search cannot find a match, the tool now consults a local index derived from `docs/aux_files/Canary_Path_description_maceira.json`, ensuring common plant terminology (for example “kiln 5 shell speed”) still yields meaningful candidates.
+
+**Parameters:**
+- `description` (string, required): Natural-language description of the desired signal.
+- `max_results` (integer, optional): Number of ranked candidates to return (default: 5).
+- `bypass_cache` (boolean, optional): Skip cached responses and force fresh API calls (default: false).
+
+**Returns:**
+```json
+{
+  "success": true,
+  "description": "temperature on kiln shell in section 15",
+  "keywords": ["temperature", "kiln", "shell", "section", "15"],
+  "most_likely_path": "Plant.Kiln.Section15.ShellTemp",
+  "alternatives": [
+    "Plant.Kiln.Section15.ShellPressure",
+    "Plant.Kiln.Cooling.WaterTemp"
+  ],
+  "candidates": [
+    {
+      "path": "Plant.Kiln.Section15.ShellTemp",
+      "name": "KilnShellTemp",
+      "dataType": "float",
+      "description": "Temperature sensor located on kiln shell section 15",
+      "score": 18.5,
+      "matched_keywords": {
+        "name": ["kiln", "temperature"],
+        "description": ["shell", "section"]
+      },
+      "search_sources": [
+        "temperature kiln shell section 15",
+        "temperature"
+      ],
+      "metadata": {
+        "units": "degC",
+        "properties": {
+          "area": "Kiln",
+          "asset": "Section15"
+        }
+      },
+      "metadata_cached": false
+    }
+  ],
+  "cached": false
+}
+```
+
+**Caching**: Final responses are cached with the metadata TTL. Intermediate `browseTags` and `getTagProperties` calls share the metadata cache. Use `bypass_cache=true` when fresh data is required.
+
+**Ranking Logic:**
+- Keywords matched in the tag `name` carry the highest weight.
+- Path, description, and metadata matches contribute additional score with decreasing weight.
+- Exact and prefix matches receive a small bonus to break ties.
+
+**Example Usage:**
+```
+User: "What's the tag for the kiln shell temperature in section 15?"
+Assistant uses: get_tag_path(description="kiln shell temperature section 15")
+```
+
+---
+
 ### get_tag_metadata
 
 Retrieve detailed metadata for specific tags.
@@ -77,7 +154,7 @@ Retrieve detailed metadata for specific tags.
 **Purpose**: Understand tag properties (units, data type, ranges) before querying timeseries data.
 
 **Parameters:**
-- `tag_path` (string, required): Full path or name of the tag
+- `tag_path` (string, required): Full path or short identifier for the tag
 
 **Returns:**
 ```json
@@ -89,15 +166,23 @@ Retrieve detailed metadata for specific tags.
     "dataType": "float",
     "units": "°C",
     "description": "Kiln 6 inlet temperature",
-    "minValue": 0,
-    "maxValue": 1500,
-    "updateRate": "1s"
+    "engHigh": "1500",
+    "engLow": "0",
+    "updateRate": "1s",
+    "properties": {
+      "Description": "Kiln 6 inlet temperature",
+      "Units": "°C",
+      "Default High Scale": "1500",
+      "Default Low Scale": "0"
+    }
   },
-  "tag_path": "Kiln6.Temperature"
+  "tag_path": "Kiln6.Temperature",
+  "resolved_path": "Maceira.Cement.Kiln6.Temperature"
 }
 ```
 
 **Caching**: Metadata cached for 1 hour
+**Auto-Resolution**: Short identifiers (for example `P431`) are automatically expanded via `search_tags` before querying Canary, ensuring the correct fully qualified path is returned.
 
 **Example Usage:**
 ```
@@ -114,7 +199,7 @@ Retrieve historical timeseries data for tags.
 **Purpose**: Analyze plant performance and troubleshoot operational issues.
 
 **Parameters:**
-- `tag_name` (string, required): Tag name or path
+- `tag_names` (string or array, required): One or more tag identifiers (shorthand like `P431` is supported)
 - `start_time` (string, required): Start time (ISO format or natural language)
 - `end_time` (string, required): End time (ISO format or natural language)
 - `bypass_cache` (boolean, optional): Skip cache (default: false)
@@ -134,19 +219,24 @@ Retrieve historical timeseries data for tags.
     {
       "timestamp": "2024-01-15T10:00:00Z",
       "value": 850.5,
-      "quality": "good"
+      "quality": "Good",
+      "tagName": "Maceira.400 - Clinker Production.431 - Kiln.Normalised.Energy.P431.Value",
+      "requestedTag": "P431"
     },
     {
       "timestamp": "2024-01-15T10:01:00Z",
       "value": 851.2,
-      "quality": "good"
+      "quality": "Good",
+      "tagName": "Maceira.400 - Clinker Production.431 - Kiln.Normalised.Energy.P431.Value",
+      "requestedTag": "P431"
     }
   ],
-  "tag": "Kiln6.Temperature",
-  "start": "2024-01-15T10:00:00Z",
-  "end": "2024-01-15T10:10:00Z",
+  "tag_names": ["P431"],
+  "start_time": "2024-01-15T10:00:00Z",
+  "end_time": "2024-01-15T10:10:00Z",
   "count": 10,
-  "cached": true
+  "continuation": null,
+  "resolved_tag_names": {"P431": "Maceira.400 - Clinker Production.431 - Kiln.Normalised.Energy.P431.Value"}
 }
 ```
 
@@ -164,6 +254,53 @@ Assistant uses: read_timeseries(
 
 ---
 
+### get_tag_properties
+
+Retrieve detailed property dictionaries for one or more tags.
+
+**Purpose**: Access engineering units, documentation, and historian metadata stored alongside each tag.
+
+**Parameters:**
+- `tag_paths` (array of strings, required): Fully qualified tag paths to fetch properties for.
+
+**Returns:**
+```json
+{
+  "success": true,
+  "requested": [
+    "P431"
+  ],
+  "properties": {
+    "Secil.Portugal.Cement.Maceira.400 - Clinker Production.431 - Kiln.Normalised.Energy.P431.Value": {
+      "Description": "Kiln 5 power consumption",
+      "Units": "kW",
+      "engLow": "0",
+      "engHigh": "8000",
+      "DataPermissions": "user_domainSecil(R);G_UNS_Admin(RW)"
+    }
+  },
+  "count": 1,
+  "cached": false,
+  "resolved_paths": {
+    "P431": "Secil.Portugal.Cement.Maceira.400 - Clinker Production.431 - Kiln.Normalised.Energy.P431.Value"
+  }
+}
+```
+
+**Example Usage:**
+```
+User: "Show me the engineering limits for kiln shell temperature"
+Assistant uses: get_tag_properties(tag_paths=[
+  "Secil.Portugal.Cement.Maceira.400 - Clinker Production.432 - Kiln.Normalised.Analog.Kiln_Shell_Temp_Average_Section_55.Value"
+])
+```
+
+**Error Handling:**
+- Returns `success: false` when no tag paths are supplied.
+- Authentication, HTTP, and network errors surface descriptive messages returned by the Canary API.
+
+---
+
 ### list_namespaces
 
 Discover available namespaces in the Canary historian.
@@ -178,24 +315,31 @@ Discover available namespaces in the Canary historian.
 {
   "success": true,
   "namespaces": [
+    "Maceira",
+    "Maceira.Cement",
+    "Maceira.Cement.Kiln6"
+  ],
+  "nodes": [
     {
       "name": "Maceira",
       "path": "Maceira",
-      "children": [
-        {
-          "name": "Cement",
-          "path": "Maceira.Cement",
-          "children": [
-            {
-              "name": "Kiln6",
-              "path": "Maceira.Cement.Kiln6"
-            }
-          ]
-        }
-      ]
+      "hasNodes": true,
+      "hasTags": true
+    },
+    {
+      "name": "Maceira.Cement",
+      "path": "Maceira.Cement",
+      "hasNodes": true,
+      "hasTags": true
+    },
+    {
+      "name": "Maceira.Cement.Kiln6",
+      "path": "Maceira.Cement.Kiln6",
+      "hasNodes": false,
+      "hasTags": true
     }
   ],
-  "count": 1
+  "count": 3
 }
 ```
 

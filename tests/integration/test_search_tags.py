@@ -86,7 +86,7 @@ async def test_search_tags_no_results():
         with patch("httpx.AsyncClient.post") as mock_post:
             mock_post.side_effect = [mock_auth_response, mock_search_response]
 
-            result = await search_tags.fn("NonExistentTag")
+            result = await search_tags.fn("NonExistentTag", bypass_cache=True)
 
             assert result["success"] is True
             assert result["count"] == 0
