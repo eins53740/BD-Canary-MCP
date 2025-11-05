@@ -10,7 +10,7 @@ from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, Optional
+from typing import Any, Optional, Sequence
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import httpx
@@ -119,6 +119,12 @@ SEARCH_TAGS_HINT = (
     "Describe the process area and distinctive identifiers (e.g. 'Maceira kiln shell temperature "
     "P431'). Prefer exact fragments over wildcards; combine with resource://canary/tag-catalog to "
     "confirm descriptions and units."
+)
+READ_TIMESERIES_HINT = (
+    "Call read_timeseries with tag_names as a list of historian paths (e.g. "
+    "['Secil.Portugal.Area.Tag']). Do not wrap the list in a JSON string—supply the array directly. "
+    "Resolve tag paths with search_tags or the tag_lookup_workflow before requesting data, and keep "
+    "start/end times as ISO timestamps or Canary relative expressions."
 )
 DEFAULT_SEARCH_PATH_FALLBACKS = ("Secil.Portugal",)
 NORMALIZED_PROPERTY_KEY_ALIASES = {
@@ -662,6 +668,67 @@ def parse_time_expression(time_expr: str) -> str:
     raise ValueError(f"Unrecognized time expression: {time_expr}")
 
 
+def _extract_tag_input_literals(tag_names: str | Sequence[str]) -> list[str]:
+    """Return the raw tag inputs as provided by the caller without additional parsing."""
+    if isinstance(tag_names, str):
+        return [tag_names]
+    if tag_names is None:
+        return []
+    return [str(item) for item in tag_names]
+
+
+def _coerce_tag_names(tag_names: str | Sequence[str]) -> list[str]:
+    """
+    Normalize tag input into a list of clean tag names.
+
+    Handles actual lists as well as JSON-like strings (e.g. '[\"tag\"]') that some clients
+    mistakenly pass instead of arrays.
+    """
+    if isinstance(tag_names, str):
+        candidate = tag_names.strip()
+        if not candidate:
+            return []
+
+        # Attempt to parse JSON arrays or quoted strings
+        if candidate.startswith("[") and candidate.endswith("]"):
+            try:
+                parsed = json.loads(candidate)
+            except json.JSONDecodeError:
+                parsed = None
+            if isinstance(parsed, list):
+                coerced: list[str] = []
+                for item in parsed:
+                    if isinstance(item, str):
+                        item_clean = item.strip()
+                        if item_clean:
+                            coerced.append(item_clean)
+                if coerced:
+                    return coerced
+        if (candidate.startswith('"') and candidate.endswith('"')) or (
+            candidate.startswith("'") and candidate.endswith("'")
+        ):
+            try:
+                parsed_single = json.loads(candidate)
+            except json.JSONDecodeError:
+                parsed_single = candidate.strip("\"'")
+            if isinstance(parsed_single, str):
+                single_clean = parsed_single.strip()
+                return [single_clean] if single_clean else []
+
+        return [candidate]
+
+    if tag_names is None:
+        return []
+
+    coerced_list: list[str] = []
+    for item in tag_names:
+        if isinstance(item, str):
+            cleaned = item.strip()
+            if cleaned:
+                coerced_list.append(cleaned)
+    return coerced_list
+
+
 @mcp.tool()
 def ping() -> str:
     """
@@ -868,8 +935,9 @@ def timeseries_query_workflow() -> list[Message]:
                 "`resource://canary/time-standards`); interpret expressions in "
                 f"{DEFAULT_TIMEZONE} before converting to UTC.\n"
                 "3. Call `read_timeseries` with ISO timestamps and moderate page_size (<=1000). "
-                "When retrieving more than one tag, use the historian POST endpoints instead of "
-                "multi-tag GET requests.\n"
+                "Pass `tag_names` as an array (e.g. ['Secil.Portugal.Tag']) rather than a quoted "
+                "JSON string. When retrieving more than one tag, use the historian POST endpoints "
+                "instead of multi-tag GET requests.\n"
                 "4. Inspect the response for continuation tokens and iterate if needed.\n"
                 "5. Summarise the retrieved data, noting gaps or quality issues."
             ),
@@ -1034,16 +1102,39 @@ async def search_tags(
                     tags: list[dict[str, Any]] = []
                     if isinstance(data, dict) and "tags" in data:
                         tag_list = data.get("tags", [])
+                        seen_paths: set[str] = set()
+
                         for tag in tag_list:
+                            normalized: Optional[dict[str, Any]] = None
+
                             if isinstance(tag, dict):
-                                tags.append(
-                                    {
-                                        "name": tag.get("name", ""),
-                                        "path": tag.get("path", tag.get("name", "")),
-                                        "dataType": tag.get("dataType", "unknown"),
-                                        "description": tag.get("description", ""),
-                                    }
-                                )
+                                name = str(tag.get("name", "") or tag.get("path", "")).strip()
+                                path = str(tag.get("path", "") or name).strip()
+                                normalized = {
+                                    "name": name,
+                                    "path": path,
+                                    "dataType": str(tag.get("dataType", "unknown") or "unknown"),
+                                    "description": str(tag.get("description", "") or ""),
+                                }
+                            elif isinstance(tag, str):
+                                tag_str = tag.strip()
+                                name_fragment = tag_str.split(".")[-1] if "." in tag_str else tag_str
+                                normalized = {
+                                    "name": name_fragment,
+                                    "path": tag_str,
+                                    "dataType": "unknown",
+                                    "description": "",
+                                }
+
+                            if not normalized:
+                                continue
+
+                            normalized_path = normalized.get("path", "")
+                            if normalized_path in seen_paths:
+                                continue
+                            seen_paths.add(normalized_path)
+
+                            tags.append(normalized)
 
                     result = {
                         "success": True,
@@ -2256,7 +2347,9 @@ async def read_timeseries(
     for analysis and troubleshooting.
 
     Args:
-        tag_names: Single tag name or list of tag names to retrieve data for
+        tag_names: Single tag name or list of tag names to retrieve data for. If a JSON-style
+            string array is provided (e.g. '["tag1","tag2"]'), it will be parsed automatically,
+            but callers should prefer passing an actual list.
         start_time: Start time (ISO timestamp or relative expression like "now-1d")
         end_time: End time (ISO timestamp or relative expression like "now")
         page_size: Number of samples per page (default 1000)
@@ -2269,6 +2362,7 @@ async def read_timeseries(
             - tag_names: The tag names that were queried
             - start_time: The start time used for the query
             - end_time: The end time used for the query
+            - hint: Guidance for correct usage
 
     Raises:
         Exception: If authentication fails or API request errors occur
@@ -2278,11 +2372,16 @@ async def read_timeseries(
         historian. Avoid multi-tag GET queries to remain compatible with the API.
     """
     request_id = set_request_id()
-    # Normalize tag_names for logging
-    tag_list_for_log = [tag_names] if isinstance(tag_names, str) else list(tag_names)
+    normalized_inputs = _coerce_tag_names(tag_names)
+    raw_inputs = [
+        item.strip()
+        for item in _extract_tag_input_literals(tag_names)
+        if isinstance(item, str) and item.strip()
+    ]
+    log_tag_list = normalized_inputs or raw_inputs
     log.info(
         "read_timeseries_called",
-        tag_names=tag_list_for_log,
+        tag_names=log_tag_list,
         start_time=start_time,
         end_time=end_time,
         page_size=page_size,
@@ -2292,19 +2391,17 @@ async def read_timeseries(
 
     parsed_start_time = start_time
     parsed_end_time = end_time
-    tag_list: list[str] = []
+    tag_list: list[str] = list(normalized_inputs)
 
     try:
-        raw_tags = [tag_names] if isinstance(tag_names, str) else list(tag_names)
-        tag_list = [tag.strip() for tag in raw_tags if isinstance(tag, str) and tag.strip()]
-
         if not tag_list:
             return {
                 "success": False,
                 "error": "Tag names cannot be empty",
                 "data": [],
                 "count": 0,
-                "tag_names": [tag.strip() for tag in raw_tags if isinstance(tag, str)],
+                "tag_names": raw_inputs,
+                "hint": READ_TIMESERIES_HINT,
             }
 
         try:
@@ -2317,6 +2414,7 @@ async def read_timeseries(
                 "data": [],
                 "count": 0,
                 "tag_names": tag_list,
+                "hint": READ_TIMESERIES_HINT,
             }
 
         def _to_datetime(value: str) -> Optional[datetime]:
@@ -2334,6 +2432,7 @@ async def read_timeseries(
                 "data": [],
                 "count": 0,
                 "tag_names": tag_list,
+                "hint": READ_TIMESERIES_HINT,
             }
 
         # Get Canary Views base URL from environment
@@ -2345,6 +2444,7 @@ async def read_timeseries(
                 "data": [],
                 "count": 0,
                 "tag_names": tag_list,
+                "hint": READ_TIMESERIES_HINT,
             }
 
         # Authenticate and get API token
@@ -2402,6 +2502,7 @@ async def read_timeseries(
                     "tag_names": tag_list,
                     "start_time": parsed_start_time,
                     "end_time": parsed_end_time,
+                    "hint": READ_TIMESERIES_HINT,
                 }
             return {
                 "success": False,
@@ -2411,6 +2512,7 @@ async def read_timeseries(
                 "tag_names": tag_list,
                 "start_time": parsed_start_time,
                 "end_time": parsed_end_time,
+                "hint": READ_TIMESERIES_HINT,
             }
 
         if not data_points:
@@ -2430,6 +2532,7 @@ async def read_timeseries(
                     "end_time": parsed_end_time,
                     "source": "last_known",
                     "resolved_tag_names": resolved_tag_map,
+                    "hint": READ_TIMESERIES_HINT,
                 }
 
         log.info(
@@ -2449,6 +2552,7 @@ async def read_timeseries(
             "end_time": parsed_end_time,
             "continuation": continuation,
             "resolved_tag_names": resolved_tag_map,
+            "hint": READ_TIMESERIES_HINT,
         }
 
     except CanaryAuthError as e:
@@ -2465,6 +2569,7 @@ async def read_timeseries(
             "data": [],
             "count": 0,
             "tag_names": tag_list,
+            "hint": READ_TIMESERIES_HINT,
         }
 
     except httpx.HTTPStatusError as e:
@@ -2482,6 +2587,7 @@ async def read_timeseries(
             "data": [],
             "count": 0,
             "tag_names": tag_list,
+            "hint": READ_TIMESERIES_HINT,
         }
 
     except httpx.RequestError as e:
@@ -2498,6 +2604,7 @@ async def read_timeseries(
             "data": [],
             "count": 0,
             "tag_names": tag_list,
+            "hint": READ_TIMESERIES_HINT,
         }
 
     except Exception as e:
@@ -2515,6 +2622,7 @@ async def read_timeseries(
             "data": [],
             "count": 0,
             "tag_names": tag_list,
+            "hint": READ_TIMESERIES_HINT,
         }
 
 

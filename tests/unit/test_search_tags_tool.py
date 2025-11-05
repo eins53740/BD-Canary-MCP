@@ -110,6 +110,50 @@ async def test_search_tags_data_parsing_valid_response():
 
 @pytest.mark.unit
 @pytest.mark.asyncio
+async def test_search_tags_parses_string_entries():
+    """Ensure string-based tag entries are normalised into result objects."""
+    mock_response_data = {
+        "tags": [
+            "Plant.Area1.Kiln.Kiln_Shell_Temp_Average_Section_20.Value",
+            "Plant.Area1.Kiln.Kiln_Shell_Temp_Average_Section_200.Value",
+        ]
+    }
+
+    with patch.dict(
+        "os.environ",
+        {
+            "CANARY_SAF_BASE_URL": "https://test.canary.com/api/v1",
+            "CANARY_VIEWS_BASE_URL": "https://test.canary.com",
+            "CANARY_API_TOKEN": "test-token",
+            "CANARY_TAG_SEARCH_ROOT": "Secil.Portugal",
+        },
+    ):
+        mock_auth_response = MagicMock()
+        mock_auth_response.json.return_value = {"sessionToken": "session-123"}
+        mock_auth_response.raise_for_status = MagicMock()
+
+        mock_search_response = MagicMock()
+        mock_search_response.json.return_value = mock_response_data
+        mock_search_response.raise_for_status = MagicMock()
+
+        with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+            mock_post.side_effect = [mock_auth_response, mock_search_response]
+
+            result = await search_tags.fn("Kiln_Shell Temp*", bypass_cache=True)
+
+            assert result["success"] is True
+            assert result["count"] == 2
+            assert len(result["tags"]) == 2
+            assert result["tags"][0]["path"] == (
+                "Plant.Area1.Kiln.Kiln_Shell_Temp_Average_Section_20.Value"
+            )
+            assert result["tags"][0]["name"] == "Value"
+            assert result["tags"][0]["dataType"] == "unknown"
+            assert result["tags"][0]["description"] == ""
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_search_tags_data_parsing_missing_fields():
     """Test parsing of tag data with missing optional fields."""
     mock_response_data = {

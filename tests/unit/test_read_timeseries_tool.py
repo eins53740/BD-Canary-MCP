@@ -1,11 +1,11 @@
 """Unit tests for read_timeseries MCP tool."""
 
 from datetime import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from canary_mcp.server import parse_time_expression, read_timeseries
+from canary_mcp.server import READ_TIMESERIES_HINT, parse_time_expression, read_timeseries
 
 
 @pytest.mark.unit
@@ -109,6 +109,7 @@ async def test_read_timeseries_empty_tag_validation():
     assert "empty" in result["error"].lower()
     assert result["data"] == []
     assert result["count"] == 0
+    assert result["hint"] == READ_TIMESERIES_HINT
 
 
 @pytest.mark.unit
@@ -121,6 +122,7 @@ async def test_read_timeseries_whitespace_tag_validation():
     assert "error" in result
     assert "empty" in result["error"].lower()
     assert result["data"] == []
+    assert result["hint"] == READ_TIMESERIES_HINT
 
 
 @pytest.mark.unit
@@ -143,21 +145,68 @@ async def test_read_timeseries_tag_name_normalization():
         mock_data_response.json.return_value = {"data": []}
         mock_data_response.raise_for_status = MagicMock()
 
-        with patch("httpx.AsyncClient.post") as mock_post:
-            mock_post.side_effect = [mock_auth_response, mock_data_response]
+        with patch("canary_mcp.server.search_tags.fn", new_callable=AsyncMock) as mock_search:
+            mock_search.return_value = {"success": True, "tags": []}
+            with patch(
+                "canary_mcp.server.get_last_known_values.fn", new_callable=AsyncMock
+            ) as mock_last_known:
+                mock_last_known.return_value = {"success": False}
 
-            # Test string input
-            result = await read_timeseries.fn(
-                "Tag1", "2025-10-30T00:00:00Z", "2025-10-31T00:00:00Z"
-            )
-            assert result["tag_names"] == ["Tag1"]
+                with patch("httpx.AsyncClient.post") as mock_post:
+                    mock_post.side_effect = [mock_auth_response, mock_data_response]
 
-            # Test list input
-            mock_post.side_effect = [mock_auth_response, mock_data_response]
-            result = await read_timeseries.fn(
-                ["Tag1", "Tag2"], "2025-10-30T00:00:00Z", "2025-10-31T00:00:00Z"
-            )
-            assert result["tag_names"] == ["Tag1", "Tag2"]
+                    # Test string input
+                    result = await read_timeseries.fn(
+                        "Tag1", "2025-10-30T00:00:00Z", "2025-10-31T00:00:00Z"
+                    )
+                    assert result["tag_names"] == ["Tag1"]
+                    assert result["hint"] == READ_TIMESERIES_HINT
+
+                    # Test list input
+                    mock_post.side_effect = [mock_auth_response, mock_data_response]
+                    result = await read_timeseries.fn(
+                        ["Tag1", "Tag2"], "2025-10-30T00:00:00Z", "2025-10-31T00:00:00Z"
+                    )
+                    assert result["tag_names"] == ["Tag1", "Tag2"]
+                    assert result["hint"] == READ_TIMESERIES_HINT
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_read_timeseries_json_string_tag_names():
+    """Tag arrays provided as JSON strings should be parsed into lists."""
+    with patch.dict(
+        "os.environ",
+        {
+            "CANARY_SAF_BASE_URL": "https://test.canary.com/api/v1",
+            "CANARY_VIEWS_BASE_URL": "https://test.canary.com",
+            "CANARY_API_TOKEN": "test-token",
+        },
+    ):
+        mock_auth_response = MagicMock()
+        mock_auth_response.json.return_value = {"sessionToken": "session-123"}
+        mock_auth_response.raise_for_status = MagicMock()
+
+        mock_data_response = MagicMock()
+        mock_data_response.json.return_value = {"data": []}
+        mock_data_response.raise_for_status = MagicMock()
+
+        with patch("canary_mcp.server.search_tags.fn", new_callable=AsyncMock) as mock_search:
+            mock_search.return_value = {"success": True, "tags": []}
+            with patch(
+                "canary_mcp.server.get_last_known_values.fn", new_callable=AsyncMock
+            ) as mock_last_known:
+                mock_last_known.return_value = {"success": False}
+
+                with patch("httpx.AsyncClient.post") as mock_post:
+                    mock_post.side_effect = [mock_auth_response, mock_data_response]
+
+                    result = await read_timeseries.fn(
+                        '[ "Tag1" , "Tag2" ]', "2025-10-30T00:00:00Z", "2025-10-31T00:00:00Z"
+                    )
+
+                    assert result["tag_names"] == ["Tag1", "Tag2"]
+                    assert result["hint"] == READ_TIMESERIES_HINT
 
 
 @pytest.mark.unit
@@ -171,6 +220,7 @@ async def test_read_timeseries_time_range_validation():
     assert result["success"] is False
     assert "error" in result
     assert "before" in result["error"].lower()
+    assert result["hint"] == READ_TIMESERIES_HINT
 
 
 @pytest.mark.unit
@@ -208,19 +258,23 @@ async def test_read_timeseries_data_parsing():
         }
         mock_data_response.raise_for_status = MagicMock()
 
-        with patch("httpx.AsyncClient.post") as mock_post:
-            mock_post.side_effect = [mock_auth_response, mock_data_response]
+        with patch("canary_mcp.server.search_tags.fn", new_callable=AsyncMock) as mock_search:
+            mock_search.return_value = {"success": True, "tags": []}
 
-            result = await read_timeseries.fn(
-                "Tag1", "2025-10-30T00:00:00Z", "2025-10-31T00:00:00Z"
-            )
+            with patch("httpx.AsyncClient.post") as mock_post:
+                mock_post.side_effect = [mock_auth_response, mock_data_response]
 
-            assert result["success"] is True
-            assert result["count"] == 2
-            assert len(result["data"]) == 2
-            assert result["data"][0]["timestamp"] == "2025-10-30T12:00:00Z"
-            assert result["data"][0]["value"] == 100.5
-            assert result["data"][0]["quality"] == "Good"
+                result = await read_timeseries.fn(
+                    "Tag1", "2025-10-30T00:00:00Z", "2025-10-31T00:00:00Z"
+                )
+
+                assert result["success"] is True
+                assert result["count"] == 2
+                assert len(result["data"]) == 2
+                assert result["data"][0]["timestamp"] == "2025-10-30T12:00:00Z"
+                assert result["data"][0]["value"] == 100.5
+                assert result["data"][0]["quality"] == "Good"
+                assert result["hint"] == READ_TIMESERIES_HINT
 
 
 @pytest.mark.unit
@@ -243,23 +297,31 @@ async def test_read_timeseries_response_format_success():
         mock_data_response.json.return_value = {"data": []}
         mock_data_response.raise_for_status = MagicMock()
 
-        with patch("httpx.AsyncClient.post") as mock_post:
-            mock_post.side_effect = [mock_auth_response, mock_data_response]
+        with patch("canary_mcp.server.search_tags.fn", new_callable=AsyncMock) as mock_search:
+            mock_search.return_value = {"success": True, "tags": []}
+            with patch(
+                "canary_mcp.server.get_last_known_values.fn", new_callable=AsyncMock
+            ) as mock_last_known:
+                mock_last_known.return_value = {"success": False}
 
-            result = await read_timeseries.fn(
-                "Tag1", "2025-10-30T00:00:00Z", "2025-10-31T00:00:00Z"
-            )
+                with patch("httpx.AsyncClient.post") as mock_post:
+                    mock_post.side_effect = [mock_auth_response, mock_data_response]
 
-            # Verify response structure
-            assert "success" in result
-            assert "data" in result
-            assert "count" in result
-            assert "tag_names" in result
-            assert "start_time" in result
-            assert "end_time" in result
-            assert result["success"] is True
-            assert isinstance(result["data"], list)
-            assert isinstance(result["count"], int)
+                    result = await read_timeseries.fn(
+                        "Tag1", "2025-10-30T00:00:00Z", "2025-10-31T00:00:00Z"
+                    )
+
+                    # Verify response structure
+                    assert "success" in result
+                    assert "data" in result
+                    assert "count" in result
+                    assert "tag_names" in result
+                    assert "start_time" in result
+                    assert "end_time" in result
+                    assert result["success"] is True
+                    assert isinstance(result["data"], list)
+                    assert isinstance(result["count"], int)
+                    assert result["hint"] == READ_TIMESERIES_HINT
 
 
 @pytest.mark.unit
@@ -277,6 +339,7 @@ async def test_read_timeseries_response_format_error():
     assert isinstance(result["error"], str)
     assert result["data"] == []
     assert result["count"] == 0
+    assert result["hint"] == READ_TIMESERIES_HINT
 
 
 @pytest.mark.unit
@@ -286,11 +349,14 @@ async def test_read_timeseries_error_message_formatting():
     # Test empty tag error
     result = await read_timeseries.fn("", "2025-10-30T00:00:00Z", "2025-10-31T00:00:00Z")
     assert "empty" in result["error"].lower()
+    assert result["hint"] == READ_TIMESERIES_HINT
 
     # Test invalid time expression
     result = await read_timeseries.fn("Tag1", "invalid", "2025-10-31T00:00:00Z")
     assert "time expression" in result["error"].lower()
+    assert result["hint"] == READ_TIMESERIES_HINT
 
     # Test time range validation
     result = await read_timeseries.fn("Tag1", "2025-10-31T00:00:00Z", "2025-10-30T00:00:00Z")
     assert "before" in result["error"].lower()
+    assert result["hint"] == READ_TIMESERIES_HINT
