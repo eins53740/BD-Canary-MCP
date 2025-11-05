@@ -100,7 +100,7 @@ BD-hackaton-2025-10/
 │  ┌───────────────────────────────────┐  │
 │  │  MCP Tools                        │  │
 │  │  - ping (connection test)         │  │
-│  │  - [Future: Canary data tools]    │  │
+│  │  - [Canary data tools]    │  │
 │  └───────────────────────────────────┘  │
 └─────────────────────────────────────────┘
                  ↓ (Future)
@@ -112,133 +112,59 @@ BD-hackaton-2025-10/
 └─────────────────────────────────────────┘
 ```
 
-## Installation
+## Deployment
 
-The Canary MCP Server supports two installation methods to accommodate different user needs and environments. Choose the method that best fits your situation.
+Three deployment modes are now supported. Choose the one that fits your workflow and follow the linked guides for the full playbook.
 
-### Installation Options Overview
+| Option | Transport | Best for | Documentation |
+| --- | --- | --- | --- |
+| Local MCP (STDIO) | STDIO | Developer laptops, single-machine analysis | [Deployment summary](docs/installation/DEPLOYMENT_PACKAGE_SUMMARY.md#11-local-mcp-server-stdio) |
+| Remote MCP (HTTP SSE) | HTTP + SSE | Shared VM (e.g. `vmhost8.secil.pt`), department rollouts | [Remote HTTP deployment](docs/installation/REMOTE_HTTP_DEPLOYMENT.md) |
+| Containerised MCP | HTTP + SSE | Docker/Podman, CI/CD, Kubernetes | [Container guide](docs/installation/docker-installation.md) |
 
-| Feature | Non-Admin Windows | Docker |
-|---------|------------------|--------|
-| **Administrator Privileges** | Not required | Required (for Docker Desktop) |
-| **Installation Time** | 10-15 minutes | 5-10 minutes |
-| **Environment Isolation** | Process-level | Complete containerization |
-| **Reproducibility** | Depends on host configuration | Identical across environments |
-| **Resource Usage** | Lower (native process) | Higher (Docker overhead) |
-| **Updates** | Update packages with `uv` | Rebuild Docker image |
-| **Best For** | Company workstations, dev laptops | Production, DevOps workflows |
-| **Configuration** | `.env` file in project root | `.env` file + Docker Compose |
-
-### When to Use Each Method
-
-**Choose Non-Admin Windows Installation if:**
-- You work on a company workstation without administrator privileges
-- You want minimal resource overhead
-- You prefer native Python development workflow
-- You need quick setup without Docker dependencies
-
-**Choose Docker Installation if:**
-- You have Docker Desktop access
-- You need reproducible deployments across environments
-- You want complete environment isolation
-- You're deploying to production or staging environments
-- You're already using containerization in your workflow
-
-### Quick Start Guides
-
-#### Option 1: Non-Admin Windows Installation (Recommended for Workstations)
-
-For users without administrator privileges on Windows workstations.
-
-**Prerequisites:**
-- No administrator privileges required
-- Internet access to download Python and uv
-
-**Quick Setup:**
+### Local STDIO Quick Start
 ```bash
-# 1. Install Python 3.13 portable (download from python.org)
-# 2. Install uv package manager
-powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-
-# 3. Clone repository
-git clone <repository-url>
-cd BD-hackaton-2025-10
-
-# uv
-uv sync
-uv sync --locked --all-extras --dev
-
-# 4. Install MCP server (user-space)
-uv pip install -e .
-
-# 5. Configure environment
-copy .env.example .env
-# Edit .env with your Canary credentials
-
-# 6. Validate installation
-python scripts/validate_installation.py
-
-# 7. Start server
-python -m canary_mcp.server
+uv sync --locked --dev
+cp .env.example .env  # set CANARY_MCP_TRANSPORT=stdio and credentials
+uv run python -m canary_mcp.server
 ```
 
-**Detailed Guide:** See [docs/installation/non-admin-windows.md](docs/installation/non-admin-windows.md)
-
-**Troubleshooting:** See [docs/installation/troubleshooting.md](docs/installation/troubleshooting.md)
-
-#### Option 2: Docker Installation (Recommended for Production)
-
-For users with Docker Desktop access, ideal for production deployments.
-
-**Prerequisites:**
-- Docker Desktop installed (requires admin for installation)
-- Docker Compose (included with Docker Desktop)
-- At least 4GB RAM allocated to Docker
-- 2GB free disk space
-
-**Quick Setup:**
+### Remote HTTP SSE Quick Start
 ```bash
-# 1. Clone repository
-git clone <repository-url>
-cd BD-hackaton-2025-10
+# edit .env on the server
+CANARY_MCP_TRANSPORT=http
+CANARY_MCP_HOST=0.0.0.0
+CANARY_MCP_PORT=6000
 
-# 2. Configure environment
-copy .env.example .env
-# Edit .env with your Canary credentials
-
-# 3. Build Docker image
-docker build -t canary-mcp-server .
-
-# 4. Start container
-docker-compose up -d
-
-# 5. Verify container is running
-docker-compose ps
-
-# 6. View logs
-docker-compose logs -f
+# then launch
+uv run python -m canary_mcp.server
 ```
 
-**Detailed Guide:** See [docs/installation/docker-installation.md](docs/installation/docker-installation.md)
-
-### Installation Validation
-
-After installation, verify your setup with the validation script:
-
+Verify the listener with:
 ```bash
-python scripts/validate_installation.py
+scripts/check_mcp.sh http http://vmhost8.secil.pt:6000
 ```
 
-This script checks:
-- Python version (>= 3.13)
-- uv package manager installation
-- canary-mcp package installation
-- Required dependencies (fastmcp, httpx, python-dotenv, structlog)
-- Configuration file (.env) exists and valid
-- Server can start without errors
-- Logs directory is writable
+### Container Quick Start
+```bash
+docker compose up --build
+# or
+podman-compose up --build
+```
+
+Inject `.env` via environment variables or bind mount and place the container behind corporate ingress as needed.
 
 ## Usage
+
+### Test with MCP Inspector
+
+Use the MCP Inspector to interactively test the server without a client:
+
+```bash
+npx @modelcontextprotocol/inspector uv --directory . run canary-mcp
+```
+
+This launches the Inspector UI in your browser and starts the server via uv from the current directory.
 
 ### Running the MCP Server
 
@@ -380,7 +306,7 @@ CANARY_LAST_VALUE_PAGE_SIZE=500
 
 # Optional: Server Configuration
 MCP_SERVER_HOST=localhost
-MCP_SERVER_PORT=3000
+MCP_SERVER_PORT=6000
 
 # Optional: Logging
 LOG_LEVEL=INFO

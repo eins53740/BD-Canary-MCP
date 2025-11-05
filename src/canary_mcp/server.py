@@ -1,5 +1,6 @@
 """Main MCP server module for Canary Historian integration."""
 
+import argparse
 import asyncio
 import json
 import os
@@ -1810,7 +1811,10 @@ async def get_tag_properties(tag_paths: list[str]) -> dict[str, Any]:
             "requested": tag_paths,
         }
 
-    lookup_paths, resolved_map = await _resolve_tag_identifiers(normalized_inputs)
+    # Resolve identifiers to fully-qualified paths only; exclude original shorthands
+    lookup_paths, resolved_map = await _resolve_tag_identifiers(
+        normalized_inputs, include_original=False
+    )
     if not lookup_paths:
         return {
             "success": False,
@@ -3138,6 +3142,35 @@ def main() -> None:
     """Run the MCP server."""
     import sys
 
+    parser = argparse.ArgumentParser(description="Start the Canary MCP server.")
+    parser.add_argument(
+        "--health-check",
+        action="store_true",
+        help="Run a lightweight health check (no server startup).",
+    )
+    parser.add_argument(
+        "--transport",
+        choices={"stdio", "http"},
+        help="Override transport for this invocation.",
+    )
+    parser.add_argument(
+        "--host",
+        help="Override HTTP host binding (http transport only).",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        help="Override HTTP port (http transport only).",
+    )
+    args = parser.parse_args()
+
+    if args.transport:
+        os.environ["CANARY_MCP_TRANSPORT"] = args.transport
+    if args.host:
+        os.environ["CANARY_MCP_HOST"] = args.host
+    if args.port is not None:
+        os.environ["CANARY_MCP_PORT"] = str(args.port)
+
     # Configure logging before starting server
     configure_logging()
 
@@ -3157,6 +3190,17 @@ def main() -> None:
     #     )
     #     return
 
+    if args.health_check:
+        try:
+            result = ping.fn()
+            print(result)
+            log.info("Health check completed", result=result)
+            return
+        except Exception as exc:  # pragma: no cover - defensive logging
+            log.error("Health check failed", error=str(exc), exc_info=True)
+            print(f"Health check failed: {exc}", file=sys.stderr)
+            sys.exit(1)
+
     # Note: All print statements for MCP must go to stderr, not stdout
     # stdout is reserved for MCP JSON protocol messages
     print("Starting Canary MCP Server...", file=sys.stderr)
@@ -3169,8 +3213,15 @@ def main() -> None:
         file=sys.stderr,
     )
 
-    log.info("MCP server starting", transport="stdio")
-    mcp.run()
+    transport = os.getenv("CANARY_MCP_TRANSPORT", "stdio").lower()
+    if transport == "http":
+        host = os.getenv("CANARY_MCP_HOST", "0.0.0.0")
+        port = int(os.getenv("CANARY_MCP_PORT", "6000"))
+        log.info("MCP server starting", transport=transport, host=host, port=port)
+        mcp.run(transport="http", host=host, port=port)
+    else:
+        log.info("MCP server starting", transport="stdio")
+        mcp.run()
     log.info("MCP server stopped")
 
 

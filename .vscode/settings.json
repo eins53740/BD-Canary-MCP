@@ -13,10 +13,12 @@
     }
   },
 
-  // Ruff Configuration
-  "ruff.lint.args": [],
-  "ruff.format.args": [],
+  // Ruff Configuration (migrated from legacy ruff-lsp args)
   "ruff.enable": true,
+  "ruff.lsp.enable": true,
+  "ruff.lint.enable": true,
+  "ruff.format.enable": true,
+  "ruff.lint.run": "onSave",
   "ruff.organizeImports": true,
 
   // Testing Configuration
@@ -65,5 +67,6 @@
   // Terminal Configuration
   "terminal.integrated.env.windows": {
     "PYTHONPATH": "${workspaceFolder}/src"
-  }
+  },
+  "ruff.configuration": "pyproject.toml"
 }
