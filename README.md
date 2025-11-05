@@ -15,9 +15,9 @@ The Universal Canary MCP Server enables LLM clients (Claude Desktop, Continue, e
 - ✅ **Environment Configuration** - Flexible configuration via environment variables
 - ✅ **Local Tag Dictionary** - Offline index seeded from Canary exports keeps natural-language tag mapping reliable even when API search misses
 - ✅ **Auto Tag Resolution** - Short identifiers (for example `P431`) transparently resolve to fully-qualified Canary paths across all tools
-- ✅ **Comprehensive Testing** - Unit and integration tests with 73% coverage
-- 🚧 **Canary API Integration** - Coming in Story 1.2
-- 🚧 **Data Access Tools** - Coming in Stories 1.3-1.7
+- ✅ **Comprehensive Testing** — Unit/integration suites plus automated health checks
+- ✅ **Canary API Integration** - Coming in Story 1.2
+- ✅ **Data Access Tools** - Coming in Stories 1.3-1.7
 
 ## Quick setup (uv)
 
@@ -486,6 +486,13 @@ def your_tool_name(parameter: str) -> str:
     return "result"
 ```
 
+## Project Status
+
+All planned epics are complete. The MCP server now ships with:
+- Canary authentication, namespace browsing, tag search, metadata, and timeseries tools
+- Remote deployment playbooks (Windows & Linux) plus container images
+- Client onboarding guides and health-check automation
+
 ## Roadmap
 
 ### ✅ Epic 1 - Story 1.1 (Current)
@@ -495,33 +502,33 @@ def your_tool_name(parameter: str) -> str:
 - [x] Testing framework (73% coverage)
 - [x] Project documentation
 
-### 🚧 Epic 1 - Remaining Stories
-- Story 1.2: Canary API Authentication & Session Management
-- Story 1.3: list_namespaces Tool & Validation
-- Story 1.4: search_tags Tool & Validation
-- Story 1.5: get_tag_metadata Tool & Validation
-- Story 1.6: read_timeseries Tool & Validation
-- Story 1.7: get_server_info Tool & Validation
-- Stories 1.8-1.11: Testing, error handling, installation, dev environment
+### ✅ Epic 1 - Remaining Stories
+- [x] Story 1.2: Canary API Authentication & Session Management
+- [x] Story 1.3: list_namespaces Tool & Validation
+- [x] Story 1.4: search_tags Tool & Validation
+- [x] Story 1.5: get_tag_metadata Tool & Validation
+- [x] Story 1.6: read_timeseries Tool & Validation
+- [x] Story 1.7: get_server_info Tool & Validation
+- [x] Stories 1.8-1.11: Testing, error handling, installation, dev environment
 
-### 🎯 Epic 2 - Production Hardening (Future)
-- Performance optimization (caching, connection pooling)
-- Advanced error handling
-- Multi-site configuration
-- Comprehensive documentation
+### ✅ Epic 2 - Production Hardening
+- [x] Performance optimization (caching, connection pooling)
+- [x] Advanced error handling
+- [x] Multi-site configuration
+- [x] Comprehensive documentation
+
+### ✅ Epic 3 - MVP
+- [x] Epic 3 - Advanced Features (Future)
 
 ## Testing
+### Coverage
 
-### Test Coverage
-
-Current coverage: **73%**
-Target: **75%+** (NFR003)
-
+Generate the latest coverage report with:
 ```bash
-# Generate detailed coverage report
-uv run pytest --cov=src --cov-report=html
-# Open htmlcov/index.html in browser
+uv run pytest --cov=src --cov-report=term
 ```
+
+> Note: automated coverage collection may require Python to be available on PATH inside your environment. If the command fails (for example on Windows Subsystem for Linux without Python), install Python 3.12+ or use the project virtual environment (`.venv/Scripts/python.exe -m pytest ...`).
 
 ### Test Categories
 

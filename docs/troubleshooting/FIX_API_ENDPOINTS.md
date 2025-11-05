@@ -101,17 +101,17 @@ CANARY_VIEWS_BASE_URL=https://scunscanary.secil.pt/readapi
 
 Some Canary setups use **direct API token authentication** instead of session tokens.
 
-Check if your API token (`0120fd2e-e9c2-4c8d-8115-a6ceb41490ce`) works directly in API calls:
+Check if your API token (`<API_TOKEN>`) works directly in API calls:
 
 ### Test with curl or browser:
 
 ```
-https://scunscanary.secil.pt/readapi/v1/browseTags?token=0120fd2e-e9c2-4c8d-8115-a6ceb41490ce
+https://scunscanary.secil.pt/readapi/v1/browseTags?token=<API_TOKEN>
 ```
 
 Or with Authorization header:
 ```
-Authorization: Bearer 0120fd2e-e9c2-4c8d-8115-a6ceb41490ce
+Authorization: Bearer <API_TOKEN>
 ```
 
 ---

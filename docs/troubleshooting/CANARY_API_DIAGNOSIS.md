@@ -32,13 +32,13 @@ Try these URLs in your browser or Postman:
 #### Option A: Read API v2 (most likely)
 ```
 POST https://scunscanary.secil.pt/api/v2/browseNodes
-Body: {"apiToken": "0120fd2e-e9c2-4c8d-8115-a6ceb41490ce"}
+Body: {"apiToken": "your-api-token-here"}
 ```
 
 #### Option B: SAF API v1 (what we're currently trying)
 ```
 POST https://scunscanary.secil.pt/api/v1/getSessionToken
-Body: {"userToken": "0120fd2e-e9c2-4c8d-8115-a6ceb41490ce"}
+Body: {"userToken": "your-api-token-here"}
 ```
 
 ### Test 2: Try different base paths
@@ -56,7 +56,7 @@ Your server might use a different path structure. Test these:
 ```powershell
 # Test Read API v2
 $headers = @{"Content-Type" = "application/json"}
-$body = @{"apiToken" = "0120fd2e-e9c2-4c8d-8115-a6ceb41490ce"} | ConvertTo-Json
+$body = @{"apiToken" = "your-api-token-here"} | ConvertTo-Json
 Invoke-WebRequest -Uri "https://scunscanary.secil.pt/api/v2/browseNodes" `
     -Method POST `
     -Headers $headers `
@@ -67,7 +67,7 @@ Invoke-WebRequest -Uri "https://scunscanary.secil.pt/api/v2/browseNodes" `
 ```bash
 curl -X POST "https://scunscanary.secil.pt/api/v2/browseNodes" \
   -H "Content-Type: application/json" \
-  -d '{"apiToken": "0120fd2e-e9c2-4c8d-8115-a6ceb41490ce"}'
+  -d '{"apiToken": "your-api-token-here"}'
 ```
 
 ## Expected Results
@@ -100,7 +100,7 @@ Check with your Canary administrator to confirm:
 
 Your current configuration:
 - Server: `https://scunscanary.secil.pt`
-- API Token: `0120fd2e-e9c2-4c8d-8115-a6ceb41490ce`
+- API Token: `<your-token-here>`
 - Current base URL: `https://scunscanary.secil.pt/readapi/v1` (returns 404)
 
 Most likely correct configurations:
