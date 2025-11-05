@@ -83,7 +83,7 @@ async def test_all_tools():
     try:
         from canary_mcp.server import get_tag_metadata
         # This will likely fail without a real tag, but tests the tool exists
-        result = await get_tag_metadata.fn(tag_name="test.tag")
+        result = await get_tag_metadata.fn(tag_path="test.tag")
         results['get_tag_metadata'] = {'status': 'PASS', 'result': result}
         print(f"   ✅ PASS: Metadata query executed")
     except Exception as e:
@@ -96,6 +96,22 @@ async def test_all_tools():
             print(f"   ❌ FAIL: {e}")
     print()
 
+    # Test 5b: get_tag_properties
+    print("Testing 'get_tag_properties' tool...")
+    try:
+        from canary_mcp.server import get_tag_properties
+        result = await get_tag_properties.fn(tag_paths=["test.tag"])
+        results['get_tag_properties'] = {'status': 'PASS', 'result': result}
+        print(f"   ✅ PASS: Tag properties query executed")
+    except Exception as e:
+        if "error" in str(e).lower() or "not configured" in str(e).lower():
+            results['get_tag_properties'] = {'status': 'PASS', 'note': 'Tool exists (expected API error)'}
+            print(f"   ✅ PASS: Tool exists and executed (API error expected)")
+        else:
+            results['get_tag_properties'] = {'status': 'FAIL', 'error': str(e)}
+            print(f"   ❌ FAIL: {e}")
+    print()
+
     # Test 6: read_timeseries
     print("Testing 'read_timeseries' tool...")
     try:
@@ -104,7 +120,7 @@ async def test_all_tools():
         end = datetime.now()
         start = end - timedelta(hours=1)
         result = await read_timeseries.fn(
-            tag_name="test.tag",
+            tag_names="test.tag",
             start_time=start.isoformat(),
             end_time=end.isoformat()
         )

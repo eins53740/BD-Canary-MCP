@@ -30,6 +30,7 @@ def verify_tools():
         "ping",
         "search_tags",
         "get_tag_metadata",
+        "get_tag_properties",
         "list_namespaces",
         "read_timeseries",
         "get_server_info",
@@ -76,7 +77,7 @@ def verify_tools():
     print("Tool Categories:")
     print("  - Connection Testing: ping")
     print("  - Data Discovery: list_namespaces, search_tags")
-    print("  - Tag Information: get_tag_metadata")
+    print("  - Tag Information: get_tag_metadata, get_tag_properties")
     print("  - Data Retrieval: read_timeseries")
     print("  - Server Info: get_server_info")
     print("  - Performance Monitoring: get_metrics, get_metrics_summary")
