@@ -1,4 +1,4 @@
-# Universal Canary MCP Server
+# Secil Canary Historian MCP Server
 
 Model Context Protocol (MCP) server providing seamless access to Canary Historian plant data for LLM-powered applications.
 
@@ -6,7 +6,7 @@ Model Context Protocol (MCP) server providing seamless access to Canary Historia
 
 The Universal Canary MCP Server enables LLM clients (Claude Desktop, Continue, etc.) to interact with Canary Historian industrial data through natural language queries. This server implements the MCP protocol standard, exposing tools that allow engineers and analysts to access real-time and historical plant data without manual API integration.
 
-**Project Status:** Story 1.1 Complete - Foundation & Protocol Implementation
+**Project Status:** MVP implemented | Secil Cement Maceira site supported | Mortars Supported | Outão site ongoing
 
 ## Features
 

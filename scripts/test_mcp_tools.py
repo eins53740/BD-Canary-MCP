@@ -19,11 +19,11 @@ async def test_all_tools():
     print()
 
     # Get all registered tools
-    tools = mcp.list_tools()
+    tools = await mcp.get_tools()
 
     print(f"✅ Found {len(tools)} registered tools:")
     for tool in tools:
-        print(f"   - {tool.name}: {tool.description[:60]}...")
+        print(f"   - {tool}")
     print()
 
     # Test each tool

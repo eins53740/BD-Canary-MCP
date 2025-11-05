@@ -1,7 +1,7 @@
 [project]
 name = "canary-mcp"
 version = "0.1.0"
-description = "Universal Canary MCP Server - Model Context Protocol server for Canary Historian plant data access"
+description = "Secil Canary MCP Server - Model Context Protocol server for Canary Historian plant data access"
 readme = "README.md"
 authors = [
     { name = "Bruno Dias", email = "bruno.dias@secil.pt" }
