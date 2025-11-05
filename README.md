@@ -19,6 +19,63 @@ The Universal Canary MCP Server enables LLM clients (Claude Desktop, Continue, e
 - ✅ **Canary API Integration** - Coming in Story 1.2
 - ✅ **Data Access Tools** - Coming in Stories 1.3-1.7
 
+## MCP Server Capabilities
+
+The Canary MCP Server exposes a rich set of capabilities for interacting with the Canary Historian. These are categorized into Tools, Prompts (Workflows), and Resources.
+
+### Access Control
+
+Access to the MCP server is secured using OAuth 2.0, the industry-standard protocol for authorization. MCP clients must present a valid bearer token to access the server's resources.
+
+#### Canary API Authentication
+
+Authentication to the underlying Canary API is handled transparently by the server. The `CANARY_API_TOKEN` environment variable must be set with a valid API token, which the server uses for all communication with the Canary Historian.
+
+### Tools
+
+Tools are functions that can be directly executed by an MCP client.
+
+*   **`ping()`**: A simple tool to check if the MCP server is running and responsive. Returns a "pong" message.
+*   **`get_asset_catalog()`**: Retrieves curated metadata for sensors and tags from the local asset catalog. This is useful for getting an overview of available tags without querying the live server.
+*   **`search_tags(search_pattern)`**: Searches for tags in the Canary Historian that match a given pattern.
+*   **`get_tag_metadata(tag_path)`**: Retrieves detailed metadata for a specific, fully qualified tag path.
+*   **`get_tag_path(description)`**: Resolves a natural-language description into the most likely tag path by searching the catalog and live server.
+*   **`get_tag_properties(tag_paths)`**: Fetches the raw, detailed property dictionaries for a list of tag paths.
+*   **`list_namespaces()`**: Lists the available tag namespaces (hierarchical folders) in the Canary Historian.
+*   **`get_last_known_values(tag_names)`**: Retrieves the most recent data point for one or more tags.
+*   **`read_timeseries(tag_names, start_time, end_time)`**: Queries for historical time-series data for one or more tags within a specified time range.
+*   **`get_server_info()`**: Gets health and capability information from the Canary server, including supported timezones and aggregates.
+*   **`get_metrics()`**: Returns detailed performance metrics for the MCP server in Prometheus format.
+*   **`get_metrics_summary()`**: Returns a human-readable summary of the server's performance metrics.
+*   **`get_cache_stats()`**: Provides statistics on the server's internal cache performance.
+*   **`invalidate_cache(pattern)`**: Invalidates cache entries, optionally filtered by a key pattern.
+*   **`cleanup_expired_cache()`**: Manually triggers a cleanup of expired cache entries.
+*   **`get_health()`**: Returns the overall health status of the MCP server, including the state of its circuit breakers.
+
+### Prompts (Workflows)
+
+Prompts are structured, multi-step workflows that guide an LLM or MCP client through a complex process.
+
+*   **`tag_lookup_workflow`**: A guided workflow for translating a natural-language request (e.g., "the main kiln temperature") into a precise Canary tag path. It orchestrates the use of `get_asset_catalog`, `search_tags`, and `get_tag_properties`.
+*   **`timeseries_query_workflow`**: A workflow for safely and efficiently retrieving historical data. It guides the user to first resolve tag names, then define time ranges, and finally call `read_timeseries` with appropriate parameters.
+
+### Resources
+
+Resources provide static data or documentation to the MCP client to aid in constructing valid queries.
+
+*   **`maceira_tag_catalog`**: A JSON resource containing the curated list of tags for the Maceira site, including natural-language descriptions and engineering units. This is the primary reference for tag discovery.
+*   **`canary_time_standards`**: A JSON resource that provides a reference guide for Canary's relative time expressions (e.g., "Now-1d") and the server's default timezone (`Europe/Lisbon`).
+
+### Expected Workflow for an MCP Client / LLM
+
+To effectively interact with the Canary Historian, MCP clients and LLMs should follow a structured workflow that leverages the server's capabilities. The server provides guided **Prompts (Workflows)** and static **Resources** to ensure reliable and efficient data access.
+
+1.  **Tag Discovery**: To find a specific tag, the client should use the **`tag_lookup_workflow`**. This prompt orchestrates the use of tools like `get_asset_catalog` and `search_tags` along with the `maceira_tag_catalog` resource to translate a user's request (e.g., "main kiln temperature") into a fully qualified Canary tag path.
+
+2.  **Data Retrieval**: Once a tag path is identified, the client should use the **`timeseries_query_workflow`**. This prompt ensures that time ranges are correctly specified (referencing `canary_time_standards`) and that the `read_timeseries` tool is called with valid parameters to fetch the historical data.
+
+By following these workflows, the client can reliably navigate the Canary Historian, resolve ambiguity, and retrieve data efficiently, abstracting away the complexity of the underlying API.
+
 ## Quick setup (uv)
 
 Fast path to run locally with uv on Windows, macOS, or Linux.
@@ -47,6 +104,8 @@ copy .env.example .env  # Windows
 # or
 cp .env.example .env    # macOS/Linux
 # Then edit .env with your Canary credentials (no secrets committed)
+
+uv run pip install .
 
 # 5) Validate installation
 uv run python scripts/validate_installation.py
