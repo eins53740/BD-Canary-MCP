@@ -6,6 +6,7 @@ Complete reference for all MCP tools provided by the Canary MCP Server.
 
 ## Table of Contents
 
+- [Transport & Payload Guardrails](#transport--payload-guardrails)
 - [Core Data Access Tools](#core-data-access-tools)
   - [search_tags](#search_tags)
   - [get_tag_path](#get_tag_path)
@@ -25,6 +26,25 @@ Complete reference for all MCP tools provided by the Canary MCP Server.
   - [ping](#ping)
 - [Error Codes](#error-codes)
 - [Best Practices](#best-practices)
+
+---
+
+## Transport & Payload Guardrails
+
+| Tool | Canary Endpoint(s) | Method | Notes |
+|------|--------------------|--------|-------|
+| `list_namespaces` | `/api/v2/browseNodes` | GET | Token passed via `apiToken` query parameter; no request body. |
+| `search_tags` | `/api/v2/browseTags` | POST | Supports `search`, `path`, and `deep` filters in JSON payload. |
+| `get_tag_metadata`, `get_tag_properties` | `/api/v2/getTagProperties` | POST | Bulk metadata lookups for one or more fully qualified tag paths. |
+| `read_timeseries`, `get_last_known_values` | `/api/v2/getTagData` | POST | Complex time windows and tag lists require JSON payload. |
+| `get_server_info` (time zones) | `/api/v2/getTimeZones` | GET | Lightweight catalog call; token supplied via query parameter. |
+| `get_server_info` (aggregates) | `/api/v2/getAggregates` | GET | Returns supported aggregate functions; response cached on the MCP side. |
+
+**Response Size Limit:** Every tool response is constrained to ≤1 MB (`CANARY_MAX_RESPONSE_BYTES`, default 1 000 000). When a payload would exceed the limit the server:
+
+- logs `response_truncated` with the active `request_id` and byte counts,
+- returns a compact structure containing `truncated: true`, `limit_bytes`, `original_size_bytes`, and a JSON `preview` snippet,
+- advises clients to narrow time ranges, reduce tag lists, or apply additional filters before retrying.
 
 ---
 

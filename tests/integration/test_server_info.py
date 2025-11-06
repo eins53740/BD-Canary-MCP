@@ -44,7 +44,7 @@ async def test_get_server_info_success():
         }
 
         mock_http_client = AsyncMock()
-        mock_http_client.post = AsyncMock(
+        mock_http_client.get = AsyncMock(
             side_effect=[mock_timezones_response, mock_aggregates_response]
         )
         mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
@@ -93,7 +93,7 @@ async def test_get_server_info_many_timezones():
         mock_aggregates_response.json.return_value = {"aggregates": ["TimeAverage2"]}
 
         mock_http_client = AsyncMock()
-        mock_http_client.post = AsyncMock(
+        mock_http_client.get = AsyncMock(
             side_effect=[mock_timezones_response, mock_aggregates_response]
         )
         mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
@@ -135,7 +135,7 @@ async def test_get_server_info_list_response_format():
         mock_aggregates_response.json.return_value = ["Min", "Max", "Avg"]
 
         mock_http_client = AsyncMock()
-        mock_http_client.post = AsyncMock(
+        mock_http_client.get = AsyncMock(
             side_effect=[mock_timezones_response, mock_aggregates_response]
         )
         mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
@@ -203,7 +203,7 @@ async def test_get_server_info_api_error():
         mock_response.text = "Internal Server Error"
 
         mock_http_client = AsyncMock()
-        mock_http_client.post = AsyncMock(
+        mock_http_client.get = AsyncMock(
             side_effect=httpx.HTTPStatusError(
                 "Server error", request=MagicMock(), response=mock_response
             )
@@ -237,7 +237,7 @@ async def test_get_server_info_network_error():
         mock_auth_client.__aexit__ = AsyncMock(return_value=None)
 
         mock_http_client = AsyncMock()
-        mock_http_client.post = AsyncMock(
+        mock_http_client.get = AsyncMock(
             side_effect=httpx.RequestError("Connection failed")
         )
         mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
@@ -289,7 +289,7 @@ async def test_get_server_info_empty_response():
         mock_aggregates_response.json.return_value = {"aggregates": []}
 
         mock_http_client = AsyncMock()
-        mock_http_client.post = AsyncMock(
+        mock_http_client.get = AsyncMock(
             side_effect=[mock_timezones_response, mock_aggregates_response]
         )
         mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
@@ -323,7 +323,7 @@ async def test_get_server_info_malformed_response():
 
         # Mock response with invalid JSON that raises exception
         mock_http_client = AsyncMock()
-        mock_http_client.post = AsyncMock(side_effect=ValueError("Invalid JSON"))
+        mock_http_client.get = AsyncMock(side_effect=ValueError("Invalid JSON"))
         mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
         mock_http_client.__aexit__ = AsyncMock(return_value=None)
 

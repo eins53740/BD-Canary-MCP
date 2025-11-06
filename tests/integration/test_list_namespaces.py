@@ -1,7 +1,7 @@
 """Integration tests for list_namespaces MCP tool."""
 
 import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
@@ -38,9 +38,11 @@ async def test_list_namespaces_success():
         mock_ns_response.raise_for_status = MagicMock()
         mock_ns_response.status_code = 200
 
-        with patch("httpx.AsyncClient.post") as mock_post:
-            # First call is auth, second is namespace query
-            mock_post.side_effect = [mock_auth_response, mock_ns_response]
+        with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post, patch(
+            "httpx.AsyncClient.get", new_callable=AsyncMock
+        ) as mock_get:
+            mock_post.side_effect = [mock_auth_response]
+            mock_get.return_value = mock_ns_response
 
             result = await list_namespaces.fn()
 
@@ -73,8 +75,11 @@ async def test_list_namespaces_empty_response():
         mock_ns_response.json.return_value = {"nodes": []}
         mock_ns_response.raise_for_status = MagicMock()
 
-        with patch("httpx.AsyncClient.post") as mock_post:
-            mock_post.side_effect = [mock_auth_response, mock_ns_response]
+        with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post, patch(
+            "httpx.AsyncClient.get", new_callable=AsyncMock
+        ) as mock_get:
+            mock_post.side_effect = [mock_auth_response]
+            mock_get.return_value = mock_ns_response
 
             result = await list_namespaces.fn()
 
@@ -100,7 +105,7 @@ async def test_list_namespaces_authentication_failure():
         mock_response.status_code = 401
         mock_response.text = "Unauthorized"
 
-        with patch("httpx.AsyncClient.post") as mock_post:
+        with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
             mock_post.side_effect = httpx.HTTPStatusError(
                 "401 Unauthorized",
                 request=MagicMock(),
@@ -137,16 +142,15 @@ async def test_list_namespaces_api_error():
         mock_error_response.status_code = 500
         mock_error_response.text = "Internal Server Error"
 
-        with patch("httpx.AsyncClient.post") as mock_post:
-            # First call succeeds (auth), second fails (API error)
-            mock_post.side_effect = [
-                mock_auth_response,
-                httpx.HTTPStatusError(
-                    "500 Internal Server Error",
-                    request=MagicMock(),
-                    response=mock_error_response,
-                ),
-            ]
+        with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post, patch(
+            "httpx.AsyncClient.get", new_callable=AsyncMock
+        ) as mock_get:
+            mock_post.side_effect = [mock_auth_response]
+            mock_get.side_effect = httpx.HTTPStatusError(
+                "500 Internal Server Error",
+                request=MagicMock(),
+                response=mock_error_response,
+            )
 
             result = await list_namespaces.fn()
 
@@ -168,9 +172,15 @@ async def test_list_namespaces_network_error():
             "CANARY_API_TOKEN": "test-token",
         },
     ):
-        with patch("httpx.AsyncClient.post") as mock_post:
-            # Simulate network error
-            mock_post.side_effect = httpx.ConnectError("Connection refused")
+        mock_auth_response = MagicMock()
+        mock_auth_response.json.return_value = {"sessionToken": "session-123"}
+        mock_auth_response.raise_for_status = MagicMock()
+
+        with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post, patch(
+            "httpx.AsyncClient.get", new_callable=AsyncMock
+        ) as mock_get:
+            mock_post.side_effect = [mock_auth_response]
+            mock_get.side_effect = httpx.ConnectError("Connection refused")
 
             result = await list_namespaces.fn()
 
@@ -212,8 +222,11 @@ async def test_list_namespaces_malformed_response():
         mock_ns_response.json.return_value = {"invalid_key": "invalid_data"}
         mock_ns_response.raise_for_status = MagicMock()
 
-        with patch("httpx.AsyncClient.post") as mock_post:
-            mock_post.side_effect = [mock_auth_response, mock_ns_response]
+        with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post, patch(
+            "httpx.AsyncClient.get", new_callable=AsyncMock
+        ) as mock_get:
+            mock_post.side_effect = [mock_auth_response]
+            mock_get.return_value = mock_ns_response
 
             result = await list_namespaces.fn()
 

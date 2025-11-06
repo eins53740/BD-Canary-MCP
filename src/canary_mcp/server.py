@@ -7,7 +7,7 @@ import os
 import re
 from collections import OrderedDict
 from datetime import UTC, datetime, timedelta
-from functools import lru_cache
+from functools import lru_cache, wraps
 from pathlib import Path
 from textwrap import dedent
 from typing import Any, Optional, Sequence
@@ -20,8 +20,10 @@ from fastmcp.prompts import Message
 
 from canary_mcp.auth import CanaryAuthClient, CanaryAuthError
 from canary_mcp.cache import get_cache_store
+from canary_mcp.http_client import execute_tool_request
 from canary_mcp.logging_setup import configure_logging, get_logger
 from canary_mcp.metrics import MetricsTimer, get_metrics_collector
+from canary_mcp.response_guard import DEFAULT_LIMIT_BYTES, apply_response_size_limit
 from canary_mcp.request_context import get_request_id, set_request_id
 from canary_mcp.tag_index import get_local_tag_candidates
 
@@ -56,6 +58,47 @@ mcp = FastMCP(
 
 # Get logger instance
 log = get_logger(__name__)
+
+# Enforce ≤1 MB payloads by default (configurable via CANARY_MAX_RESPONSE_BYTES).
+RESPONSE_SIZE_LIMIT = int(os.getenv("CANARY_MAX_RESPONSE_BYTES", str(DEFAULT_LIMIT_BYTES)))
+
+# Payload guard helpers -----------------------------------------------------
+
+def _apply_payload_guard(payload: Any) -> Any:
+    guarded, _ = apply_response_size_limit(
+        payload,
+        request_id=get_request_id(),
+        logger=log,
+        limit_bytes=RESPONSE_SIZE_LIMIT,
+    )
+    return guarded
+
+
+def _install_payload_guard(tool_wrapper: Any) -> None:
+    original_fn = tool_wrapper.fn
+
+    if getattr(original_fn, "_payload_guard_applied", False):  # pragma: no cover - guard
+        return
+
+    if asyncio.iscoroutinefunction(original_fn):
+
+        @wraps(original_fn)
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+            result = await original_fn(*args, **kwargs)
+            return _apply_payload_guard(result)
+
+        async_wrapper._payload_guard_applied = True  # type: ignore[attr-defined]
+        tool_wrapper.fn = async_wrapper
+    else:
+
+        @wraps(original_fn)
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+            result = original_fn(*args, **kwargs)
+            return _apply_payload_guard(result)
+
+        sync_wrapper._payload_guard_applied = True  # type: ignore[attr-defined]
+        tool_wrapper.fn = sync_wrapper
+
 
 # Common stop words filtered from natural language descriptions when extracting
 # candidate keywords for tag lookup. These focus the search on process terms.
@@ -1091,7 +1134,9 @@ async def search_tags(
                     }
 
                     async with httpx.AsyncClient(timeout=10.0) as http_client:
-                        response = await http_client.post(
+                        response = await execute_tool_request(
+                            "search_tags",
+                            http_client,
                             search_url,
                             json=payload,
                         )
@@ -1312,7 +1357,9 @@ async def get_tag_metadata(tag_path: str) -> dict[str, Any]:
             metadata_url = f"{views_base_url}/api/v2/getTagProperties"
 
             async with httpx.AsyncClient(timeout=10.0) as http_client:
-                response = await http_client.post(
+                response = await execute_tool_request(
+                    "get_tag_metadata",
+                    http_client,
                     metadata_url,
                     json={
                         "apiToken": api_token,
@@ -1932,7 +1979,12 @@ async def get_tag_properties(tag_paths: list[str]) -> dict[str, Any]:
             properties_url = f"{views_base_url}/api/v2/getTagProperties"
 
             async with httpx.AsyncClient(timeout=10.0) as http_client:
-                response = await http_client.post(properties_url, json=payload)
+                response = await execute_tool_request(
+                    "get_tag_properties",
+                    http_client,
+                    properties_url,
+                    json=payload,
+                )
                 response.raise_for_status()
                 data = response.json()
 
@@ -2065,9 +2117,11 @@ async def list_namespaces() -> dict[str, Any]:
             browse_url = f"{views_base_url}/api/v2/browseNodes"
 
             async with httpx.AsyncClient(timeout=10.0) as http_client:
-                response = await http_client.post(
+                response = await execute_tool_request(
+                    "list_namespaces",
+                    http_client,
                     browse_url,
-                    json={
+                    params={
                         "apiToken": api_token,
                     },
                 )
@@ -2207,7 +2261,12 @@ async def get_last_known_values(
                     if default_view:
                         payload["views"] = [default_view]
 
-                response = await http_client.post(data_url, json=payload)
+                response = await execute_tool_request(
+                    "read_timeseries",
+                    http_client,
+                    data_url,
+                    json=payload,
+                )
                 response.raise_for_status()
                 api_response = response.json()
 
@@ -2477,7 +2536,12 @@ async def read_timeseries(
                     if default_view:
                         payload["views"] = [default_view]
 
-                response = await http_client.post(data_url, json=payload)
+                response = await execute_tool_request(
+                    "read_timeseries",
+                    http_client,
+                    data_url,
+                    json=payload,
+                )
 
                 response.raise_for_status()
                 api_response = response.json()
@@ -2666,18 +2730,22 @@ async def get_server_info() -> dict[str, Any]:
             async with httpx.AsyncClient(timeout=10.0) as http_client:
                 # Get supported time zones
                 timezones_url = f"{views_base_url}/api/v2/getTimeZones"
-                timezones_response = await http_client.post(
+                timezones_response = await execute_tool_request(
+                    "get_timezones",
+                    http_client,
                     timezones_url,
-                    json={"apiToken": api_token},
+                    params={"apiToken": api_token},
                 )
                 timezones_response.raise_for_status()
                 timezones_data = timezones_response.json()
 
                 # Get supported aggregation functions
                 aggregates_url = f"{views_base_url}/api/v2/getAggregates"
-                aggregates_response = await http_client.post(
+                aggregates_response = await execute_tool_request(
+                    "get_available_aggregates",
+                    http_client,
                     aggregates_url,
-                    json={"apiToken": api_token},
+                    params={"apiToken": api_token},
                 )
                 aggregates_response.raise_for_status()
                 aggregates_data = aggregates_response.json()
@@ -3246,6 +3314,32 @@ def get_health() -> dict[str, Any]:
             "timestamp": datetime.now().isoformat(),
             "error": error_msg,
         }
+
+
+def _install_all_payload_guards() -> None:
+    tools = (
+        ping,
+        get_asset_catalog,
+        search_tags,
+        get_tag_metadata,
+        get_tag_path,
+        get_tag_properties,
+        list_namespaces,
+        get_last_known_values,
+        read_timeseries,
+        get_server_info,
+        get_metrics,
+        get_metrics_summary,
+        get_cache_stats,
+        invalidate_cache,
+        cleanup_expired_cache,
+        get_health,
+    )
+    for tool in tools:
+        _install_payload_guard(tool)
+
+
+_install_all_payload_guards()
 
 
 def main() -> None:
