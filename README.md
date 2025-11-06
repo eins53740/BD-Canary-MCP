@@ -8,6 +8,9 @@ The Universal Canary MCP Server enables LLM clients (Claude Desktop, Continue, e
 
 **Project Status:** MVP implemented | Secil Cement Maceira site supported | Mortars Supported | Outão site ongoing
 
+Quick links:
+- API Contracts (local docs and security notes): see "API Contracts (Local Docs)" below.
+
 ## Features
 
 - ✅ **MCP Protocol Implementation** - FastMCP-based server with tool registration
@@ -18,6 +21,10 @@ The Universal Canary MCP Server enables LLM clients (Claude Desktop, Continue, e
 - ✅ **Comprehensive Testing** — Unit/integration suites plus automated health checks
 - ✅ **Canary API Integration** - Coming in Story 1.2
 - ✅ **Data Access Tools** - Coming in Stories 1.3-1.7
+
+## Installation
+
+To install and run this server locally, please follow the instructions in the [Quick setup (uv)](#quick-setup-uv) section. For non-admin Windows installation, see the [non-admin Windows guide](docs/installation/non-admin-windows.md).
 
 ## MCP Server Capabilities
 
@@ -212,6 +219,55 @@ podman-compose up --build
 ```
 
 Inject `.env` via environment variables or bind mount and place the container behind corporate ingress as needed.
+
+## API Contracts (Local Docs)
+
+- Location: `docs/aux_files/Canary API`
+  - Read (Views) API: “Canary Labs Historian Views Service API Documentation (v25.4)”
+  - Write (Store & Forward) API: “Canary Labs Historian Store and Forward Service API Documentation (v25.3)”
+- Authentication & Tag Security
+  - Use `apiToken` (configured in Canary Identity) for all API calls. Each token maps to a Canary user.
+  - If Tag Security is enabled, the Canary user must have read permissions for Views (READ) and write permissions for the target DataSet(s) (WRITE).
+  - For WRITE via SaF, if the service is remote from the Historian, configure the SaF service with an API token as well.
+  - Backwards compatibility: some endpoints accept `accessToken` if `apiToken` is not provided; `/getUserToken` remains for legacy flows when credentials are linked to an Identity user.
+- Project policy: WRITE tool is gated to `Test/*` datasets only (e.g., `Test/Maceira`, `Test/Outao`).
+
+### Example Requests (READ/WRITE)
+
+- READ (Views) — getTagData
+  - Endpoint: `POST {VIEWS_BASE}/api/v2/getTagData`
+  - Body (example):
+    ```json
+    {
+      "apiToken": "<token>",
+      "tags": ["Maceira.Cement.Kiln6.Temperature.Outlet"],
+      "startTime": "2025-10-30T00:00:00Z",
+      "endTime": "2025-10-31T00:00:00Z",
+      "pageSize": 1000
+    }
+    ```
+  - Response (shape excerpt):
+    ```json
+    {
+      "data": [
+        {"timestamp": "2025-10-30T12:00:00Z", "value": 26.2, "quality": "Good", "tagName": "...Outlet"}
+      ]
+    }
+    ```
+
+- WRITE (Store & Forward) — session and write sample
+  - Session (token creation flow depends on deployment; refer to SaF docs)
+    - Optionally set `autoCreateDatasets": true` for test environments.
+  - Write request (conceptual example, see SaF v25.3 for exact schema):
+    ```json
+    {
+      "apiToken": "<token>",
+      "dataSet": "Test/Maceira",
+      "points": [
+        {"path": "Test/Maceira/MCP.Telemetry.Success", "timestamp": "2025-10-31T12:00:00Z", "value": 1}
+      ]
+    }
+    ```
 
 ## Usage
 

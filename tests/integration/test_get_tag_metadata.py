@@ -1,12 +1,36 @@
 """Integration tests for get_tag_metadata MCP tool."""
 
 import os
-from unittest.mock import MagicMock, patch
+from typing import Optional
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
 
+from canary_mcp.auth import CanaryAuthError
 from canary_mcp.server import get_tag_metadata
+
+
+def _configure_mock_async_client(
+    mock_async_client: MagicMock,
+    *,
+    response: Optional[MagicMock] = None,
+    post_side_effect: Optional[Exception] = None,
+) -> MagicMock:
+    """Prepare an async context manager-compatible httpx client mock."""
+
+    http_client = MagicMock()
+    http_client.post = AsyncMock()
+    if post_side_effect is not None:
+        http_client.post.side_effect = post_side_effect
+    else:
+        http_client.post.return_value = response
+    http_client.aclose = AsyncMock()
+
+    mock_async_client.return_value.__aenter__ = AsyncMock(return_value=http_client)
+    mock_async_client.return_value.__aexit__ = AsyncMock(return_value=None)
+
+    return http_client
 
 
 @pytest.mark.integration
@@ -21,33 +45,42 @@ async def test_get_tag_metadata_success():
             "CANARY_API_TOKEN": "test-token",
         },
     ):
-        # Mock authentication client
-        mock_auth_response = MagicMock()
-        mock_auth_response.json.return_value = {"sessionToken": "session-123"}
-        mock_auth_response.raise_for_status = MagicMock()
-
-        # Mock tag metadata API response
-        mock_metadata_response = MagicMock()
-        mock_metadata_response.json.return_value = {
-            "name": "Temperature",
-            "path": "Plant.Area1.Temperature",
-            "dataType": "float",
-            "description": "Kiln temperature sensor",
-            "units": "°C",
-            "minValue": 0,
-            "maxValue": 1500,
-            "updateRate": 1000,
+        mock_properties_response = MagicMock()
+        mock_properties_response.raise_for_status = MagicMock()
+        mock_properties_response.json.return_value = {
             "properties": {
-                "quality": "Good",
-                "timestamp": "2025-10-31T12:00:00Z",
-            },
+                "Plant.Area1.Temperature": {
+                    "path": "Plant.Area1.Temperature",
+                    "name": "Temperature",
+                    "dataType": "float",
+                    "description": "Kiln temperature sensor",
+                    "units": "°C",
+                    "minValue": 0,
+                    "maxValue": 1500,
+                }
+            }
         }
-        mock_metadata_response.raise_for_status = MagicMock()
-        mock_metadata_response.status_code = 200
 
-        with patch("httpx.AsyncClient.post") as mock_post:
-            # First call is auth, second is metadata request
-            mock_post.side_effect = [mock_auth_response, mock_metadata_response]
+        with patch("canary_mcp.server.search_tags.fn") as mock_search, patch(
+            "canary_mcp.auth.CanaryAuthClient.get_valid_token"
+        ) as mock_token, patch("httpx.AsyncClient", autospec=True) as mock_async_client:
+            mock_search.return_value = {
+                "success": True,
+                "tags": [
+                    {
+                        "name": "Temperature",
+                        "path": "Plant.Area1.Temperature",
+                        "dataType": "float",
+                        "description": "Kiln temperature sensor",
+                        "units": "°C",
+                        "minValue": 0,
+                        "maxValue": 1500,
+                        "updateRate": 1000,
+                    }
+                ],
+            }
+            mock_token.return_value = "session-123"
+            _configure_mock_async_client(mock_async_client, response=mock_properties_response)
 
             result = await get_tag_metadata.fn("Plant.Area1.Temperature")
 
@@ -74,20 +107,29 @@ async def test_get_tag_metadata_minimal_response():
             "CANARY_API_TOKEN": "test-token",
         },
     ):
-        mock_auth_response = MagicMock()
-        mock_auth_response.json.return_value = {"sessionToken": "session-123"}
-        mock_auth_response.raise_for_status = MagicMock()
-
-        # Minimal metadata response
-        mock_metadata_response = MagicMock()
-        mock_metadata_response.json.return_value = {
-            "tagName": "SimpleTag",
-            "type": "int",
+        mock_response = MagicMock()
+        mock_response.raise_for_status = MagicMock()
+        mock_response.json.return_value = {
+            "properties": {
+                "Plant.SimpleTag": {
+                    "path": "Plant.SimpleTag",
+                    "name": "SimpleTag",
+                    "dataType": "int",
+                    "description": "",
+                    "units": "",
+                }
+            }
         }
-        mock_metadata_response.raise_for_status = MagicMock()
 
-        with patch("httpx.AsyncClient.post") as mock_post:
-            mock_post.side_effect = [mock_auth_response, mock_metadata_response]
+        with patch("canary_mcp.server.search_tags.fn") as mock_search, patch(
+            "canary_mcp.auth.CanaryAuthClient.get_valid_token"
+        ) as mock_token, patch("httpx.AsyncClient", autospec=True) as mock_async_client:
+            mock_search.return_value = {
+                "success": True,
+                "tags": [{"name": "SimpleTag", "path": "Plant.SimpleTag", "dataType": "int"}],
+            }
+            mock_token.return_value = "session-123"
+            _configure_mock_async_client(mock_async_client, response=mock_response)
 
             result = await get_tag_metadata.fn("Plant.SimpleTag")
 
@@ -135,17 +177,15 @@ async def test_get_tag_metadata_authentication_failure():
             "CANARY_API_TOKEN": "invalid-token",
         },
     ):
-        # Mock authentication failure
-        mock_response = MagicMock()
-        mock_response.status_code = 401
-        mock_response.text = "Unauthorized"
-
-        with patch("httpx.AsyncClient.post") as mock_post:
-            mock_post.side_effect = httpx.HTTPStatusError(
-                "401 Unauthorized",
-                request=MagicMock(),
-                response=mock_response,
-            )
+        with patch("canary_mcp.server.search_tags.fn") as mock_search, patch(
+            "canary_mcp.auth.CanaryAuthClient.get_valid_token"
+        ) as mock_token, patch("httpx.AsyncClient", autospec=True) as mock_async_client:
+            mock_search.return_value = {
+                "success": True,
+                "tags": [{"path": "Plant.Tag1", "name": "Tag1", "dataType": "float"}],
+            }
+            mock_token.side_effect = CanaryAuthError("Unauthorized")
+            _configure_mock_async_client(mock_async_client)
 
             result = await get_tag_metadata.fn("Plant.Tag1")
 
@@ -168,25 +208,23 @@ async def test_get_tag_metadata_api_error():
             "CANARY_API_TOKEN": "test-token",
         },
     ):
-        mock_auth_response = MagicMock()
-        mock_auth_response.json.return_value = {"sessionToken": "session-123"}
-        mock_auth_response.raise_for_status = MagicMock()
+        with patch("canary_mcp.server.search_tags.fn") as mock_search, patch(
+            "canary_mcp.auth.CanaryAuthClient.get_valid_token"
+        ) as mock_token, patch("httpx.AsyncClient", autospec=True) as mock_async_client:
+            mock_search.return_value = {
+                "success": True,
+                "tags": [{"path": "Plant.NonExistent", "name": "NonExistent"}],
+            }
+            mock_token.return_value = "session-123"
 
-        # Mock API error
-        mock_error_response = MagicMock()
-        mock_error_response.status_code = 404
-        mock_error_response.text = "Tag not found"
-
-        with patch("httpx.AsyncClient.post") as mock_post:
-            # First call succeeds (auth), second fails (API error)
-            mock_post.side_effect = [
-                mock_auth_response,
-                httpx.HTTPStatusError(
-                    "404 Not Found",
-                    request=MagicMock(),
-                    response=mock_error_response,
+            error_response = httpx.Response(404, text="Not Found")
+            request = httpx.Request("POST", "https://test.canary.com/api/v2/getTagProperties")
+            _configure_mock_async_client(
+                mock_async_client,
+                post_side_effect=httpx.HTTPStatusError(
+                    "API error", request=request, response=error_response
                 ),
-            ]
+            )
 
             result = await get_tag_metadata.fn("Plant.NonExistent")
 
@@ -208,9 +246,10 @@ async def test_get_tag_metadata_network_error():
             "CANARY_API_TOKEN": "test-token",
         },
     ):
-        with patch("httpx.AsyncClient.post") as mock_post:
-            # Simulate network error
-            mock_post.side_effect = httpx.ConnectError("Connection refused")
+        with patch(
+            "canary_mcp.auth.CanaryAuthClient.get_valid_token"
+        ) as mock_token:
+            mock_token.side_effect = httpx.ConnectError("Connection refused")
 
             result = await get_tag_metadata.fn("Plant.Tag1")
 
@@ -246,21 +285,19 @@ async def test_get_tag_metadata_malformed_response():
             "CANARY_API_TOKEN": "test-token",
         },
     ):
-        mock_auth_response = MagicMock()
-        mock_auth_response.json.return_value = {"sessionToken": "session-123"}
-        mock_auth_response.raise_for_status = MagicMock()
+        with patch("canary_mcp.server.search_tags.fn") as mock_search, patch(
+            "canary_mcp.auth.CanaryAuthClient.get_valid_token"
+        ) as mock_token, patch("httpx.AsyncClient", autospec=True) as mock_async_client:
+            mock_search.return_value = {"success": True, "tags": []}
+            mock_token.return_value = "session-123"
+            malformed_response = MagicMock()
+            malformed_response.raise_for_status = MagicMock()
+            malformed_response.json.return_value = {"invalid_key": "invalid_data"}
 
-        # Malformed response (wrong structure)
-        mock_metadata_response = MagicMock()
-        mock_metadata_response.json.return_value = {"invalid_key": "invalid_data"}
-        mock_metadata_response.raise_for_status = MagicMock()
-
-        with patch("httpx.AsyncClient.post") as mock_post:
-            mock_post.side_effect = [mock_auth_response, mock_metadata_response]
+            _configure_mock_async_client(mock_async_client, response=malformed_response)
 
             result = await get_tag_metadata.fn("Plant.Tag1")
 
-            # Should fail because metadata is not found
             assert result["success"] is False
             assert "not found" in result["error"]
 
@@ -277,25 +314,38 @@ async def test_get_tag_metadata_with_properties():
             "CANARY_API_TOKEN": "test-token",
         },
     ):
-        mock_auth_response = MagicMock()
-        mock_auth_response.json.return_value = {"sessionToken": "session-123"}
-        mock_auth_response.raise_for_status = MagicMock()
-
-        mock_metadata_response = MagicMock()
-        mock_metadata_response.json.return_value = {
-            "name": "Pressure",
-            "path": "Plant.Pressure",
-            "dataType": "float",
+        mock_properties_response = MagicMock()
+        mock_properties_response.json.return_value = {
             "properties": {
-                "alarmHigh": 100,
-                "alarmLow": 10,
-                "quality": "Good",
-            },
+                "Plant.Pressure": {
+                    "path": "Plant.Pressure",
+                    "name": "Pressure",
+                    "dataType": "float",
+                    "description": "",
+                    "units": "kPa",
+                    "alarmHigh": 100,
+                    "alarmLow": 10,
+                    "quality": "Good",
+                }
+            }
         }
-        mock_metadata_response.raise_for_status = MagicMock()
+        mock_properties_response.raise_for_status = MagicMock()
 
-        with patch("httpx.AsyncClient.post") as mock_post:
-            mock_post.side_effect = [mock_auth_response, mock_metadata_response]
+        with patch("canary_mcp.server.search_tags.fn") as mock_search, patch(
+            "canary_mcp.auth.CanaryAuthClient.get_valid_token"
+        ) as mock_token, patch("httpx.AsyncClient", autospec=True) as mock_async_client:
+            mock_search.return_value = {
+                "success": True,
+                "tags": [
+                    {
+                        "name": "Pressure",
+                        "path": "Plant.Pressure",
+                        "dataType": "float",
+                    }
+                ],
+            }
+            mock_token.return_value = "session-123"
+            _configure_mock_async_client(mock_async_client, response=mock_properties_response)
 
             result = await get_tag_metadata.fn("Plant.Pressure")
 

@@ -1,0 +1,19 @@
+# EPIC 4 — MCP Server Enhancements and Prompt/Resource Optimization (Index)
+
+This index replaces the inlined Story list. Each Story now has its own file:
+
+- docs/stories/4-1-api-request-optimization.md
+- docs/stories/4-2-prompt-workflow-improvement.md
+- docs/stories/4-3-resource-management-and-rag.md
+- docs/stories/4-4-tools-improvement-and-testing.md
+- docs/stories/4-5-definition-of-success-validation.md
+- docs/stories/4-6-installers-and-configuration.md
+- docs/stories/4-7-coding-standards-and-coverage.md
+- docs/stories/4-8-write-api-implementation.md
+
+Notes:
+- Stories are scoped for a brownfield environment (no breaking changes to existing Canary deployments).
+- See docs/epic4.md for Epic overview and success criteria.
+- Primary resource file: `docs/aux_files/Canary Resources/Canary_Path_description_maceira.json` (no external RAG infra).
+- Local API contracts and swagger docs are available under `docs/aux_files/Canary API`.
+ - Quick link: See README “API Contracts (Local Docs)” for token/Tag Security notes and example requests.

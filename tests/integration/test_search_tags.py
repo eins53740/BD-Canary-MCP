@@ -78,13 +78,16 @@ async def test_search_tags_no_results():
         mock_auth_response.json.return_value = {"sessionToken": "session-123"}
         mock_auth_response.raise_for_status = MagicMock()
 
-        # Empty tags response
         mock_search_response = MagicMock()
         mock_search_response.json.return_value = {"tags": []}
         mock_search_response.raise_for_status = MagicMock()
 
         with patch("httpx.AsyncClient.post") as mock_post:
-            mock_post.side_effect = [mock_auth_response, mock_search_response]
+            mock_post.side_effect = [
+                mock_auth_response,
+                mock_search_response,
+                mock_search_response,  # For fallback
+            ]
 
             result = await search_tags.fn("NonExistentTag", bypass_cache=True)
 
@@ -252,7 +255,11 @@ async def test_search_tags_malformed_response():
         mock_search_response.raise_for_status = MagicMock()
 
         with patch("httpx.AsyncClient.post") as mock_post:
-            mock_post.side_effect = [mock_auth_response, mock_search_response]
+            mock_post.side_effect = [
+                mock_auth_response,
+                mock_search_response,
+                MagicMock(json=lambda: {"tags": []}, raise_for_status=MagicMock()),
+            ]
 
             result = await search_tags.fn("Temperature", bypass_cache=True)
 

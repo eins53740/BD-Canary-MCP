@@ -1,0 +1,218 @@
+EXAMPLE:
+
+{{APIURL}}/{{ApiVersion}}/browseNodes
+
+{
+    "statusCode": "Good",
+    "errors": [],
+    "nodes": {
+        "SCUNSCANARY": {
+            "fullPath": "SCUNSCANARY",
+            "hasNodes": true,
+            "hasTags": false
+        },
+        "Secil": {
+            "fullPath": "Secil",
+            "hasNodes": true,
+            "hasTags": true
+        }
+    }
+}
+
+
+
+Example 1:
+
+{{APIURL}}/{{ApiVersion}}/browseTags?apiToken={{ApiToken}}&deep=true
+
+
+{
+    "statusCode": "Good",
+    "errors": [],
+    "tags": [
+        "SCUNSCANARY.FlowSpB.Flow.MaceiraKPI.Node Control.Scan Rate",
+        "SCUNSCANARY.KepwareIoT.Secil.Portugal.Cement.Maceira.100 - Raw Materials Handling.111 - Crushing.Normalised.Stoppages.State",
+        "SCUNSCANARY.Secil.Secil.Portugal.Cement.Maceira.400 - Clinker Production.432 - Kiln.Normalised.Analog.Kiln_Shell_Temp_Average_Section_55.Value"
+    ],
+    "continuation": "pathid=SCUNSCANARY.Secil.Secil.Portugal.Cement.Maceira.400 - Clinker Production.432 - Kiln.Normalised.Analog.Kiln_Shell_Temp_Average_Section_55\tindex=1"
+}
+
+
+
+Example 2:
+
+{{APIURL}}/{{ApiVersion}}/getTagData?apiToken={{ApiToken}}&tags=Secil.Secil.Portugal.Cement.Maceira.400 - Clinker Production.432 - Kiln.Normalised.Analog.Kiln_Shell_Temp_Average_Section_55.Value&startTime=now-1h&endTime=now
+
+{
+    "statusCode": "Good",
+    "errors": [],
+    "data": {
+        "Secil.Secil.Portugal.Cement.Maceira.400 - Clinker Production.432 - Kiln.Normalised.Analog.Kiln_Shell_Temp_Average_Section_55.Value": [
+            {
+                "t": "2025-11-01T19:35:24.0110000+00:00",
+                "v": 71.08000183105469
+            },
+            {
+                "t": "2025-11-01T19:59:23.7630000+00:00",
+                "v": 70.87999725341797
+            }
+        ]
+    },
+    "continuation": null
+}
+
+
+
+
+EXAMPLE:
+
+
+POOST:
+{{APIURL}}/{{ApiVersion}}/browseTags
+Body:
+{
+  "apiToken": "{{ApiToken}}",
+  "path": "",
+  "deep": true,
+  "search": "300 - Raw Meal Production.321 - Raw Mill.Normalised.Quality.Raw Meal.ALBITE.Value"
+}
+
+
+oUTPUT:
+{
+    "statusCode": "Good",
+    "errors": [],
+    "tags": [
+        "SCUNSCANARY.KepwareIoT.Secil.Portugal.Cement.Maceira.300 - Raw Meal Production.321 - Raw Mill.Normalised.Quality.Raw Meal.ALBITE.Value",
+        "Secil.Portugal.Cement.Maceira.300 - Raw Meal Production.321 - Raw Mill.Normalised.Quality.Raw Meal.ALBITE.Value"
+    ],
+    "continuation": null
+}
+
+
+
+{{APIURL}}/{{ApiVersion}}/getTagData?apiToken={{ApiToken}}&tags=Secil.Portugal.Cement.Maceira.400 - Clinker Production.432 - Kiln.Normalised.Analog.Kiln_Shell_Temp_Average_Section_55.Value
+
+
+{
+    "statusCode": "Good",
+    "errors": [],
+    "data": {
+        "Secil.Portugal.Cement.Maceira.400 - Clinker Production.432 - Kiln.Normalised.Analog.Kiln_Shell_Temp_Average_Section_55.Value": [
+            {
+                "t": "2025-11-04T00:02:40.0000000+00:00",
+                "v": 203.32000732421875
+            }
+        ]
+    },
+ 
+   "continuation": null
+}
+
+
+{{APIURL}}/{{ApiVersion}}/getTagData?apiToken={{ApiToken}}&tags=Secil.Secil.Portugal.Cement.Maceira.400 - Clinker Production.432 - Kiln.Normalised.Analog.Kiln_Shell_Temp_Average_Section_50.Value&startTime=now-1h&endTime=now
+
+{
+    "statusCode": "Good",
+    "errors": [],
+    "data": {
+        "Secil.Secil.Portugal.Cement.Maceira.400 - Clinker Production.432 - Kiln.Normalised.Analog.Kiln_Shell_Temp_Average_Section_50.Value": [
+            {
+                "t": "2025-11-03T23:58:41.0360000+00:00",
+                "v": 263.17999267578125
+            }
+        ]
+    },
+    "continuation": null
+}
+
+
+
+
+POST:
+{{APIURL}}/{{ApiVersion}}/browseTags
+
+Body:
+{
+  "apiToken": "{{ApiToken}}",
+  "path": "",
+  "deep": true,
+  "search": "P431"
+}
+
+
+Output:
+{
+    "statusCode": "Good",
+    "errors": [],
+    "tags": [
+        "SCUNSCANARY.Secil2.Secil.Portugal.Cement.Maceira.400 - Clinker Production.431 - Kiln.Normalised.Energy.P431.Value",
+        "SCUNSCANARY.Test.Secil.Portugal.Cement.Maceira.400 - Clinker Production.431 - Kiln.Normalised.Energy.P431.Value",
+        "Secil.Portugal.Cement.Maceira.400 - Clinker Production.431 - Kiln.Normalised.Energy.P431.Value",
+        "Secil.Test.Portugal.Cement.Maceira.400 - Clinker Production.431 - Kiln.Normalised.Energy.P431.Value"
+    ],
+    "continuation": null
+}
+
+
+
+GET:
+{{APIURL}}/{{ApiVersion}}/getTagProperties?apiToken={{ApiToken}}&tags=Secil.Portugal.Cement.Maceira.100 - Raw Materials Handling.111 - Crushing.Normalised.Analog.BR5TT_8119.Value
+
+{
+    "statusCode": "Good",
+    "errors": [],
+    "properties": {
+        "Secil.Portugal.Cement.Maceira.100 - Raw Materials Handling.111 - Crushing.Normalised.Analog.BR5TT_8119.Value": {
+            "Source ItemId": "localhost.Secil.Secil.Portugal.Cement.Maceira.100 - Raw Materials Handling.111 - Crushing.Normalised.Analog.BR5TT_8119.Value",
+            "Historian ItemId": "localhost.Secil.Secil.Portugal.Cement.Maceira.100 - Raw Materials Handling.111 - Crushing.Normalised.Analog.BR5TT_8119.Value",
+            "Description": "Temperatura Enrolamento 1 Motor do Britador",
+            "Default High Scale": "150",
+            "Default Low Scale": "0",
+            "retained": "False",
+            "DataPermissions": "user_domainSecil(R);G_UNS_Admin(RW)",
+            "retain": "False",
+            "Units": "°C",
+            "DataPermission": "user_domainSecil(R);G_UNS_Admin(RW)",
+            "delete": "False",
+            "engLow": "0",
+            "documentation": "Temperatura Enrolamento 1 Motor do Britador",
+            "engHigh": "150",
+            "engUnit": "°C"
+        }
+    }
+}
+
+
+POST:
+{{APIURL}}/{{ApiVersion}}/getTagProperties
+Body:
+{
+  "apiToken": "{{ApiToken}}",
+  "tags": ["Secil.Portugal.Cement.Maceira.100 - Raw Materials Handling.111 - Crushing.Normalised.Analog.BR5TT_8119.Value"]
+}
+
+Output:
+{
+    "statusCode": "Good",
+    "errors": [],
+    "properties": {
+        "Secil.Portugal.Cement.Maceira.100 - Raw Materials Handling.111 - Crushing.Normalised.Analog.BR5TT_8119.Value": {
+            "Source ItemId": "localhost.Secil.Secil.Portugal.Cement.Maceira.100 - Raw Materials Handling.111 - Crushing.Normalised.Analog.BR5TT_8119.Value",
+            "Historian ItemId": "localhost.Secil.Secil.Portugal.Cement.Maceira.100 - Raw Materials Handling.111 - Crushing.Normalised.Analog.BR5TT_8119.Value",
+            "Description": "Temperatura Enrolamento 1 Motor do Britador",
+            "Default High Scale": "150",
+            "Default Low Scale": "0",
+            "retained": "False",
+            "DataPermissions": "user_domainSecil(R);G_UNS_Admin(RW)",
+            "retain": "False",
+            "Units": "°C",
+            "DataPermission": "user_domainSecil(R);G_UNS_Admin(RW)",
+            "delete": "False",
+            "engLow": "0",
+            "documentation": "Temperatura Enrolamento 1 Motor do Britador",
+            "engHigh": "150",
+            "engUnit": "°C"
+        }
+    }
+}

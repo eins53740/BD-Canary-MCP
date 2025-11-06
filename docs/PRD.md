@@ -292,6 +292,26 @@ With 6 Canary sites planned for deployment (1 POC complete, 5 upcoming), establi
 
 **MVP Validation Approach:** Core functionality validated with automated tests; advanced validation scenarios (error injection, multi-site automation) validated manually during initial rollout, then automated based on real-world learnings.
 
+### Epic 4: MCP Server Enhancements & Prompt/Resource Optimization
+**Estimated Stories:** 8 stories
+
+**Goal:** Strengthen brownfield readiness by tightening HTTP method usage, formalizing LLM prompt workflows, enforcing response-size limits, improving tool coverage, and documenting RAG feasibility — without disrupting existing Canary deployments.
+
+**Epic Completion Criteria:**
+- All MCP tools follow REST semantics (GET for idempotent lookups, POST for complex/multi-parameter requests) and enforce ≤1MB response payloads per invocation.
+- Prompt workflows (`tag_lookup_workflow`, `timeseries_query_workflow`) documented with inputs/outputs and clarifying-question steps; reproducible from examples.
+- CLI validation script exercises core and new tools end-to-end.
+- Write operations are restricted to approved test datasets only (e.g., `Test/Maceira`, `Test/Outao`).
+- RAG feasibility documented using existing on-disk resources; no new infra required.
+
+**Key Deliverables:**
+- Method-usage matrix for all tools and error-handling patterns
+- Size-limit guardrails across tools (≤1MB per LLM request)
+- Updated prompt workflow docs and examples
+- New/expanded tools (e.g., `getTagProperties`, `getAggregates` basics) with usage guidance
+- Telemetry write tool gated to test datasets
+- RAG feasibility note and resource index
+
 > **Note:** Detailed epic breakdown with full story specifications is available in [epics.md](./epics.md)
 
 ---

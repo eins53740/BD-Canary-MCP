@@ -38,6 +38,21 @@ Each epic includes:
 
 ---
 
+## Epic 4: MCP Server Enhancements & Prompt/Resource Optimization
+
+Goal: Tighten HTTP method usage, formalize prompt workflows, enforce ≤1MB responses, improve tool coverage, and document READ/WRITE API contracts without introducing new infra.
+
+Highlights:
+- Resource: `docs/aux_files/Canary Resources/Canary_Path_description_maceira.json` (canonical NL→tag index)
+- API Contracts (local): `docs/aux_files/Canary API` (Views v25.4, SaF v25.3)
+- Write tool gated to `Test/*` only with tester role; optional `autoCreateDatasets=true` during session token creation in test
+- Canonical `tag_lookup_workflow` with confidence thresholds and clarifying questions
+- DoD & Acceptance: unit/integration in CI; p95 < 10000 ms; batch mapping ≥90%
+
+References:
+- Epic: docs/epic4.md
+- Stories: see docs/stories/4-all-stories and 4-*.md
+
 ### Story 1.1: MCP Server Foundation & Protocol Implementation
 
 As a **Developer**,
@@ -592,4 +607,97 @@ So that I can ensure its accuracy, performance, and reliability.
 ---
 
 **Epic 3 Complete!** All 5 stories deliver a powerful, user-friendly semantic search tool that makes finding tags in the Canary Historian more intuitive.
+---
 
+## Epic 4: MCP Server Enhancements & Canary API Governance
+
+**Estimated Stories:** 6–8 stories
+
+**Goal:** Consolidate advanced workflows (read/write Canary APIs), reinforce CI/CD, and standardise security, documentation, and testing practices to complete the Universal Canary MCP Server lifecycle.
+
+**Epic Completion Criteria:** All Canary API integrations are token-secured, workflows validated via CI, and documentation fully updated with operational playbooks.
+
+---
+
+### Story 4.1: Canary Resource Updates & MCP Integration
+
+As a **Developer**,
+I want to integrate the latest Canary path resources,
+So that the MCP server stays aligned with Maceira datasets.
+
+**Acceptance Criteria:**
+1. Update MCP with `docs/aux_files/Canary Resources/Canary_Path_description_maceira.json`.
+2. Confirm resource loads correctly and is queryable via `tag_lookup_workflow`.
+3. Validation: query returns known Maceira tags correctly ranked in top 3.
+
+---
+
+### Story 4.2: API Contracts — Read & Write
+
+As a **UNS Developer**,
+I want explicit API contracts for READ and WRITE operations,
+So that Canary data is accessed securely and consistently.
+
+**Acceptance Criteria:**
+- **WRITE API:** token-based auth; write limited to `Test/*`; auto-create datasets allowed via session token.
+- **READ API:** token-based auth; supports `apiToken` or legacy `accessToken`.
+- Authentication and error typing standardised.
+- Tests: valid write/read, invalid dataset (403), token failure (401).
+
+---
+
+### Story 4.3: Prompt Workflows & Tag Lookup Logic
+
+As a **Plant Engineer**,
+I want a clear canonical workflow for mapping natural-language tag descriptions,
+So that LLMs produce deterministic, explainable results.
+
+**Acceptance Criteria:**
+1. Canonical `tag_lookup_workflow` added: parse → normalise → search → rank → return or clarify.
+2. ≥90% accuracy on 200 test queries; confidence <0.7 triggers clarifying question.
+3. Error handling for malformed inputs.
+
+---
+
+### Story 4.4: Testing, CI, and Performance Validation
+
+As a **Developer**,
+I want to ensure strong CI coverage and performance guarantees,
+So that code quality and latency targets are automatically validated.
+
+**Acceptance Criteria:**
+1. Unit + integration + performance tests in CI.
+2. Coverage ≥75%, CI fails if coverage drops >5 pp.
+3. 95th percentile latency: <300 ms for tag lookup; <600 ms for read API.
+4. Use `pytest`, `locust`, or `k6` for automation.
+
+---
+
+### Story 4.5: Security & Governance
+
+As a **System Administrator**,
+I want RBAC and audit controls,
+So that only authorised roles can write to test datasets.
+
+**Acceptance Criteria:**
+1. Only roles with “tester” flag can write under `Test/*`.
+2. Violations logged with event IDs.
+3. Security review passes.
+
+---
+
+### Story 4.6: Documentation & Operational Handover
+
+As a **UNS Developer**,
+I want updated architecture docs and runbooks,
+So that new engineers can deploy and maintain the system easily.
+
+**Acceptance Criteria:**
+1. Add README with diagram (NL → RAG index → Canary → LLM).
+2. Include quickstart, testing guide, and how to reindex or rotate tokens.
+3. Runbook: incident handling and recovery procedures.
+4. New engineer can complete setup in <30 min.
+
+---
+
+**Epic 4 Complete!** Finalises the MCP system with secure API contracts, optimised workflows, comprehensive testing, and full documentation to support handover and long-term maintenance.

@@ -1118,7 +1118,9 @@ async def search_tags(
                                 }
                             elif isinstance(tag, str):
                                 tag_str = tag.strip()
-                                name_fragment = tag_str.split(".")[-1] if "." in tag_str else tag_str
+                                name_fragment = (
+                                    tag_str.split(".")[-1] if "." in tag_str else tag_str
+                                )
                                 normalized = {
                                     "name": name_fragment,
                                     "path": tag_str,
