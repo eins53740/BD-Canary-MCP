@@ -1,16 +1,64 @@
-"""Unit tests for search_tags MCP tool."""
+"""Unit tests for search_tags MCP tool (refactored)."""
 
+from __future__ import annotations
+
+from typing import Iterable
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from canary_mcp.server import search_tags
 
+# ------------------------------
+# Helpers & Fixtures
+# ------------------------------
+
+
+def _mk_response(json_payload: dict | list) -> MagicMock:
+    resp = MagicMock()
+    resp.json.return_value = json_payload
+    resp.raise_for_status = MagicMock()
+    return resp
+
+
+def _mk_post_side_effect(payloads: Iterable[dict | list]) -> list[MagicMock]:
+    """Create a list of MagicMocks to use as AsyncClient.post side effects,
+    one per HTTP call in sequence."""
+    return [_mk_response(p) for p in payloads]
+
+
+@pytest.fixture
+def env_with_root(monkeypatch):
+    monkeypatch.setenv("CANARY_SAF_BASE_URL", "https://test.canary.com/api/v1")
+    monkeypatch.setenv("CANARY_VIEWS_BASE_URL", "https://test.canary.com")
+    monkeypatch.setenv("CANARY_API_TOKEN", "test-token")
+    monkeypatch.setenv("CANARY_TAG_SEARCH_ROOT", "Secil.Portugal")
+    return "Secil.Portugal"
+
+
+@pytest.fixture
+def env_without_root(monkeypatch):
+    """Clear explicit root to exercise fallback behaviour in the tool."""
+    monkeypatch.setenv("CANARY_SAF_BASE_URL", "https://test.canary.com/api/v1")
+    monkeypatch.setenv("CANARY_VIEWS_BASE_URL", "https://test.canary.com")
+    monkeypatch.setenv("CANARY_API_TOKEN", "test-token")
+    # Intentionally DO NOT set CANARY_TAG_SEARCH_ROOT
+    return "Secil.Portugal"  # expected fallback used by the tool
+
+
+@pytest.fixture
+def auth_ok():
+    return {"sessionToken": "session-123"}
+
+
+# ------------------------------
+# Basic registration/doc tests
+# ------------------------------
+
 
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_search_tags_tool_registration():
-    """Test that search_tags is properly registered as an MCP tool."""
     assert hasattr(search_tags, "fn")
     assert callable(search_tags.fn)
 
@@ -18,47 +66,44 @@ async def test_search_tags_tool_registration():
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_search_tags_tool_documentation():
-    """Test that search_tags has proper documentation."""
     assert search_tags.fn.__doc__ is not None
-    assert "search" in search_tags.fn.__doc__.lower()
-    assert "tag" in search_tags.fn.__doc__.lower()
+    doc = search_tags.fn.__doc__.lower()
+    assert "search" in doc
+    assert "tag" in doc
+
+
+# ------------------------------
+# Validation
+# ------------------------------
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_search_tags_empty_pattern_validation():
-    """Test that empty search pattern is rejected."""
-    result = await search_tags.fn("")
+@pytest.mark.parametrize("pattern", ["", "   "])
+async def test_search_tags_rejects_empty_or_whitespace(pattern):
+    """Empty or whitespace-only pattern should be rejected with consistent shape."""
+    result = await search_tags.fn(pattern)
 
     assert result["success"] is False
-    assert "error" in result
+    assert "error" in result and isinstance(result["error"], str)
     assert "empty" in result["error"].lower()
     assert result["tags"] == []
     assert result["count"] == 0
+    # The tool defaults its root to Secil.Portugal
     assert result["search_path"] == "Secil.Portugal"
     assert "hint" in result
 
 
-@pytest.mark.unit
-@pytest.mark.asyncio
-async def test_search_tags_whitespace_pattern_validation():
-    """Test that whitespace-only pattern is rejected."""
-    result = await search_tags.fn("   ")
-
-    assert result["success"] is False
-    assert "error" in result
-    assert "empty" in result["error"].lower()
-    assert result["tags"] == []
-    assert result["count"] == 0
-    assert result["search_path"] == "Secil.Portugal"
-    assert "hint" in result
+# ------------------------------
+# Data parsing
+# ------------------------------
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_search_tags_data_parsing_valid_response():
-    """Test parsing of valid tag data from API response."""
-    mock_response_data = {
+async def test_search_tags_data_parsing_valid_response(env_with_root, auth_ok):
+    """Parses full object entries from API."""
+    search_payload = {
         "tags": [
             {
                 "name": "Temperature",
@@ -75,310 +120,194 @@ async def test_search_tags_data_parsing_valid_response():
         ]
     }
 
-    with patch.dict(
-        "os.environ",
-        {
-            "CANARY_SAF_BASE_URL": "https://test.canary.com/api/v1",
-            "CANARY_VIEWS_BASE_URL": "https://test.canary.com",
-            "CANARY_API_TOKEN": "test-token",
-            "CANARY_TAG_SEARCH_ROOT": "Secil.Portugal",
-        },
-    ):
-        mock_auth_response = MagicMock()
-        mock_auth_response.json.return_value = {"sessionToken": "session-123"}
-        mock_auth_response.raise_for_status = MagicMock()
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = _mk_post_side_effect([auth_ok, search_payload, {"tags": []}])
 
-        mock_search_response = MagicMock()
-        mock_search_response.json.return_value = mock_response_data
-        mock_search_response.raise_for_status = MagicMock()
+        result = await search_tags.fn("Temp*")
 
-        with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
-            mock_post.side_effect = [mock_auth_response, mock_search_response]
-
-            result = await search_tags.fn("Temp*")
-
-            assert result["success"] is True
-            assert result["count"] == 2
-            assert len(result["tags"]) == 2
-            assert result["tags"][0]["name"] == "Temperature"
-            assert result["tags"][0]["path"] == "Plant.Area1.Temperature"
-            assert result["tags"][0]["dataType"] == "float"
-            assert result["tags"][0]["description"] == "Temperature sensor"
-            assert result["search_path"] == "Secil.Portugal"
-            assert "hint" in result
+    assert result["success"] is True
+    assert result["count"] == 2
+    assert len(result["tags"]) == 2
+    assert result["tags"][0] == {
+        "name": "Temperature",
+        "path": "Plant.Area1.Temperature",
+        "dataType": "float",
+        "description": "Temperature sensor",
+    }
+    assert result["search_path"] == env_with_root
+    assert "hint" in result
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_search_tags_parses_string_entries():
-    """Ensure string-based tag entries are normalised into result objects."""
-    mock_response_data = {
+async def test_search_tags_parses_string_entries(env_with_root, auth_ok):
+    """String-based entries should be normalised to objects with inferred fields."""
+    search_payload = {
         "tags": [
             "Plant.Area1.Kiln.Kiln_Shell_Temp_Average_Section_20.Value",
             "Plant.Area1.Kiln.Kiln_Shell_Temp_Average_Section_200.Value",
         ]
     }
 
-    with patch.dict(
-        "os.environ",
-        {
-            "CANARY_SAF_BASE_URL": "https://test.canary.com/api/v1",
-            "CANARY_VIEWS_BASE_URL": "https://test.canary.com",
-            "CANARY_API_TOKEN": "test-token",
-            "CANARY_TAG_SEARCH_ROOT": "Secil.Portugal",
-        },
-    ):
-        mock_auth_response = MagicMock()
-        mock_auth_response.json.return_value = {"sessionToken": "session-123"}
-        mock_auth_response.raise_for_status = MagicMock()
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = _mk_post_side_effect([auth_ok, search_payload, {"tags": []}])
 
-        mock_search_response = MagicMock()
-        mock_search_response.json.return_value = mock_response_data
-        mock_search_response.raise_for_status = MagicMock()
+        result = await search_tags.fn("Kiln*")
 
-        with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
-            mock_post.side_effect = [mock_auth_response, mock_search_response]
+    assert result["success"] is True
+    assert result["count"] == 2
+    assert len(result["tags"]) == 2
 
-            result = await search_tags.fn("Kiln_Shell Temp*", bypass_cache=True)
-
-            assert result["success"] is True
-            assert result["count"] == 2
-            assert len(result["tags"]) == 2
-            assert result["tags"][0]["path"] == (
-                "Plant.Area1.Kiln.Kiln_Shell_Temp_Average_Section_20.Value"
-            )
-            assert result["tags"][0]["name"] == "Value"
-            assert result["tags"][0]["dataType"] == "unknown"
-            assert result["tags"][0]["description"] == ""
+    first = result["tags"][0]
+    assert first["path"] == "Plant.Area1.Kiln.Kiln_Shell_Temp_Average_Section_20.Value"
+    assert first["name"] == "Value"  # name inferred from last path segment
+    assert first["dataType"] == "unknown"  # default when not provided
+    assert first["description"] == ""  # default when not provided
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_search_tags_data_parsing_missing_fields():
-    """Test parsing of tag data with missing optional fields."""
-    mock_response_data = {
+async def test_search_tags_data_parsing_missing_fields(env_with_root, auth_ok):
+    """Objects with missing optional fields should get sensible defaults."""
+    search_payload = {"tags": [{"name": "Tag1"}]}
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = _mk_post_side_effect([auth_ok, search_payload, {"tags": []}])
+
+        result = await search_tags.fn("Tag1")
+
+    assert result["success"] is True
+    assert result["count"] == 1
+    tag = result["tags"][0]
+    assert tag["name"] == "Tag1"
+    assert tag["path"] == "Tag1"  # fallback to name
+    assert tag["dataType"] == "unknown"  # default
+    assert tag["description"] == ""  # default
+    assert result["search_path"] == env_with_root
+    assert "hint" in result
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_search_tags_uses_configured_root_in_browse_call(env_with_root, auth_ok):
+    """Ensure the request uses the configured search root (path) when browsing."""
+    search_payload = {"tags": [{"name": "P431", "path": "Some.Path.P431.Value"}]}
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = _mk_post_side_effect([auth_ok, search_payload, {"tags": []}])
+
+        result = await search_tags.fn("P431", bypass_cache=True)
+
+        # At least 2 posts: auth and search (plus optional browse)
+        assert len(mock_post.await_args_list) >= 2
+        # The second call is the search request; verify the root path used
+        browse_call = mock_post.await_args_list[1]
+        assert browse_call.kwargs["json"]["path"] == env_with_root
+
+    assert result["search_path"] == env_with_root
+    assert "hint" in result
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_search_tags_falls_back_to_default_when_no_root(env_without_root, auth_ok):
+    """If no CANARY_TAG_SEARCH_ROOT is set, the tool should default to 'Secil.Portugal'."""
+    search_payload = {
         "tags": [
             {
-                "name": "Tag1",
-                # Missing path, dataType, description
+                "name": "P431",
+                "path": (
+                    "Secil.Portugal.Cement.Maceira.400 - Clinker Production."
+                    "431 - Kiln.Normalised.Energy.P431.Value"
+                ),
             }
         ]
     }
 
-    with patch.dict(
-        "os.environ",
-        {
-            "CANARY_SAF_BASE_URL": "https://test.canary.com/api/v1",
-            "CANARY_VIEWS_BASE_URL": "https://test.canary.com",
-            "CANARY_API_TOKEN": "test-token",
-            "CANARY_TAG_SEARCH_ROOT": "Secil.Portugal",
-        },
-    ):
-        mock_auth_response = MagicMock()
-        mock_auth_response.json.return_value = {"sessionToken": "session-123"}
-        mock_auth_response.raise_for_status = MagicMock()
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = _mk_post_side_effect([auth_ok, search_payload, {"tags": []}])
 
-        mock_search_response = MagicMock()
-        mock_search_response.json.return_value = mock_response_data
-        mock_search_response.raise_for_status = MagicMock()
+        result = await search_tags.fn("P431", bypass_cache=True)
 
-        with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
-            mock_post.side_effect = [mock_auth_response, mock_search_response]
+        assert len(mock_post.await_args_list) >= 2
+        browse_call = mock_post.await_args_list[1]
+        assert browse_call.kwargs["json"]["path"] == env_without_root
 
-            result = await search_tags.fn("Tag1")
-
-            assert result["success"] is True
-            assert result["count"] == 1
-            assert result["tags"][0]["name"] == "Tag1"
-            assert result["tags"][0]["path"] == "Tag1"  # Fallback to name
-            assert result["tags"][0]["dataType"] == "unknown"  # Default
-            assert result["tags"][0]["description"] == ""  # Default
-            assert result["search_path"] == "Secil.Portugal"
-            assert "hint" in result
+    assert result["search_path"] == env_without_root
+    assert result["count"] == 1
+    assert result["tags"][0]["name"] == "P431"
+    assert "hint" in result
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_search_tags_includes_configured_path_in_payload():
-    """The browseTags payload should include the configured path."""
-    with patch.dict(
-        "os.environ",
-        {
-            "CANARY_SAF_BASE_URL": "https://test.canary.com/api/v1",
-            "CANARY_VIEWS_BASE_URL": "https://test.canary.com",
-            "CANARY_API_TOKEN": "test-token",
-            "CANARY_TAG_SEARCH_ROOT": "Secil.Portugal",
-        },
-    ):
-        mock_auth_response = MagicMock()
-        mock_auth_response.json.return_value = {"sessionToken": "session-123"}
-        mock_auth_response.raise_for_status = MagicMock()
+async def test_search_tags_data_parsing_empty_tags(env_with_root, auth_ok):
+    """Empty array is a valid success with zero results."""
+    search_payload = {"tags": []}
 
-        mock_search_response = MagicMock()
-        mock_search_response.json.return_value = {"tags": []}
-        mock_search_response.raise_for_status = MagicMock()
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = _mk_post_side_effect([auth_ok, search_payload, {"tags": []}])
 
-        with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
-            mock_post.side_effect = [mock_auth_response, mock_search_response]
+        result = await search_tags.fn("NonExistent", bypass_cache=True)
 
-            result = await search_tags.fn("P431", bypass_cache=True)
+    assert result["success"] is True
+    assert result["count"] == 0
+    assert result["tags"] == []
+    assert result["search_path"] == env_with_root
+    assert "hint" in result
 
-            assert len(mock_post.await_args_list) >= 2
-            browse_call = mock_post.await_args_list[1]
-            assert browse_call.kwargs["json"]["path"] == "Secil.Portugal"
-            assert result["search_path"] == "Secil.Portugal"
-            assert "hint" in result
+
+# ------------------------------
+# Response shape (success & error)
+# ------------------------------
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_search_tags_falls_back_to_default_when_no_root(monkeypatch):
-    """If no search root is configured, the default fallback should be used."""
-    with patch.dict(
-        "os.environ",
-        {
-            "CANARY_SAF_BASE_URL": "https://test.canary.com/api/v1",
-            "CANARY_VIEWS_BASE_URL": "https://test.canary.com",
-            "CANARY_API_TOKEN": "test-token",
-        },
-        clear=True,
-    ):
-        mock_auth_response = MagicMock()
-        mock_auth_response.json.return_value = {"sessionToken": "session-123"}
-        mock_auth_response.raise_for_status = MagicMock()
+async def test_search_tags_response_format_success(env_with_root, auth_ok):
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = _mk_post_side_effect([auth_ok, {"tags": []}, {"tags": []}])
 
-        mock_search_response = MagicMock()
-        mock_search_response.json.return_value = {
-            "tags": [
-                {
-                    "name": "P431",
-                    "path": "Secil.Portugal.Cement.Maceira.400 - Clinker Production.431 - Kiln.Normalised.Energy.P431.Value",
-                }
-            ]
-        }
-        mock_search_response.raise_for_status = MagicMock()
+        result = await search_tags.fn("Pattern", bypass_cache=True)
 
-        with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
-            mock_post.side_effect = [mock_auth_response, mock_search_response]
-
-            result = await search_tags.fn("P431", bypass_cache=True)
-
-            assert len(mock_post.await_args_list) >= 2
-            browse_call = mock_post.await_args_list[1]
-            assert browse_call.kwargs["json"]["path"] == "Secil.Portugal"
-            assert result["search_path"] == "Secil.Portugal"
-            assert result["count"] == 1
-            assert result["tags"][0]["name"] == "P431"
-            assert "hint" in result
-
-
-@pytest.mark.unit
-@pytest.mark.asyncio
-async def test_search_tags_data_parsing_empty_tags():
-    """Test parsing of response with empty tags array."""
-    mock_response_data = {"tags": []}
-
-    with patch.dict(
-        "os.environ",
-        {
-            "CANARY_SAF_BASE_URL": "https://test.canary.com/api/v1",
-            "CANARY_VIEWS_BASE_URL": "https://test.canary.com",
-            "CANARY_API_TOKEN": "test-token",
-            "CANARY_TAG_SEARCH_ROOT": "Secil.Portugal",
-        },
-    ):
-        mock_auth_response = MagicMock()
-        mock_auth_response.json.return_value = {"sessionToken": "session-123"}
-        mock_auth_response.raise_for_status = MagicMock()
-
-        mock_search_response = MagicMock()
-        mock_search_response.json.return_value = mock_response_data
-        mock_search_response.raise_for_status = MagicMock()
-
-        with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
-            mock_post.side_effect = [mock_auth_response, mock_search_response]
-
-            result = await search_tags.fn("NonExistent", bypass_cache=True)
-
-            assert result["success"] is True
-            assert result["count"] == 0
-            assert result["tags"] == []
-            assert result["search_path"] == "Secil.Portugal"
-            assert "hint" in result
-
-
-@pytest.mark.unit
-@pytest.mark.asyncio
-async def test_search_tags_response_format_success():
-    """Test that successful response has correct format."""
-    with patch.dict(
-        "os.environ",
-        {
-            "CANARY_SAF_BASE_URL": "https://test.canary.com/api/v1",
-            "CANARY_VIEWS_BASE_URL": "https://test.canary.com",
-            "CANARY_API_TOKEN": "test-token",
-            "CANARY_TAG_SEARCH_ROOT": "Secil.Portugal",
-        },
-    ):
-        mock_auth_response = MagicMock()
-        mock_auth_response.json.return_value = {"sessionToken": "session-123"}
-        mock_auth_response.raise_for_status = MagicMock()
-
-        mock_search_response = MagicMock()
-        mock_search_response.json.return_value = {"tags": []}
-        mock_search_response.raise_for_status = MagicMock()
-
-        with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
-            mock_post.side_effect = [mock_auth_response, mock_search_response]
-
-            result = await search_tags.fn("Pattern", bypass_cache=True)
-
-            # Verify response structure
-            assert "success" in result
-            assert "tags" in result
-            assert "count" in result
-            assert "pattern" in result
-            assert "search_path" in result
-            assert result["success"] is True
-            assert isinstance(result["tags"], list)
-            assert isinstance(result["count"], int)
-            assert result["pattern"] == "Pattern"
-            assert result["search_path"] == "Secil.Portugal"
-            assert "hint" in result
+    # Verify response structure
+    assert set(result.keys()).issuperset(
+        {"success", "tags", "count", "pattern", "search_path", "hint"}
+    )
+    assert result["success"] is True
+    assert isinstance(result["tags"], list)
+    assert isinstance(result["count"], int)
+    assert result["pattern"] == "Pattern"
+    assert result["search_path"] == env_with_root
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_search_tags_response_format_error():
-    """Test that error response has correct format."""
     result = await search_tags.fn("")
 
     # Verify error response structure
-    assert "success" in result
-    assert "error" in result
-    assert "tags" in result
-    assert "count" in result
-    assert "search_path" in result
+    assert set(result.keys()).issuperset(
+        {"success", "error", "tags", "count", "search_path", "hint"}
+    )
     assert result["success"] is False
     assert isinstance(result["error"], str)
     assert result["tags"] == []
     assert result["count"] == 0
     assert result["search_path"] == "Secil.Portugal"
-    assert "hint" in result
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_search_tags_error_message_formatting():
-    """Test that error messages are properly formatted."""
-    # Test empty pattern error
-    result = await search_tags.fn("")
-    assert "empty" in result["error"].lower()
-    assert result["search_path"] == "Secil.Portugal"
-    assert "hint" in result
+    # Empty pattern
+    r1 = await search_tags.fn("")
+    assert "empty" in r1["error"].lower()
+    assert r1["search_path"] == "Secil.Portugal"
+    assert "hint" in r1
 
-    # Test whitespace pattern error
-    result = await search_tags.fn("   ")
-    assert "empty" in result["error"].lower()
-    assert result["search_path"] == "Secil.Portugal"
-    assert "hint" in result
+    # Whitespace pattern
+    r2 = await search_tags.fn("   ")
+    assert "empty" in r2["error"].lower()
+    assert r2["search_path"] == "Secil.Portugal"
+    assert "hint" in r2

@@ -68,5 +68,6 @@
   "terminal.integrated.env.windows": {
     "PYTHONPATH": "${workspaceFolder}/src"
   },
-  "ruff.configuration": "pyproject.toml"
+  "ruff.configuration": "pyproject.toml",
+  "codium.codeCompletion.enable": true
 }

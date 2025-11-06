@@ -1,7 +1,7 @@
 """Integration tests for read_timeseries MCP tool."""
 
 import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
@@ -47,9 +47,15 @@ async def test_read_timeseries_success():
         mock_data_response.raise_for_status = MagicMock()
         mock_data_response.status_code = 200
 
-        with patch("httpx.AsyncClient.post") as mock_post:
+        with patch("httpx.AsyncClient.post") as mock_post, patch(
+            "canary_mcp.server.search_tags.fn"
+        ) as mock_search:
             # First call is auth, second is data request
             mock_post.side_effect = [mock_auth_response, mock_data_response]
+            mock_search.return_value = {
+                "success": True,
+                "tags": [{"path": "Plant.Temperature"}],
+            }
 
             result = await read_timeseries.fn(
                 "Plant.Temperature", "2025-10-30T00:00:00Z", "2025-10-31T00:00:00Z"
@@ -84,8 +90,11 @@ async def test_read_timeseries_natural_language_time():
         mock_data_response.json.return_value = {"data": []}
         mock_data_response.raise_for_status = MagicMock()
 
-        with patch("httpx.AsyncClient.post") as mock_post:
+        with patch("httpx.AsyncClient.post") as mock_post, patch(
+            "canary_mcp.server.search_tags.fn"
+        ) as mock_search:
             mock_post.side_effect = [mock_auth_response, mock_data_response]
+            mock_search.return_value = {"success": True, "tags": [{"path": "Plant.Tag"}]}
 
             result = await read_timeseries.fn("Plant.Tag", "yesterday", "now")
 
@@ -131,10 +140,14 @@ async def test_read_timeseries_multiple_tags():
         }
         mock_data_response.raise_for_status = MagicMock()
 
-        with patch("httpx.AsyncClient.post") as mock_post, \
-             patch("canary_mcp.server.search_tags.fn") as mock_search:
+        with patch("httpx.AsyncClient.post") as mock_post, patch(
+            "canary_mcp.server.search_tags.fn"
+        ) as mock_search:
             mock_post.side_effect = [mock_auth_response, mock_data_response]
-            mock_search.return_value = {"success": True, "tags": [{"path": "Tag1"}, {"path": "Tag2"}]}
+            mock_search.return_value = {
+                "success": True,
+                "tags": [{"path": "Tag1"}, {"path": "Tag2"}],
+            }
 
             result = await read_timeseries.fn(
                 ["Tag1", "Tag2"], "2025-10-30T00:00:00Z", "2025-10-31T00:00:00Z"
@@ -165,8 +178,11 @@ async def test_read_timeseries_empty_results():
         mock_data_response.json.return_value = {"data": []}
         mock_data_response.raise_for_status = MagicMock()
 
-        with patch("httpx.AsyncClient.post") as mock_post:
+        with patch("httpx.AsyncClient.post") as mock_post, patch(
+            "canary_mcp.server.search_tags.fn"
+        ) as mock_search:
             mock_post.side_effect = [mock_auth_response, mock_data_response]
+            mock_search.return_value = {"success": True, "tags": [{"path": "Plant.Tag"}]}
 
             result = await read_timeseries.fn(
                 "Plant.Tag", "2025-10-30T00:00:00Z", "2025-10-31T00:00:00Z"
@@ -189,14 +205,24 @@ async def test_read_timeseries_tag_not_found():
             "CANARY_API_TOKEN": "test-token",
         },
     ):
-        mock_auth_response = MagicMock()
-        mock_auth_response.json.return_value = {"sessionToken": "session-123"}
-        mock_auth_response.raise_for_status = MagicMock()
-
-        with patch("httpx.AsyncClient.post") as mock_post, \
-             patch("canary_mcp.server.search_tags.fn") as mock_search:
-            mock_post.side_effect = [mock_auth_response, mock_data_response]
+        with patch("canary_mcp.server.search_tags.fn") as mock_search, patch(
+            "canary_mcp.auth.CanaryAuthClient.get_valid_token"
+        ) as mock_token, patch("canary_mcp.server.get_last_known_values.fn") as mock_last_known, patch(
+            "httpx.AsyncClient", autospec=True
+        ) as mock_async_client:
             mock_search.return_value = {"success": True, "tags": []}
+            mock_token.return_value = "session-123"
+            mock_last_known.return_value = {"success": False, "data": [], "count": 0}
+
+            http_client = MagicMock()
+            http_client.post = AsyncMock()
+            mock_response = MagicMock()
+            mock_response.raise_for_status = MagicMock()
+            mock_response.json.return_value = {"error": "Tag not found"}
+            http_client.post.return_value = mock_response
+            http_client.aclose = AsyncMock()
+            mock_async_client.return_value.__aenter__ = AsyncMock(return_value=http_client)
+            mock_async_client.return_value.__aexit__ = AsyncMock(return_value=None)
 
             result = await read_timeseries.fn(
                 "NonExistent", "2025-10-30T00:00:00Z", "2025-10-31T00:00:00Z"
@@ -297,7 +323,9 @@ async def test_read_timeseries_api_error():
         mock_error_response.status_code = 500
         mock_error_response.text = "Internal Server Error"
 
-        with patch("httpx.AsyncClient.post") as mock_post:
+        with patch("httpx.AsyncClient.post") as mock_post, patch(
+            "canary_mcp.server.search_tags.fn"
+        ) as mock_search:
             mock_post.side_effect = [
                 mock_auth_response,
                 httpx.HTTPStatusError(
@@ -306,6 +334,7 @@ async def test_read_timeseries_api_error():
                     response=mock_error_response,
                 ),
             ]
+            mock_search.return_value = {"success": True, "tags": [{"path": "Plant.Tag"}]}
 
             result = await read_timeseries.fn(
                 "Plant.Tag", "2025-10-30T00:00:00Z", "2025-10-31T00:00:00Z"
@@ -376,8 +405,11 @@ async def test_read_timeseries_with_page_size():
         mock_data_response.json.return_value = {"data": []}
         mock_data_response.raise_for_status = MagicMock()
 
-        with patch("httpx.AsyncClient.post") as mock_post:
+        with patch("httpx.AsyncClient.post") as mock_post, patch(
+            "canary_mcp.server.search_tags.fn"
+        ) as mock_search:
             mock_post.side_effect = [mock_auth_response, mock_data_response]
+            mock_search.return_value = {"success": True, "tags": [{"path": "Plant.Tag"}]}
 
             result = await read_timeseries.fn(
                 "Plant.Tag", "2025-10-30T00:00:00Z", "2025-10-31T00:00:00Z", page_size=500
@@ -386,4 +418,4 @@ async def test_read_timeseries_with_page_size():
             assert result["success"] is True
             # Verify the page_size was passed in the request
             call_args = mock_post.call_args_list[1]
-            assert call_args[1]["json"]["pageSize"] == 500
+            assert call_args.kwargs["json"]["pageSize"] == 500

@@ -1,0 +1,900 @@
+{
+	"info": {
+		"_postman_id": "51e20df1-7cf1-45b8-b6b3-a8d4b3bd3bfd",
+		"name": "CanaryWebWriteAPI",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "8903981",
+		"_collection_link": "https://warped-firefly-879649.postman.co/workspace/Canary-Community-Write-API~52bf369b-c956-4114-a36c-b31433d148b3/collection/8903981-51e20df1-7cf1-45b8-b6b3-a8d4b3bd3bfd?action=share&source=collection_link&creator=8903981"
+	},
+	"item": [
+		{
+			"name": "version",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"version: Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"version: Errors is empty\", function () {",
+							"    pm.expect(jsonData.errors).to.be.empty;",
+							"});",
+							"",
+							"",
+							"/*{",
+							"    \"statusCode\": \"Good\",",
+							"    \"errors\": []",
+							"}*/"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n}"
+				},
+				"url": {
+					"raw": "{{APIURL}}{{Version}}/version",
+					"host": [
+						"{{APIURL}}{{Version}}"
+					],
+					"path": [
+						"version"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "getDatasets",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"getDatasets: Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"getDatasets: Errors is empty\", function () {",
+							"    pm.expect(jsonData.errors).to.be.empty;",
+							"});",
+							"",
+							"",
+							"/*{",
+							"    \"statusCode\": \"Good\",",
+							"    \"errors\": []",
+							"}*/"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"apiToken\":\"{{ApiToken}}\",\r\n  \"historian\":\"{{HistorianServer}}\"\r\n}"
+				},
+				"url": {
+					"raw": "{{APIURL}}{{Version}}/getDatasets",
+					"host": [
+						"{{APIURL}}{{Version}}"
+					],
+					"path": [
+						"getDatasets"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "getSessionToken",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"getSessionToken: Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"var jsonData = pm.response.json();",
+							"pm.environment.set(\"SessionToken\", jsonData.sessionToken);",
+							"",
+							"pm.test(\"getSessionToken: Errors is empty\", function () {",
+							"    pm.expect(jsonData.errors).to.be.empty;",
+							"});",
+							"",
+							"",
+							"/*{",
+							"    \"statusCode\": \"Good\",",
+							"    \"errors\": []",
+							"}*/"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"apiToken\":\"{{ApiToken}}\",\r\n  \"historians\":[\"{{HistorianServer}}\"],\r\n  \"clientId\":\"PostmanTest\",\r\n  \"settings\":{\r\n  \t\"clientTimeout\":300000,\r\n  \t\"fileSize\":8,\r\n  \t\"autoCreateDatasets\": true\r\n  }\r\n}"
+				},
+				"url": {
+					"raw": "{{APIURL}}{{Version}}/getSessionToken",
+					"host": [
+						"{{APIURL}}{{Version}}"
+					],
+					"path": [
+						"getSessionToken"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "revokeSessionToken",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"revokeSessionToken: Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"revokeSessionToken: Errors is empty\", function () {",
+							"    pm.expect(jsonData.errors).to.be.empty;",
+							"});",
+							"",
+							"",
+							"/*{",
+							"    \"statusCode\": \"Good\",",
+							"    \"errors\": []",
+							"}*/"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"sessionToken\":\"{{SessionToken}}\"\r\n}"
+				},
+				"url": {
+					"raw": "{{APIURL}}{{Version}}/revokeSessionToken",
+					"host": [
+						"{{APIURL}}{{Version}}"
+					],
+					"path": [
+						"revokeSessionToken"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "updateSettings",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"updateSettings: Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"updateSettings: Errors is empty\", function () {",
+							"    pm.expect(jsonData.errors).to.be.empty;",
+							"});",
+							"",
+							"/*{",
+							"    \"statusCode\": \"Good\",",
+							"    \"errors\": []",
+							"}*/"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"sessionToken\":\"{{SessionToken}}\",\r\n  \"settings\": {\r\n      \"clientTimeout\": 300000,\r\n      \"fileSize\": 8,\r\n      \"autoCreateDatasets\": true\r\n  }\r\n}"
+				},
+				"url": {
+					"raw": "{{APIURL}}{{Version}}/updateSettings",
+					"host": [
+						"{{APIURL}}{{Version}}"
+					],
+					"path": [
+						"updateSettings"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "configureTags",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"configureTags: Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"configureTags: Errors is empty\", function () {",
+							"    pm.expect(jsonData.errors).to.be.empty;",
+							"});",
+							"",
+							"/*{",
+							"    \"statusCode\": \"Good\",",
+							"    \"errors\": []",
+							"}*/"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"sessionToken\":\"{{SessionToken}}\",\r\n  \"tags\": {\r\n      \"PostmanTest.tag1\" : {\r\n          \"transform\": \"Value*10\",\r\n          \"normalize\": \"0:00:01\"\r\n      },\r\n      \"PostmanTest.tag2\" : {\r\n          \"transform\": \"Value*10\",\r\n          \"normalize\": \"0:00:01\"\r\n      }\r\n  }\r\n}"
+				},
+				"url": {
+					"raw": "{{APIURL}}{{Version}}/configureTags",
+					"host": [
+						"{{APIURL}}{{Version}}"
+					],
+					"path": [
+						"configureTags"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "storeData",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"storeData: Status code is 200\", function () {\r",
+							"    pm.response.to.have.status(200);\r",
+							"});\r",
+							"\r",
+							"pm.test(\"storeData: Errors is empty\", function () {\r",
+							"    pm.expect(jsonData.errors).to.be.empty;\r",
+							"});\r",
+							"\r",
+							"/*{\r",
+							"    \"statusCode\": \"Good\",\r",
+							"    \"errors\": []\r",
+							"}*/"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"sessionToken\":\"{{SessionToken}}\",\r\n  \"tvqs\": {\r\n  \t\"PostmanTest.tag1\" : [\r\n  \t\t[\r\n  \t\t\"2021-07-07T11:00:01.0000000-05:00\",\r\n  \t\t9\r\n  \t\t]\r\n  \t],\r\n  \t\"PostmanTest.tag2\" : [\r\n  \t\t[\r\n  \t\t\"2021-07-07T09:00:01.0000000-05:00\",\r\n  \t\t24\r\n  \t\t]\r\n  \t]\r\n  }\r\n}"
+				},
+				"url": {
+					"raw": "{{APIURL}}{{Version}}/storeData",
+					"host": [
+						"{{APIURL}}{{Version}}"
+					],
+					"path": [
+						"storeData"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "storeData Annotation",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"storeData: Status code is 200\", function () {\r",
+							"    pm.response.to.have.status(200);\r",
+							"});\r",
+							"\r",
+							"pm.test(\"storeData: Errors is empty\", function () {\r",
+							"    pm.expect(jsonData.errors).to.be.empty;\r",
+							"});\r",
+							"\r",
+							"/*{\r",
+							"    \"statusCode\": \"Good\",\r",
+							"    \"errors\": []\r",
+							"}*/"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"sessionToken\":\"{{SessionToken}}\",\r\n  \"annotations\": {\r\n  \t\"PostmanTest.tag1\" : [\r\n  \t\t[\r\n         \"Jon Smith\",\r\n  \t\t \"2021-10-12T11:42:01.0000000-05:00\",\r\n         \"This looks strange\"  \t\t\r\n  \t\t]\r\n  \t],\r\n  \t\"PostmanTest.tag2\" : [\r\n  \t\t[\r\n        \"Jon Smith\",\r\n  \t\t\"2021-10-12T12:41:01.0000000-05:00\",\r\n  \t\t\"Something happened here?\"\r\n  \t\t]\r\n  \t]\r\n  }\r\n}\r\n\r\n\r\n"
+				},
+				"url": {
+					"raw": "{{APIURL}}{{Version}}/storeData",
+					"host": [
+						"{{APIURL}}{{Version}}"
+					],
+					"path": [
+						"storeData"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "storeData Properties",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"storeData: Status code is 200\", function () {\r",
+							"    pm.response.to.have.status(200);\r",
+							"});\r",
+							"\r",
+							"pm.test(\"storeData: Errors is empty\", function () {\r",
+							"    pm.expect(jsonData.errors).to.be.empty;\r",
+							"});\r",
+							"\r",
+							"/*{\r",
+							"    \"statusCode\": \"Good\",\r",
+							"    \"errors\": []\r",
+							"}*/"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"sessionToken\":\"{{SessionToken}}\",\r\n  \"properties\": {\r\n  \t\"PostmanTest.tag1\" : [\r\n  \t\t[\r\n         \"HP\",\r\n  \t\t\"2021-10-11T13:50:01.0000000-05:00\",\r\n          \"30\"  \t\t\r\n  \t\t]\r\n  \t],\r\n  \t\"PostmanTest.tag2\" : [\r\n  \t\t[\r\n        \"HP\",\r\n  \t\t\"2021-10-12T13:54:01.0000000-05:00\",\r\n  \t\t\"15\"\r\n  \t\t]\r\n  \t]  \t\r\n  }\r\n}\r\n\r\n\r\n"
+				},
+				"url": {
+					"raw": "{{APIURL}}{{Version}}/storeData",
+					"host": [
+						"{{APIURL}}{{Version}}"
+					],
+					"path": [
+						"storeData"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "manualEntryStoreData",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"manualEntryStoreData: Status code is 200\", function () {\r",
+							"    pm.response.to.have.status(200);\r",
+							"});\r",
+							"\r",
+							"pm.test(\"manualEntryStoreData: Errors is empty\", function () {\r",
+							"    pm.expect(jsonData.errors).to.be.empty;\r",
+							"});\r",
+							"\r",
+							"/*{\r",
+							"    \"statusCode\": \"Good\",\r",
+							"    \"errors\": []\r",
+							"}*/"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"sessionToken\":\"{{SessionToken}}\",\r\n  \"manualentrytvqs\": {\r\n  \t\"PostmanTest.tag1\" : [\r\n  \t\t[\r\n  \t\t\"2021-07-07T11:00:01.0000000-05:00\",\r\n  \t\t9\r\n  \t\t]\r\n  \t],\r\n  \t\"PostmanTest.tag2\" : [\r\n  \t\t[\r\n  \t\t\"2021-07-07T09:00:01.0000000-05:00\",\r\n  \t\t24\r\n  \t\t]\r\n  \t]\r\n  }\r\n}"
+				},
+				"url": {
+					"raw": "{{APIURL}}{{Version}}/manualEntryStoreData",
+					"host": [
+						"{{APIURL}}{{Version}}"
+					],
+					"path": [
+						"manualEntryStoreData"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "deleteRange",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"manualEntryStoreData: Status code is 200\", function () {\r",
+							"    pm.response.to.have.status(200);\r",
+							"});\r",
+							"\r",
+							"pm.test(\"manualEntryStoreData: Errors is empty\", function () {\r",
+							"    pm.expect(jsonData.errors).to.be.empty;\r",
+							"});\r",
+							"\r",
+							"/*{\r",
+							"    \"statusCode\": \"Good\",\r",
+							"    \"errors\": []\r",
+							"}*/"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"sessionToken\":\"{{SessionToken}}\",\r\n  \"startTime\": \"2025-03-17T14:00:00.0000000-04:00\",\r\n  \"endTime\": \"2025-03-18T15:00:00.0000000-04:00\",\r\n  \"tags\": [\r\n    \"PostmanTest.tag1\",\r\n    \"PostmanTest.tag2\"\r\n  ]\r\n}"
+				},
+				"url": {
+					"raw": "{{APIURL}}{{Version}}/deleteRange",
+					"host": [
+						"{{APIURL}}{{Version}}"
+					],
+					"path": [
+						"deleteRange"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "obsoleteTags",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"manualEntryStoreData: Status code is 200\", function () {\r",
+							"    pm.response.to.have.status(200);\r",
+							"});\r",
+							"\r",
+							"pm.test(\"manualEntryStoreData: Errors is empty\", function () {\r",
+							"    pm.expect(jsonData.errors).to.be.empty;\r",
+							"});\r",
+							"\r",
+							"/*{\r",
+							"    \"statusCode\": \"Good\",\r",
+							"    \"errors\": []\r",
+							"}*/"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"sessionToken\":\"{{SessionToken}}\",\r\n  \"tags\": [\r\n    \"PostmanTest.tag1\",\r\n    \"PostmanTest.tag2\"\r\n  ]\r\n}"
+				},
+				"url": {
+					"raw": "{{APIURL}}{{Version}}/obsoleteTags",
+					"host": [
+						"{{APIURL}}{{Version}}"
+					],
+					"path": [
+						"obsoleteTags"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "unobsoleteTags",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"manualEntryStoreData: Status code is 200\", function () {\r",
+							"    pm.response.to.have.status(200);\r",
+							"});\r",
+							"\r",
+							"pm.test(\"manualEntryStoreData: Errors is empty\", function () {\r",
+							"    pm.expect(jsonData.errors).to.be.empty;\r",
+							"});\r",
+							"\r",
+							"/*{\r",
+							"    \"statusCode\": \"Good\",\r",
+							"    \"errors\": []\r",
+							"}*/"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"sessionToken\":\"{{SessionToken}}\",\r\n  \"tags\": [\r\n    \"PostmanTest.tag1\",\r\n    \"PostmanTest.tag2\"\r\n  ]\r\n}"
+				},
+				"url": {
+					"raw": "{{APIURL}}{{Version}}/unobsoleteTags",
+					"host": [
+						"{{APIURL}}{{Version}}"
+					],
+					"path": [
+						"unobsoleteTags"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "noData",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"noData: Status code is 200\", function () {\r",
+							"    pm.response.to.have.status(200);\r",
+							"});\r",
+							"\r",
+							"pm.test(\"noData: Errors is empty\", function () {\r",
+							"    pm.expect(jsonData.errors).to.be.empty;\r",
+							"});\r",
+							"\r",
+							"/*{\r",
+							"    \"statusCode\": \"Good\",\r",
+							"    \"errors\": []\r",
+							"}*/"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"sessionToken\":\"{{SessionToken}}\",\r\n  \"tags\": [\r\n  \t\"{{historianserver}}.PostmanTest.tag1\",\r\n  \t\"{{historianserver}}.PostmanTest.tag2\"\r\n  ]\r\n}"
+				},
+				"url": {
+					"raw": "{{APIURL}}{{Version}}/noData",
+					"host": [
+						"{{APIURL}}{{Version}}"
+					],
+					"path": [
+						"noData"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "createNewFile",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"createNewFile: Status code is 200\", function () {\r",
+							"    pm.response.to.have.status(200);\r",
+							"});\r",
+							"\r",
+							"pm.test(\"createNewFile: Errors is empty\", function () {\r",
+							"    pm.expect(jsonData.errors).to.be.empty;\r",
+							"});\r",
+							"\r",
+							"/*{\r",
+							"    \"statusCode\": \"Good\",\r",
+							"    \"errors\": []\r",
+							"}*/"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"sessionToken\":\"{{SessionToken}}\",\r\n  \"dataset\": \"PostmanTest\",\r\n  \"filetime\": \"2022-02-23T11:00:00.0000000-05:00\"\r\n}"
+				},
+				"url": {
+					"raw": "{{APIURL}}{{Version}}/createNewFile",
+					"host": [
+						"{{APIURL}}{{Version}}"
+					],
+					"path": [
+						"createNewFile"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "fileRollOver",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"fileRollover: Status code is 200\", function () {\r",
+							"    pm.response.to.have.status(200);\r",
+							"});\r",
+							"\r",
+							"pm.test(\"fileRollover: Errors is empty\", function () {\r",
+							"    pm.expect(jsonData.errors).to.be.empty;\r",
+							"});\r",
+							"\r",
+							"/*{\r",
+							"    \"statusCode\": \"Good\",\r",
+							"    \"errors\": []\r",
+							"}*/"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"sessionToken\":\"{{SessionToken}}\",\r\n  \"dataset\": \"PostmanTest\",\r\n  \"filetime\": \"2022-02-23T11:00:00.0000000-05:00\"\r\n}"
+				},
+				"url": {
+					"raw": "{{APIURL}}{{Version}}/fileRollOver",
+					"host": [
+						"{{APIURL}}{{Version}}"
+					],
+					"path": [
+						"fileRollOver"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "getErrors",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"getErrors: Status code is 200\", function () {\r",
+							"    pm.response.to.have.status(200);\r",
+							"});\r",
+							"\r",
+							"pm.test(\"getErrors: Errors is empty\", function () {\r",
+							"    pm.expect(jsonData.errors).to.be.empty;\r",
+							"});\r",
+							"\r",
+							"/*{\r",
+							"    \"statusCode\": \"Good\",\r",
+							"    \"errors\": []\r",
+							"}*/"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"sessionToken\":\"{{SessionToken}}\"\r\n}"
+				},
+				"url": {
+					"raw": "{{APIURL}}{{Version}}/getErrors",
+					"host": [
+						"{{APIURL}}{{Version}}"
+					],
+					"path": [
+						"getErrors"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "keepAlive",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"keepAlive: Status code is 200\", function () {\r",
+							"    pm.response.to.have.status(200);\r",
+							"});\r",
+							"\r",
+							"pm.test(\"keepAlive: Errors is empty\", function () {\r",
+							"    pm.expect(jsonData.errors).to.be.empty;\r",
+							"});\r",
+							"\r",
+							"/*{\r",
+							"    \"statusCode\": \"Good\",\r",
+							"    \"errors\": []\r",
+							"}*/"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"sessionToken\":\"{{SessionToken}}\"\r\n}"
+				},
+				"url": {
+					"raw": "{{APIURL}}{{Version}}/keepAlive",
+					"host": [
+						"{{APIURL}}{{Version}}"
+					],
+					"path": [
+						"keepAlive"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

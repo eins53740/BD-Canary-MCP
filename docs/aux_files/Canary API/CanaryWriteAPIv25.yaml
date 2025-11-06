@@ -1,0 +1,414 @@
+Need to install the following packages:
+postman-to-openapi@2.9.0
+Ok to proceed? (y) 
+openapi: 3.0.0
+info:
+  title: CanaryWebWriteAPI
+  version: 1.0.0
+servers:
+  - url: http://{{apiurl}}{{version}}
+paths:
+  /version:
+    post:
+      tags:
+        - default
+      summary: version
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: '"{\r\n}"'
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /getDatasets:
+    post:
+      tags:
+        - default
+      summary: getDatasets
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: >-
+                "{\r\n  \"apiToken\":\"{{ApiToken}}\",\r\n 
+                \"historian\":\"{{HistorianServer}}\"\r\n}"
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /getSessionToken:
+    post:
+      tags:
+        - default
+      summary: getSessionToken
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: >-
+                "{\r\n  \"apiToken\":\"{{ApiToken}}\",\r\n 
+                \"historians\":[\"{{HistorianServer}}\"],\r\n 
+                \"clientId\":\"PostmanTest\",\r\n  \"settings\":{\r\n 
+                \t\"clientTimeout\":300000,\r\n  \t\"fileSize\":8,\r\n 
+                \t\"autoCreateDatasets\": true\r\n  }\r\n}"
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /revokeSessionToken:
+    post:
+      tags:
+        - default
+      summary: revokeSessionToken
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: '"{\r\n  \"sessionToken\":\"{{SessionToken}}\"\r\n}"'
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /updateSettings:
+    post:
+      tags:
+        - default
+      summary: updateSettings
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: >-
+                "{\r\n  \"sessionToken\":\"{{SessionToken}}\",\r\n 
+                \"settings\": {\r\n      \"clientTimeout\": 300000,\r\n     
+                \"fileSize\": 8,\r\n      \"autoCreateDatasets\": true\r\n 
+                }\r\n}"
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /configureTags:
+    post:
+      tags:
+        - default
+      summary: configureTags
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: >-
+                "{\r\n  \"sessionToken\":\"{{SessionToken}}\",\r\n  \"tags\":
+                {\r\n      \"PostmanTest.tag1\" : {\r\n          \"transform\":
+                \"Value*10\",\r\n          \"normalize\": \"0:00:01\"\r\n     
+                },\r\n      \"PostmanTest.tag2\" : {\r\n          \"transform\":
+                \"Value*10\",\r\n          \"normalize\": \"0:00:01\"\r\n     
+                }\r\n  }\r\n}"
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /storeData:
+    post:
+      tags:
+        - default
+      summary: storeData Properties
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: >-
+                "{\r\n  \"sessionToken\":\"{{SessionToken}}\",\r\n 
+                \"properties\": {\r\n  \t\"PostmanTest.tag1\" : [\r\n 
+                \t\t[\r\n         \"HP\",\r\n 
+                \t\t\"2021-10-11T13:50:01.0000000-05:00\",\r\n          \"30\" 
+                \t\t\r\n  \t\t]\r\n  \t],\r\n  \t\"PostmanTest.tag2\" : [\r\n 
+                \t\t[\r\n        \"HP\",\r\n 
+                \t\t\"2021-10-12T13:54:01.0000000-05:00\",\r\n  \t\t\"15\"\r\n 
+                \t\t]\r\n  \t]  \t\r\n  }\r\n}\r\n\r\n\r\n"
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /manualEntryStoreData:
+    post:
+      tags:
+        - default
+      summary: manualEntryStoreData
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: >-
+                "{\r\n  \"sessionToken\":\"{{SessionToken}}\",\r\n 
+                \"manualentrytvqs\": {\r\n  \t\"PostmanTest.tag1\" : [\r\n 
+                \t\t[\r\n  \t\t\"2021-07-07T11:00:01.0000000-05:00\",\r\n 
+                \t\t9\r\n  \t\t]\r\n  \t],\r\n  \t\"PostmanTest.tag2\" : [\r\n 
+                \t\t[\r\n  \t\t\"2021-07-07T09:00:01.0000000-05:00\",\r\n 
+                \t\t24\r\n  \t\t]\r\n  \t]\r\n  }\r\n}"
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /deleteRange:
+    post:
+      tags:
+        - default
+      summary: deleteRange
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: >-
+                "{\r\n  \"sessionToken\":\"{{SessionToken}}\",\r\n 
+                \"startTime\": \"2025-03-17T14:00:00.0000000-04:00\",\r\n 
+                \"endTime\": \"2025-03-18T15:00:00.0000000-04:00\",\r\n 
+                \"tags\": [\r\n    \"PostmanTest.tag1\",\r\n   
+                \"PostmanTest.tag2\"\r\n  ]\r\n}"
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /obsoleteTags:
+    post:
+      tags:
+        - default
+      summary: obsoleteTags
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: >-
+                "{\r\n  \"sessionToken\":\"{{SessionToken}}\",\r\n  \"tags\":
+                [\r\n    \"PostmanTest.tag1\",\r\n    \"PostmanTest.tag2\"\r\n 
+                ]\r\n}"
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /unobsoleteTags:
+    post:
+      tags:
+        - default
+      summary: unobsoleteTags
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: >-
+                "{\r\n  \"sessionToken\":\"{{SessionToken}}\",\r\n  \"tags\":
+                [\r\n    \"PostmanTest.tag1\",\r\n    \"PostmanTest.tag2\"\r\n 
+                ]\r\n}"
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /noData:
+    post:
+      tags:
+        - default
+      summary: noData
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: >-
+                "{\r\n  \"sessionToken\":\"{{SessionToken}}\",\r\n  \"tags\":
+                [\r\n  \t\"{{historianserver}}.PostmanTest.tag1\",\r\n 
+                \t\"{{historianserver}}.PostmanTest.tag2\"\r\n  ]\r\n}"
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /createNewFile:
+    post:
+      tags:
+        - default
+      summary: createNewFile
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: >-
+                "{\r\n  \"sessionToken\":\"{{SessionToken}}\",\r\n  \"dataset\":
+                \"PostmanTest\",\r\n  \"filetime\":
+                \"2022-02-23T11:00:00.0000000-05:00\"\r\n}"
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /fileRollOver:
+    post:
+      tags:
+        - default
+      summary: fileRollOver
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: >-
+                "{\r\n  \"sessionToken\":\"{{SessionToken}}\",\r\n  \"dataset\":
+                \"PostmanTest\",\r\n  \"filetime\":
+                \"2022-02-23T11:00:00.0000000-05:00\"\r\n}"
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /getErrors:
+    post:
+      tags:
+        - default
+      summary: getErrors
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: '"{\r\n    \"sessionToken\":\"{{SessionToken}}\"\r\n}"'
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /keepAlive:
+    post:
+      tags:
+        - default
+      summary: keepAlive
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: '"{\r\n  \"sessionToken\":\"{{SessionToken}}\"\r\n}"'
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+

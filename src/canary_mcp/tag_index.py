@@ -50,7 +50,23 @@ class LocalTagIndex:
     ) -> None:
         repo_root = Path(__file__).resolve().parents[2]
         default_path = repo_root / "docs" / "aux_files" / "Canary_Path_description_maceira.json"
-        self.dataset_path = dataset_path or default_path
+        if dataset_path is not None:
+            resolved_path = dataset_path
+        else:
+            resolved_path = default_path
+            if not resolved_path.exists():
+                # Preferred alternate path under Canary Resources
+                resources_alt = repo_root / "docs" / "aux_files" / "Canary Resources" / "Canary_Path_description_maceira.json"
+                mcp_debug_alt = repo_root / "docs" / "aux_files" / "mcp debug aux" / "Canary_Path_description_maceira.json"
+                for alt in (resources_alt, mcp_debug_alt):
+                    if alt.exists():
+                        log.info(
+                            "local_tag_index_using_alternate_dataset",
+                            dataset=str(alt),
+                        )
+                        resolved_path = alt
+                        break
+        self.dataset_path = resolved_path
         self.max_postings_per_token = max_postings_per_token
         self._loaded = False
         self._records: List[TagRecord] = []
@@ -237,4 +253,3 @@ def get_local_tag_candidates(
 ) -> List[Dict[str, Any]]:
     """Convenience wrapper used by the MCP server."""
     return _LOCAL_TAG_INDEX.search(keywords, description=description, limit=limit)
-

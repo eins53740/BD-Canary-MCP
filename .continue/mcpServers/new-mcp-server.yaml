@@ -1,0 +1,17 @@
+name: canary-historian
+version: 0.0.1
+schema: v1
+mcpServers:
+  - name: canary-historian
+    command: uv
+    args:
+      - --directory
+      - "D:\\GitHub\\BD-Canary-MCP"
+      - run
+      - python
+      - -m
+      - canary_mcp.server
+    env:
+      CANARY_SAF_BASE_URL: "https://scunscanary.secil.pt:55236/api/v2"
+      CANARY_VIEWS_BASE_URL: "https://scunscanary.secil.pt:55236"
+      CANARY_API_TOKEN: "63c9a371-2768-4730-9416-28a42d5ac36e"

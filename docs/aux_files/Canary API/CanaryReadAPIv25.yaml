@@ -1,0 +1,1219 @@
+Need to install the following packages:
+postman-to-openapi@2.9.0
+Ok to proceed? (y) 
+openapi: 3.0.0
+info:
+  title: CanaryWebReadAPI
+  version: 1.0.0
+servers:
+  - url: http://{{apiurl}}
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+tags:
+  - name: V1
+  - name: V1 > POST
+  - name: V2
+  - name: V2 > API Token Examples
+  - name: V2 > GET (Query Param ApiToken)
+  - name: V2 > POST
+paths:
+  /{ApiVersion}/getTimeZones:
+    post:
+      tags:
+        - V2 > POST
+      summary: getTimeZones
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: '""'
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /{ApiVersion}/browseNodes:
+    post:
+      tags:
+        - V2 > POST
+      summary: browseNodes
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: '"{\r\n  \"apiToken\": \"{{ApiToken}}\"\r\n}"'
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+    get:
+      tags:
+        - V2 > GET (Query Param ApiToken)
+      summary: browseNodes
+      parameters:
+        - name: apiToken
+          in: query
+          schema:
+            type: string
+          example: '{{ApiToken}}'
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /{ApiVersion}/browseTags:
+    post:
+      tags:
+        - V2 > POST
+      summary: browseTags
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: >-
+                "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"path\":
+                \"\",\r\n  \"deep\": true,\r\n  \"search\": \"\"\r\n}"
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+    get:
+      tags:
+        - V2 > GET (Query Param ApiToken)
+      summary: browseTags
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: apiToken
+          in: query
+          schema:
+            type: string
+          example: '{{ApiToken}}'
+        - name: deep
+          in: query
+          schema:
+            type: boolean
+          example: 'true'
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /{ApiVersion}/getTagProperties:
+    post:
+      tags:
+        - V2 > POST
+      summary: getTagProperties
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: >-
+                "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"tags\":
+                [\"{{ViewName}}.{Diagnostics}.Sys.Memory Physical\"]\r\n}"
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+    get:
+      tags:
+        - V2 > GET (Query Param ApiToken)
+      summary: getTagProperties
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: apiToken
+          in: query
+          schema:
+            type: string
+          example: '{{ApiToken}}'
+        - name: tags
+          in: query
+          schema:
+            type: string
+          example: '{{ViewName}}.{Diagnostics}.Sys.Memory Physical'
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /{ApiVersion}/getAggregates:
+    post:
+      tags:
+        - V2 > POST
+      summary: getAggregates
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: '"{\r\n  \"apiToken\": \"{{ApiToken}}\"\r\n}"'
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /{ApiVersion}/getQualities:
+    post:
+      tags:
+        - V2 > POST
+      summary: getQualities
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: >-
+                "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"qualities\":
+                [192, 32768]\r\n}"
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /{ApiVersion}/getTagData:
+    post:
+      tags:
+        - V2 > POST
+      summary: getTagData_AggregateWithPaging
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: >-
+                "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"tags\":
+                [\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Memory
+                Physical\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.CPU Usage
+                Historian\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.CPU Usage
+                Total\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Historian
+                Handle Count\",\r\n     
+                \"{{ViewName}}.{Diagnostics}.Sys.Historian Thread
+                Count\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Historian
+                Working Set (memory)\",\r\n     
+                \"{{ViewName}}.{Diagnostics}.Sys.Memory Page\",\r\n     
+                \"{{ViewName}}.{Diagnostics}.Reading.NumClients\",\r\n     
+                \"{{ViewName}}.{Diagnostics}.Sys.Memory Virtual\",\r\n     
+                \"{{ViewName}}.{Diagnostics}.Reading.TagHandles\"\r\n     
+                ],\r\n  \"startTime\": \"now-6month\",\r\n  \"endTime\":
+                \"now\",\r\n  \"maxSize\": 1000000,\r\n  \"aggregateName\":
+                \"TimeAverage2\",\r\n  \"aggregateInterval\": \"00:00:01\"\r\n}"
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+    get:
+      tags:
+        - V2 > GET (Query Param ApiToken)
+      summary: getTagData_AggregateWithPaging
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: startTime
+          in: query
+          schema:
+            type: string
+          example: now-6mo
+        - name: endTime
+          in: query
+          schema:
+            type: string
+          example: now
+        - name: maxSize
+          in: query
+          schema:
+            type: integer
+          example: '1000000'
+        - name: tags
+          in: query
+          schema:
+            type: string
+          example: '{{ViewName}}.{Diagnostics}.Sys.Memory Physical'
+        - name: aggregateName
+          in: query
+          schema:
+            type: string
+          example: TimeAverage2
+        - name: aggregateInterval
+          in: query
+          schema:
+            type: string
+          example: '00:00:01'
+        - name: apiToken
+          in: query
+          schema:
+            type: string
+          example: '{{ApiToken}}'
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /{ApiVersion}/getLiveDataToken:
+    post:
+      tags:
+        - V2 > POST
+      summary: getLiveDataToken
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: >-
+                "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"tags\":
+                [\"{{ViewName}}.{Diagnostics}.Sys.Memory Physical\"]\r\n}"
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+    get:
+      tags:
+        - V2 > GET (Query Param ApiToken)
+      summary: getLiveDataToken
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: apiToken
+          in: query
+          schema:
+            type: string
+          example: '{{ApiToken}}'
+        - name: tags
+          in: query
+          schema:
+            type: string
+          example: '{{ViewName}}.{Diagnostics}.Sys.Memory Physical'
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /{ApiVersion}/getLiveData:
+    post:
+      tags:
+        - V2 > POST
+      summary: getLiveData
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: '"{\r\n  \"liveDataToken\": \"{{LiveDataToken}}\"\r\n}"'
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+    get:
+      tags:
+        - V2 > GET (Query Param ApiToken)
+      summary: getLiveData
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: apiToken
+          in: query
+          schema:
+            type: string
+          example: '{{ApiToken}}'
+        - name: liveDataToken
+          in: query
+          schema:
+            type: string
+          example: '{{LiveDataToken}}'
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /{ApiVersion}/revokeLiveDataToken:
+    post:
+      tags:
+        - V2 > POST
+      summary: revokeLiveDataToken
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: '"{\r\n  \"liveDataToken\": \"{{LiveDataToken}}\"\r\n}"'
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+    get:
+      tags:
+        - V2 > GET (Query Param ApiToken)
+      summary: revokeLiveDataToken
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: apiToken
+          in: query
+          schema:
+            type: string
+          example: '{{ApiToken}}'
+        - name: liveDataToken
+          in: query
+          schema:
+            type: string
+          example: '{{LiveDataToken}}'
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /{ApiVersion}/getVirtualViews:
+    post:
+      tags:
+        - V2 > POST
+      summary: getVirtualViews
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: '"{\r\n  \"apiToken\": \"{{ApiToken}}\"\r\n}"'
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+    get:
+      tags:
+        - V2 > GET (Query Param ApiToken)
+      summary: getVirtualViews
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: apiToken
+          in: query
+          schema:
+            type: string
+          example: '{{ApiToken}}'
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /{ApiVersion}/getAssetTypes:
+    post:
+      tags:
+        - V2 > POST
+      summary: getAssetTypes
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: >-
+                "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"view\":
+                \"{{GetAssetTypesView}}\"\r\n}"
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+    get:
+      tags:
+        - V2 > GET (Query Param ApiToken)
+      summary: getAssetTypes
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: apiToken
+          in: query
+          schema:
+            type: string
+          example: '{{ApiToken}}'
+        - name: view
+          in: query
+          schema:
+            type: string
+          example: '{{GetAssetTypesView}}'
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /{ApiVersion}/getAssetTypeTags:
+    post:
+      tags:
+        - V2 > POST
+      summary: getAssetTypeTags
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: >-
+                "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"view\":
+                \"{{GetAssetTypesView}}\",\r\n  \"assetType\":
+                \"{{AssetType}}\",\r\n  \"deep\": true\r\n}"
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+    get:
+      tags:
+        - V2 > GET (Query Param ApiToken)
+      summary: getAssetTypeTags
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: apiToken
+          in: query
+          schema:
+            type: string
+          example: '{{ApiToken}}'
+        - name: view
+          in: query
+          schema:
+            type: string
+          example: '{{GetAssetTypesView}}'
+        - name: assetType
+          in: query
+          schema:
+            type: string
+          example: '{{AssetType}}'
+        - name: deep
+          in: query
+          schema:
+            type: boolean
+          example: 'true'
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /{ApiVersion}/getAssetInstances:
+    post:
+      tags:
+        - V2 > POST
+      summary: getAssetInstances
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: >-
+                "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"view\":
+                \"{{GetAssetTypesView}}\",\r\n  \"assetType\":
+                \"{{AssetType}}\",\r\n  \"path\":
+                \"{{AssetInstancePath}}\"\r\n}"
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+    get:
+      tags:
+        - V2 > GET (Query Param ApiToken)
+      summary: getAssetInstances
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: apiToken
+          in: query
+          schema:
+            type: string
+          example: '{{ApiToken}}'
+        - name: view
+          in: query
+          schema:
+            type: string
+          example: '{{GetAssetTypesView}}'
+        - name: assetType
+          in: query
+          schema:
+            type: string
+          example: '{{AssetType}}'
+        - name: path
+          in: query
+          schema:
+            type: string
+          example: '{{AssetInstancePath}}'
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /{ApiVersion}/browseStatus:
+    post:
+      tags:
+        - V2 > POST
+      summary: browseStatus
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: >-
+                "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"views\":
+                [\"{{GetAssetTypesView}}\"]\r\n}"
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+    get:
+      tags:
+        - V2 > GET (Query Param ApiToken)
+      summary: browseStatus
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: apiToken
+          in: query
+          schema:
+            type: string
+          example: '{{ApiToken}}'
+        - name: views
+          in: query
+          schema:
+            type: string
+          example: '{{GetAssetTypesView}}'
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /{ApiVersion}/getEvents:
+    post:
+      tags:
+        - V2 > POST
+      summary: getEvents_Limit 10
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: '"{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"limit\": 10\r\n}"'
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+    get:
+      tags:
+        - V2 > GET (Query Param ApiToken)
+      summary: getEvents_Limit 10
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: apiToken
+          in: query
+          schema:
+            type: string
+          example: '{{ApiToken}}'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+          example: '10'
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /{ApiVersion}/getAdhocEvents:
+    post:
+      tags:
+        - V2 > POST
+      summary: getAdhocEvents
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: >-
+                "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"viewName\":
+                \"{{ViewName}}\",\r\n  \"searchFrom\": \"now-1w\",\r\n 
+                \"searchTo\": \"now\",\r\n  \"startTrigger\": \"[{{AdhocTag}}] >
+                1\",\r\n  \"assetType\": \"\",\r\n 
+                \"minDuration\":\"00:00:01\"\r\n}"
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+    get:
+      tags:
+        - V2 > GET (Query Param ApiToken)
+      summary: getAdhocEvents
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/x-www-form-urlencoded
+        - name: apiToken
+          in: query
+          schema:
+            type: string
+          example: '{{ApiToken}}'
+        - name: viewName
+          in: query
+          schema:
+            type: string
+          example: '{{ViewName}}'
+        - name: searchFrom
+          in: query
+          schema:
+            type: string
+          example: now-1w
+        - name: searchTo
+          in: query
+          schema:
+            type: string
+          example: now
+        - name: startTrigger
+          in: query
+          schema:
+            type: string
+          example: '[{{AdhocTag}}] > 1'
+        - name: minDuration
+          in: query
+          schema:
+            type: string
+          example: '00:00:01'
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /{ApiVersion}/getTagData2:
+    get:
+      tags:
+        - V2 > GET (Query Param ApiToken)
+      summary: getTagData2_ProcessedWithPaging
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: startTime
+          in: query
+          schema:
+            type: string
+          example: now-3mo
+        - name: endTime
+          in: query
+          schema:
+            type: string
+          example: now
+        - name: maxSize
+          in: query
+          schema:
+            type: integer
+          example: '10'
+        - name: tags
+          in: query
+          schema:
+            type: string
+          example: '{{ViewName}}.{Diagnostics}.Sys.Memory Physical'
+        - name: aggregateName
+          in: query
+          schema:
+            type: string
+          example: TimeAverage2
+        - name: aggregateInterval
+          in: query
+          schema:
+            type: string
+          example: '00:00:01'
+        - name: apiToken
+          in: query
+          schema:
+            type: string
+          example: '{{ApiToken}}'
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+    post:
+      tags:
+        - V2 > POST
+      summary: getTagData2_ProcessedWithPaging
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: >-
+                "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"tags\":
+                [\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Memory
+                Physical\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.CPU Usage
+                Historian\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.CPU Usage
+                Total\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Historian
+                Handle Count\",\r\n     
+                \"{{ViewName}}.{Diagnostics}.Sys.Historian Thread
+                Count\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Historian
+                Working Set (memory)\",\r\n     
+                \"{{ViewName}}.{Diagnostics}.Sys.Memory Page\",\r\n     
+                \"{{ViewName}}.{Diagnostics}.Reading.NumClients\",\r\n     
+                \"{{ViewName}}.{Diagnostics}.Sys.Memory Virtual\",\r\n     
+                \"{{ViewName}}.{Diagnostics}.Reading.TagHandles\"\r\n     
+                ],\r\n  \"startTime\": \"now-3month\",\r\n  \"endTime\":
+                \"now\",\r\n  \"maxSize\": 10,\r\n  \"aggregateName\":
+                \"TimeAverage2\",\r\n  \"aggregateInterval\": \"00:00:01\"\r\n}"
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /{ApiVersion}/getTagContext:
+    get:
+      tags:
+        - V2 > GET (Query Param ApiToken)
+      summary: getTagContext
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: apiToken
+          in: query
+          schema:
+            type: string
+          example: '{{ApiToken}}'
+        - name: tags
+          in: query
+          schema:
+            type: string
+          example: '{{ViewName}}.{Diagnostics}.Sys.Memory Physical'
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+    post:
+      tags:
+        - V2 > POST
+      summary: getTagContext
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: >-
+                "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"tags\":
+                [\"{{ViewName}}.{Diagnostics}.Sys.Memory Physical\"]\r\n}"
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /{ApiVersion}/getAnnotations:
+    get:
+      tags:
+        - V2 > GET (Query Param ApiToken)
+      summary: getAnnotations
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: apiToken
+          in: query
+          schema:
+            type: string
+          example: '{{ApiToken}}'
+        - name: tags
+          in: query
+          schema:
+            type: string
+          example: '{{ViewName}}.{Diagnostics}.Sys.Memory Physical'
+        - name: startTime
+          in: query
+          schema:
+            type: string
+          example: now-1d
+        - name: endTime
+          in: query
+          schema:
+            type: string
+          example: now
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+    post:
+      tags:
+        - V2 > POST
+      summary: getAnnotations
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              example: >-
+                "{\r\n    \"apiToken\": \"{{ApiToken}}\",\r\n    \"tags\":
+                [\"{{ViewName}}.{Diagnostics}.Sys.Memory Physical\"],\r\n   
+                \"startTime\": \"now-1d\",\r\n    \"endTime\": \"now\"\r\n}"
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: ApiVersion
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+
