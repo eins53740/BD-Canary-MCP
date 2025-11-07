@@ -42,29 +42,28 @@ Authentication to the underlying Canary API is handled transparently by the serv
 
 Tools are functions that can be directly executed by an MCP client.
 
-*   **`ping()`**: A simple tool to check if the MCP server is running and responsive. Returns a "pong" message.
-*   **`get_asset_catalog()`**: Retrieves curated metadata for sensors and tags from the local asset catalog. This is useful for getting an overview of available tags without querying the live server.
-*   **`search_tags(search_pattern)`**: Searches for tags in the Canary Historian that match a given pattern.
-*   **`get_tag_metadata(tag_path)`**: Retrieves detailed metadata for a specific, fully qualified tag path.
-*   **`get_tag_path(description)`**: Resolves a natural-language description into the most likely tag path by searching the catalog and live server.
-*   **`get_tag_properties(tag_paths)`**: Fetches the raw, detailed property dictionaries for a list of tag paths.
-*   **`list_namespaces()`**: Lists the available tag namespaces (hierarchical folders) in the Canary Historian.
-*   **`get_last_known_values(tag_names)`**: Retrieves the most recent data point for one or more tags.
-*   **`read_timeseries(tag_names, start_time, end_time)`**: Queries for historical time-series data for one or more tags within a specified time range.
-*   **`get_server_info()`**: Gets health and capability information from the Canary server, including supported timezones and aggregates.
-*   **`get_metrics()`**: Returns detailed performance metrics for the MCP server in Prometheus format.
-*   **`get_metrics_summary()`**: Returns a human-readable summary of the server's performance metrics.
-*   **`get_cache_stats()`**: Provides statistics on the server's internal cache performance.
-*   **`invalidate_cache(pattern)`**: Invalidates cache entries, optionally filtered by a key pattern.
-*   **`cleanup_expired_cache()`**: Manually triggers a cleanup of expired cache entries.
-*   **`get_health()`**: Returns the overall health status of the MCP server, including the state of its circuit breakers.
+*   **`ping()`** – sanity check that MCP is reachable. Use before a session starts; it never touches Canary.
+*   **`get_asset_catalog()`** – quick, offline peek at the curated tag catalog. Ideal for metadata-only discovery or when Canary is offline. Responses obey the 1 MB guardrail and truncate with guidance when necessary.
+*   **`search_tags(search_pattern)`** – live Canary browse when you already know part of the tag name. Avoid wildcards; pair with `get_tag_path` for NL flows.
+*   **`get_tag_metadata(tag_path)`** – fetch detailed properties (units, eng limits, descriptions) once you know the fully qualified path. Pitfall: requires the exact historian path; use `get_tag_path` to resolve aliases first.
+*   **`get_tag_path(description)`** – NL → historian path workflow. Returns `confidence`, `confidence_label`, and `clarifying_question` so LLMs know when to proceed or ask the user for more context.
+*   **`get_tag_properties(tag_paths)`** – batched property lookup for multiple paths. Handy when cross-checking units before issuing large read queries.
+*   **`list_namespaces()`** – discover namespace roots/folders. Use this to confirm a plant’s structure or to seed UI pickers.
+*   **`get_last_known_values(tag_names)`** – grab the most recent sample for one or more tags. Automatically falls back to configured views if no data exists in the requested window.
+*   **`read_timeseries(tag_names, start_time, end_time)`** – canonical path for historical data. Accepts ISO timestamps or Canary relative expressions; watch the `continuation` token for paging.
+*   **`get_server_info()`** – reports Canary capabilities (timezones, aggregates) and MCP settings. Run it after deployments to ensure the environment is wired correctly.
+*   **`get_metrics()` / `get_metrics_summary()`** – Prometheus output vs. human-readable summary of request counts, latency, cache stats. Use for health dashboards or quick CLI checks.
+*   **`get_cache_stats()`**, **`invalidate_cache(pattern)`**, **`cleanup_expired_cache()`** – manage the local metadata cache when debugging stale data.
+*   **`get_health()`** – consolidated MCP/circuit-breaker status plus cache/metrics snapshots. Wire it into ops monitors for a high-level heartbeat.
 
 ### Prompts (Workflows)
 
 Prompts are structured, multi-step workflows that guide an LLM or MCP client through a complex process.
 
-*   **`tag_lookup_workflow`**: A guided workflow for translating a natural-language request (e.g., "the main kiln temperature") into a precise Canary tag path. It orchestrates the use of `get_asset_catalog`, `search_tags`, and `get_tag_properties`.
-*   **`timeseries_query_workflow`**: A workflow for safely and efficiently retrieving historical data. It guides the user to first resolve tag names, then define time ranges, and finally call `read_timeseries` with appropriate parameters.
+*   **`tag_lookup_workflow`**: A guided workflow for translating a natural-language request (e.g., "the main kiln temperature") into a precise Canary tag path. It orchestrates the use of `get_asset_catalog`, `search_tags`, and `get_tag_properties`, and emits confidence/clarifying-question signals so LLMs know when to double-check with the user.
+*   **`timeseries_query_workflow`**: A deterministic workflow for safely and efficiently retrieving historical data. It walks through tag resolution, natural-language time parsing, payload assembly, and continuation handling before summarising results back to the user.
+
+See [`docs/workflows/prompt-workflows.md`](docs/workflows/prompt-workflows.md) for the full step-by-step playbooks, including inputs, outputs, and example conversations.
 
 ### Resources
 
@@ -72,6 +71,15 @@ Resources provide static data or documentation to the MCP client to aid in const
 
 *   **`maceira_tag_catalog`**: A JSON resource containing the curated list of tags for the Maceira site, including natural-language descriptions and engineering units. This is the primary reference for tag discovery.
 *   **`canary_time_standards`**: A JSON resource that provides a reference guide for Canary's relative time expressions (e.g., "Now-1d") and the server's default timezone (`Europe/Lisbon`).
+*   **Reference docs**: See [`docs/resources/resource-index.md`](docs/resources/resource-index.md) for every on-disk artifact (tag catalog, time standards, Postman exports) plus RAG feasibility notes and size-guardrail reminders.
+
+### Metadata-only Tag Discovery
+
+You can resolve tags without touching the live Canary API by combining the local resources:
+1. Call `get_asset_catalog` / read `resource://canary/tag-catalog` to fetch candidate paths, descriptions, and units.
+2. Use `get_local_tag_candidates` (from `src/canary_mcp/tag_index.py`) to score the catalog entries against your keywords.
+3. Feed the results into `get_tag_path`, which now emits `confidence`, `confidence_label`, and `clarifying_question` fields so LLMs know whether to proceed (`confidence ≥ 0.80`) or ask for more context.
+4. Keep responses under the 1 MB guardrail (`CANARY_MAX_RESPONSE_BYTES`, default 1 000 000). If a response is truncated, the payload includes a preview plus guidance to narrow the query.
 
 ### Expected Workflow for an MCP Client / LLM
 
@@ -230,7 +238,7 @@ Inject `.env` via environment variables or bind mount and place the container be
   - If Tag Security is enabled, the Canary user must have read permissions for Views (READ) and write permissions for the target DataSet(s) (WRITE).
   - For WRITE via SaF, if the service is remote from the Historian, configure the SaF service with an API token as well.
   - Backwards compatibility: some endpoints accept `accessToken` if `apiToken` is not provided; `/getUserToken` remains for legacy flows when credentials are linked to an Identity user.
-- Project policy: WRITE tool is gated to `Test/*` datasets only (e.g., `Test/Maceira`, `Test/Outao`).
+- Project policy: WRITE tool is gated to `Test/*` datasets only (e.g., `Test/Maceira`, `Test/Outao`). The helper `canary_mcp.write_guard.validate_test_dataset` enforces this rule before any payload is sent to Canary.
 
 ### Example Requests (READ/WRITE)
 
@@ -306,6 +314,18 @@ uv run pytest -m integration -q
 # Run with coverage
 uv run pytest --cov=. --cov-report=term-missing -q
 ```
+
+### CLI Tool Validator
+
+Use the bundled script to exercise the main MCP tools (skipping network-dependent calls when credentials are absent):
+
+```bash
+python scripts/test_mcp_tools.py \
+  --sample-tag "Maceira.Cement.Kiln6.Temperature.Outlet" \
+  --search-pattern "Kiln*Temp"
+```
+
+The script prints a human-readable PASS/WARN/FAIL summary and respects the global 1 MB response guardrail.
 
 ### Testing the Ping Tool
 

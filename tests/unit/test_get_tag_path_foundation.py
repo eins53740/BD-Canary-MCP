@@ -93,6 +93,8 @@ async def test_get_tag_path_returns_candidates(monkeypatch):
     assert result["keywords"] == ["kiln", "shell", "temperature", "section", "15"]
     assert len(result["candidates"]) == 1
     assert result["candidates"][0]["score"] > 0
+    assert result["confidence"] >= 0.8
+    assert result["next_step"] == "return_path"
     assert memory_cache.store  # Final result should be cached
 
 
@@ -116,6 +118,8 @@ async def test_get_tag_path_validates_description(monkeypatch):
 
     assert result["success"] is False
     assert "empty" in result["error"].lower()
+    assert result["next_step"] == "clarify"
+    assert "clarifying_question" in result
     mock_search.assert_not_called()
 
 
@@ -148,6 +152,7 @@ async def test_get_tag_path_handles_no_matches(monkeypatch):
     assert result["most_likely_path"] is None
     assert result["candidates"] == []
     assert "no tags" in result["error"].lower()
+    assert result["next_step"] == "clarify"
 
 
 @pytest.mark.unit
@@ -204,3 +209,4 @@ async def test_get_tag_path_uses_local_index_when_api_returns_nothing(monkeypatc
     assert result["success"] is True
     assert result["most_likely_path"] == local_candidate["path"]
     assert result["candidates"][0]["matched_keywords"]["local_index"] == ["kiln", "shell", "speed"]
+    assert result["confidence"] >= 0.8

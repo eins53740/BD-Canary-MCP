@@ -95,3 +95,5 @@ async def test_metadata_description_influences_ranking(monkeypatch):
     assert result["success"] is True
     assert result["most_likely_path"] == "Plant.Kiln.Section15.Vibration"
     assert result["candidates"][0]["matched_keywords"]["description"]
+    assert result["confidence"] >= 0.8
+    assert result["next_step"] == "return_path"

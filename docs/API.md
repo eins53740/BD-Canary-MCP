@@ -88,12 +88,15 @@ Search for Canary tags by name pattern with caching support.
 **Path Scoping**: The tool posts to `browseTags` using the configured search path (for example `Secil.Portugal`) so queries like `"P431"` resolve correctly even within large historians. If no root path is configured, the server automatically falls back to common site prefixes.
 
 **Hint**: Provide literal identifiers such as `"P431"` without appending wildcard characters (`*`). The Canary API performs its own partial matching and responds more reliably to the raw identifier.
+**Size Guardrail**: Responses pass through the global payload guard (`CANARY_MAX_RESPONSE_BYTES`, default 1 000 000 bytes). If a result is truncated you'll receive `{"truncated": true, "preview": "..."}`—narrow the query (fewer tags, tighter namespace) and retry.
 
 **Example Usage:**
 ```
 User: "Find all temperature tags for Kiln 6"
 Assistant uses: search_tags(search_pattern="Kiln6*Temperature")
 ```
+
+**Usage Guidance:** Use `search_tags` when you already know part of the historian name (e.g., `Kiln6.Temp`). For natural-language phrases rely on `get_tag_path`, which combines the catalog, search, and metadata scoring pipeline.
 
 **Error Handling:**
 - Returns `success: false` with error message on failure
@@ -119,10 +122,7 @@ Resolve a natural-language description into the most likely Canary tag path.
   "description": "temperature on kiln shell in section 15",
   "keywords": ["temperature", "kiln", "shell", "section", "15"],
   "most_likely_path": "Plant.Kiln.Section15.ShellTemp",
-  "alternatives": [
-    "Plant.Kiln.Section15.ShellPressure",
-    "Plant.Kiln.Cooling.WaterTemp"
-  ],
+  "alternatives": ["Plant.Kiln.Section15.ShellPressure"],
   "candidates": [
     {
       "path": "Plant.Kiln.Section15.ShellTemp",
@@ -148,22 +148,35 @@ Resolve a natural-language description into the most likely Canary tag path.
       "metadata_cached": false
     }
   ],
+  "confidence": 0.91,
+  "confidence_label": "high",
+  "clarifying_question": null,
+  "next_step": "return_path",
+  "message": "High-confidence match. Proceed with read_timeseries or metadata lookup.",
   "cached": false
 }
 ```
 
 **Caching**: Final responses are cached with the metadata TTL. Intermediate `browseTags` and `getTagProperties` calls share the metadata cache. Use `bypass_cache=true` when fresh data is required.
 
-**Ranking Logic:**
-- Keywords matched in the tag `name` carry the highest weight.
-- Path, description, and metadata matches contribute additional score with decreasing weight.
-- Exact and prefix matches receive a small bonus to break ties.
+**Confidence & Ranking Logic:**
+- Keywords matched in the tag `name` carry the highest weight, followed by path, description, and metadata.
+- Exact/prefix matches receive a bonus to break ties.
+- Confidence is derived from the winning score and its margin over the runner-up:
+  - `confidence ≥ 0.80` → `confidence_label = high`, `next_step = "return_path"`.
+  - `0.70 ≤ confidence < 0.80` → `confidence_label = medium`, `next_step = "double_check"` (advise verifying units/section).
+  - `confidence < 0.70` → the tool withholds a recommendation and asks a clarifying question.
 
 **Example Usage:**
 ```
 User: "What's the tag for the kiln shell temperature in section 15?"
 Assistant uses: get_tag_path(description="kiln shell temperature section 15")
 ```
+
+**Error Handling:**
+- Empty descriptions or descriptions without meaningful keywords return `success: false`, a `clarifying_question`, and guidance (e.g., “Specify site/equipment/units”).
+- When no candidates can be ranked, the response includes the top alternatives plus a clarifying question so the operator can steer the workflow.
+- API or metadata failures surface actionable messages (“retry with bypass_cache”, “validate CANARY_VIEWS_BASE_URL”) instead of generic errors.
 
 ---
 
@@ -209,6 +222,8 @@ Retrieve detailed metadata for specific tags.
 User: "What are the units for Kiln6.Temperature?"
 Assistant uses: get_tag_metadata(tag_path="Kiln6.Temperature")
 ```
+
+**Usage Guidance:** Obey the returned `confidence`/`next_step`. Let the workflow auto-select only when confidence ≥ 0.80; otherwise surface the `clarifying_question` and wait for the operator to add site/equipment/units.
 
 ---
 
@@ -272,6 +287,8 @@ Assistant uses: read_timeseries(
 )
 ```
 
+**Usage Guidance:** Use this after resolving a tag path to verify units, engineering limits, and descriptions before running `read_timeseries`. It’s also helpful when responding to user questions such as “what is the unit for Kiln6.Temperature?”.
+
 ---
 
 ### get_tag_properties
@@ -314,6 +331,8 @@ Assistant uses: get_tag_properties(tag_paths=[
   "Secil.Portugal.Cement.Maceira.400 - Clinker Production.432 - Kiln.Normalised.Analog.Kiln_Shell_Temp_Average_Section_55.Value"
 ])
 ```
+
+**Usage Guidance:** Use when you need the raw `properties` dictionary for several tags (UI pickers, audits). Results are keyed by resolved path so you can merge them with `get_tag_path` output.
 
 **Error Handling:**
 - Returns `success: false` when no tag paths are supplied.
@@ -371,6 +390,8 @@ User: "What sites are available?"
 Assistant uses: list_namespaces()
 ```
 
+**Usage Guidance:** Run this to verify the historian hierarchy or populate namespace pickers. If expected sites are missing, double-check the configured `CANARY_VIEWS_BASE_URL` and token permissions.
+
 ---
 
 ### get_server_info
@@ -403,6 +424,8 @@ User: "Is the Canary server online?"
 Assistant uses: get_server_info()
 ```
 
+**Usage Guidance:** Run after deployments or when diagnosing read/write failures to confirm Canary version, timezones, and aggregate support. Non-success responses usually indicate credential issues.
+
 ---
 
 ## Performance & Monitoring Tools
@@ -427,7 +450,7 @@ canary_request_duration_seconds_bucket{tool_name="search_tags",le="1.0"} 40
 ...
 ```
 
-**Use Case**: Integrate with Prometheus for monitoring
+**Usage Guidance:** Scrape this endpoint with Prometheus/Grafana. For CLI snapshots use `get_metrics_summary`, which returns aggregated JSON instead of exposition text.
 
 ---
 
@@ -464,11 +487,7 @@ Get human-readable performance metrics summary.
 }
 ```
 
-**Example Usage:**
-```
-User: "How is the MCP server performing?"
-Assistant uses: get_metrics_summary()
-```
+**Usage Guidance:** Ideal for CLI or script-based health checks (“how many requests have we served?”). For detailed scraping use `get_metrics`.
 
 ---
 

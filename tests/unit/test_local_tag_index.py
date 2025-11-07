@@ -30,3 +30,12 @@ def test_get_local_tag_candidates_wrapper_uses_shared_index():
     )
     assert isinstance(results, list)
     assert results
+
+
+@pytest.mark.unit
+def test_local_tag_index_respects_result_limits():
+    """Metadata-only searches should honor the provided limit to keep responses bounded."""
+    index = LocalTagIndex()
+    limit = 7
+    results = index.search(["temperature"], description="any temperature tag", limit=limit)
+    assert len(results) <= limit

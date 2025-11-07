@@ -13,7 +13,7 @@
       "env": {
         "CANARY_SAF_BASE_URL": "https://scunscanary.secil.pt:55236/api/v2",
         "CANARY_VIEWS_BASE_URL": "https://scunscanary.secil.pt:55236",
-        "CANARY_API_TOKEN": "0120fd2e-e9c2-4c8d-8115-a6ceb41490ce"
+        "CANARY_API_TOKEN": "63c9a371-2768-4730-9416-28a42d5ac36e"
       }
     }
   }

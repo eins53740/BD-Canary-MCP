@@ -645,6 +645,46 @@ def _score_tag_candidate(
     return score, matched
 
 
+def _compute_confidence(candidates: list[dict[str, Any]]) -> tuple[float, str]:
+    """
+    Compute a normalized confidence score (0-1) and label for ranked candidates.
+
+    Confidence considers absolute score plus margin versus the runner-up.
+    """
+    if not candidates:
+        return 0.0, "no_match"
+
+    top_score = max(float(candidates[0].get("score") or 0.0), 0.0)
+    runner_up = max(float(candidates[1].get("score") or 0.0), 0.0) if len(candidates) > 1 else 0.0
+
+    if top_score <= 0:
+        return 0.0, "no_match"
+
+    margin = max(top_score - runner_up, 0.0)
+    normalized = min(1.0, (top_score / (top_score + 5.0)) + (margin / (margin + 5.0)) / 2)
+    normalized = round(normalized, 3)
+
+    if normalized >= 0.8:
+        label = "high"
+    elif normalized >= 0.7:
+        label = "medium"
+    elif normalized > 0.0:
+        label = "low"
+    else:
+        label = "no_match"
+
+    return normalized, label
+
+
+def _build_clarifying_question(keywords: list[str]) -> str:
+    """Return a helpful clarifying question using existing keywords."""
+    phrase = ", ".join(keywords[:3]) if keywords else "the measurement"
+    return (
+        f"Can you specify the site, equipment, or engineering units for {phrase}? "
+        "For example: 'Maceira kiln 6 shell temperature in section 15 (°C)'."
+    )
+
+
 def parse_time_expression(time_expr: str) -> str:
     """
     Parse natural language time expressions into ISO timestamps.
@@ -940,16 +980,30 @@ def tag_lookup_workflow() -> list[Message]:
         Message(
             role="user",
             content=(
-                "Follow this workflow:\n"
-                "1. Clarify the process area, equipment, and any identifiers in the request.\n"
-                "2. Check `resource://canary/tag-catalog` via `get_asset_catalog` for an exact "
-                "match on description or unit.\n"
-                "3. When no match is found, call `search_tags` with the strongest keyword "
-                "(avoid wildcards) and review returned paths.\n"
-                "4. Confirm engineering units and descriptions with `get_tag_properties` if "
-                "available before recommending a path.\n"
-                "5. Return the fully qualified historian path(s) and highlight confidence or "
-                "follow-up checks the user should perform."
+                "Deterministic workflow:\n"
+                "```\n"
+                "Input: natural-language description\n"
+                "1. Parse description → entities (equipment, measurement, site, units).\n"
+                "2. Normalize synonyms (e.g., shell↔casing, rpm↔speed) and remove stop words.\n"
+                "3. Query `resource://canary/tag-catalog` via `get_asset_catalog` using the strongest "
+                "keywords; record matches (path, unit, description).\n"
+                "4. If <3 matches, call `search_tags` with the best literal keyword (no wildcards) "
+                "and merge results.\n"
+                "5. For each candidate path:\n"
+                "   a. Fetch metadata with `get_tag_properties` (units, description).\n"
+                "   b. Score relevance (name weight > path > description > metadata).\n"
+                "6. Compute confidence = normalized score of top candidate.\n"
+                "   - confidence ≥ 0.80 → return best path and note why it matches.\n"
+                "   - 0.70 ≤ confidence < 0.80 → return path but warn \"double‑check units\".\n"
+                "   - confidence < 0.70 → DO NOT pick; return top candidates + clarifying question "
+                "(ask for unit, section, equipment, etc.).\n"
+                "7. Output:\n"
+                "   - most_likely_path (if confident)\n"
+                "   - alternatives ranked\n"
+                "   - confidence (0‑1), confidence_label, clarifying_question (if any)\n"
+                "   - instructions for next action (call read_timeseries, request clarification, etc.).\n"
+                "Errors: If input is empty, reply with an actionable message asking for site/equipment.\n"
+                "```\n"
             ),
         ),
     ]
@@ -973,16 +1027,25 @@ def timeseries_query_workflow() -> list[Message]:
         Message(
             role="user",
             content=(
-                "1. Resolve tag paths using the tag lookup workflow first.\n"
-                "2. Define start and end times using the Canary relative time grammar (see "
-                "`resource://canary/time-standards`); interpret expressions in "
-                f"{DEFAULT_TIMEZONE} before converting to UTC.\n"
-                "3. Call `read_timeseries` with ISO timestamps and moderate page_size (<=1000). "
-                "Pass `tag_names` as an array (e.g. ['Secil.Portugal.Tag']) rather than a quoted "
-                "JSON string. When retrieving more than one tag, use the historian POST endpoints "
-                "instead of multi-tag GET requests.\n"
-                "4. Inspect the response for continuation tokens and iterate if needed.\n"
-                "5. Summarise the retrieved data, noting gaps or quality issues."
+                "Deterministic workflow:\n"
+                "```\n"
+                "Input: tag description + natural-language time window\n"
+                "1. Call `tag_lookup_workflow` to obtain `most_likely_path`. If the workflow returns "
+                "a clarifying question, ask the user before proceeding.\n"
+                "2. Parse start/end using `resource://canary/time-standards`:\n"
+                "   - Echo the interpreted ISO timestamps back to the user.\n"
+                "   - Use `parse_time_expression` rules (e.g., \"last 2 hours\" → `Now-2Hours`).\n"
+                "3. Build the `read_timeseries` payload:\n"
+                "   - `tag_names`: list of fully qualified paths (e.g., ['Secil.Portugal.Kiln6.Temp']).\n"
+                "   - `start_time` / `end_time`: ISO strings.\n"
+                "   - Optional `views` if the site requires it; page_size ≤ 1000.\n"
+                "4. Execute `read_timeseries` (POST). If continuation tokens are returned, repeat "
+                "until the requested time window is fully covered.\n"
+                "5. Summarise the results:\n"
+                "   - Mention the interpreted window, tag units, sample count, gaps, or quality flags.\n"
+                "   - Suggest the next action (e.g., compute stats, compare tags) or surface any "
+                "errors with guidance on how to fix them.\n"
+                "```\n"
             ),
         ),
     ]
@@ -1603,28 +1666,34 @@ async def get_tag_path(
         # Validate input
         if not description_normalized:
             timer.cache_hit = False
+            question = _build_clarifying_question([])
             return {
                 "success": False,
-                "error": "Description cannot be empty",
+                "error": "Description cannot be empty. Provide the site/equipment and measurement you need.",
                 "description": description,
                 "keywords": [],
                 "most_likely_path": None,
                 "candidates": [],
                 "alternatives": [],
+                "clarifying_question": question,
+                "next_step": "clarify",
                 "cached": False,
             }
 
         keywords = extract_keywords(description_normalized)
         if not keywords:
             timer.cache_hit = False
+            question = _build_clarifying_question([])
             return {
                 "success": False,
-                "error": "Unable to extract meaningful keywords from description",
+                "error": "Unable to extract meaningful keywords. Please include equipment, location, or units.",
                 "description": description,
                 "keywords": [],
                 "most_likely_path": None,
                 "candidates": [],
                 "alternatives": [],
+                "clarifying_question": question,
+                "next_step": "clarify",
                 "cached": False,
             }
 
@@ -1740,14 +1809,17 @@ async def get_tag_path(
                     local_keywords.update(matched_tokens)
 
         if not candidate_map:
+            clarifying_question = _build_clarifying_question(keywords)
             result = {
                 "success": False,
                 "description": description,
                 "keywords": keywords,
-                "error": "No tags found matching the description",
+                "error": "No tags matched the description. Provide the site, equipment, or engineering units.",
                 "most_likely_path": None,
                 "candidates": [],
                 "alternatives": [],
+                "clarifying_question": clarifying_question,
+                "next_step": "clarify",
                 "cached": False,
             }
             cache.set(cache_key, result, category="metadata")
@@ -1870,16 +1942,71 @@ async def get_tag_path(
         candidates.sort(key=lambda item: item["score"], reverse=True)
 
         trimmed_candidates = candidates[:max_results]
-        most_likely_path = trimmed_candidates[0]["path"] if trimmed_candidates else None
+        if not trimmed_candidates:
+            clarifying_question = _build_clarifying_question(keywords)
+            result = {
+                "success": False,
+                "description": description,
+                "keywords": keywords,
+                "error": "Unable to rank candidates. Please provide additional identifiers (unit, section, site).",
+                "most_likely_path": None,
+                "candidates": [],
+                "alternatives": [],
+                "clarifying_question": clarifying_question,
+                "next_step": "clarify",
+                "cached": False,
+            }
+            cache.set(cache_key, result, category="metadata")
+            return result
+
+        most_likely_path = trimmed_candidates[0]["path"]
         alternatives = [candidate["path"] for candidate in trimmed_candidates[1:]]
+        confidence, confidence_label = _compute_confidence(trimmed_candidates)
+        clarifying_question = None
+        next_step = "return_path"
+        message = "High-confidence match. Proceed with read_timeseries or metadata lookup."
+
+        if confidence < 0.7:
+            clarifying_question = _build_clarifying_question(keywords)
+            next_step = "clarify"
+            message = "Low confidence match – request more context before selecting a tag."
+            result = {
+                "success": False,
+                "description": description,
+                "keywords": keywords,
+                "error": "Low confidence match; clarification required.",
+                "most_likely_path": None,
+                "candidates": trimmed_candidates,
+                "alternatives": alternatives,
+                "clarifying_question": clarifying_question,
+                "confidence": confidence,
+                "confidence_label": confidence_label,
+                "next_step": next_step,
+                "message": message,
+                "cached": False,
+            }
+            cache.set(cache_key, result, category="metadata")
+            return result
+
+        if confidence_label == "medium":
+            next_step = "double_check"
+            message = (
+                "Candidate found, but double-check units/section before using. "
+                "Confirm via get_tag_properties if unsure."
+            )
 
         result = {
-            "success": most_likely_path is not None,
+            "success": True,
             "description": description,
             "keywords": keywords,
             "most_likely_path": most_likely_path,
             "candidates": trimmed_candidates,
             "alternatives": alternatives,
+            "confidence": confidence,
+            "confidence_label": confidence_label,
+            "clarifying_question": clarifying_question,
+            "next_step": next_step,
+            "message": message,
             "cached": False,
         }
 

@@ -40,6 +40,10 @@ def prevent_dotenv_loading():
         yield
 
 
+def pytest_configure(config):
+    """Register custom markers used across the suite."""
+    config.addinivalue_line("markers", "e2e: end-to-end workflow tests exercising prompts")
+
 
 
 
