@@ -13,11 +13,12 @@ Complete reference for all MCP tools provided by the Canary MCP Server.
   - [get_tag_metadata](#get_tag_metadata)
   - [read_timeseries](#read_timeseries)
   - [get_tag_data2](#get_tag_data2)
-  - [get_aggregates](#get_aggregates)
-  - [get_asset_types](#get_asset_types)
-  - [get_asset_instances](#get_asset_instances)
-  - [get_events_limit10](#get_events_limit10)
-  - [get_tag_properties](#get_tag_properties)
+- [get_aggregates](#get_aggregates)
+- [get_asset_types](#get_asset_types)
+- [get_asset_instances](#get_asset_instances)
+- [get_events_limit10](#get_events_limit10)
+- [browse_status](#browse_status)
+- [get_tag_properties](#get_tag_properties)
   - [list_namespaces](#list_namespaces)
   - [get_server_info](#get_server_info)
   - [write_test_dataset](#write_test_dataset)
@@ -366,6 +367,40 @@ High-capacity variant of `read_timeseries` that leverages Canary’s `getTagData
 | Continuation handling | Continuation token returned frequently on wide windows | Designed for higher ceilings; continuation appears less often |
 | Aggregates | Optional but tuned for typical workloads | Same aggregate fields, but intended for processed data pipelines |
 | Ideal use case | Standard reads, backwards-compatible flows | High-volume or aggregate-heavy reads needing fewer round trips |
+
+---
+
+### browse_status
+
+Inspect view namespaces via the Canary `browseStatus` endpoint before issuing heavier metadata calls.
+
+**Parameters:**
+- `path` (string, optional) – Namespace prefix (for example `Secil.Portugal`). Defaults to the root namespace when omitted.
+- `depth` (integer, optional) – Maximum tree depth (omit to use Canary’s default expansion).
+- `include_tags` (boolean, optional) – When `false`, skip per-node tag lists to reduce payload size.
+- `view` (string, optional) – Pass a Canary view name via the `views` query parameter for Tag-Security–protected namespaces.
+
+**Returns:**
+```json
+{
+  "success": true,
+  "nodes": [
+    {"path": "Secil.Portugal", "label": "Secil.Portugal", "status": "Good"}
+  ],
+  "tags": [],
+  "next_path": "Secil.Portugal.Kiln6",
+  "status": "Good",
+  "hint": "Use browse_status to inspect namespaces before drilling into metadata."
+}
+```
+
+**Usage Guidance:** Combine this tool with `get_asset_types` and `get_asset_instances` to validate that a view and its root nodes are reachable before issuing targeted reads.
+
+**Script:** `python scripts/run_browse_status.py` lets ops step through branches interactively; see `docs/development/manual-tool-scripts.md` for CLI flags and environment knobs.
+
+**Error Handling:**
+- Missing `CANARY_VIEWS_BASE_URL` yields a helpful error message instead of stacking additional retries.
+- Any HTTP failure returns `status` plus the raw Canary body so you can copy/paste into Jira/Slack when tracking issues.
 
 ---
 

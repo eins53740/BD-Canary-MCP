@@ -15,6 +15,7 @@ Epic 4 still lists the Canary `browseStatus` endpoint and a handful of tools l
 3. **Documentation**
    - Extend `README.md` (Tooling section) and `docs/API.md` to describe the `browse_status` tool and link to the full suite of manual scripts.
    - Add a `docs/development/manual-tool-scripts.md` table enumerating every MCP tool → script entry point, expected environment variables, and sample usage.
+   - Reference `docs/development/manual-tool-scripts.md` from this story summary so the full script matrix is discoverable.
 
 ## Acceptance Criteria
 1. `browse_status` tool passes unit + integration tests (happy-path + error handling, pagination if applicable).

@@ -22,6 +22,7 @@ TOOL_HTTP_METHODS: dict[str, str] = {
     "read_summary_timeseries": "POST",
     "get_last_known_values": "POST",
     "get_tag_data_window": "POST",
+    "browse_status": "GET",
 }
 
 __all__ = ["TOOL_HTTP_METHODS", "get_tool_http_method", "execute_tool_request"]

@@ -26,6 +26,7 @@ from canary_mcp.server import (  # noqa: E402  pylint: disable=wrong-import-posi
     get_asset_types,
     get_cache_stats,
     get_events,
+    browse_status,
     get_health,
     get_last_known_values,
     get_metrics,
@@ -271,6 +272,18 @@ async def _test_get_events() -> ToolResult:
         return ToolResult("get_events", status, str(exc))
 
 
+async def _test_browse_status() -> ToolResult:
+    try:
+        result = await browse_status.fn(path="Secil.Portugal", depth=1)
+        if not result.get("success"):
+            raise RuntimeError(result.get("error", "Unknown error"))
+        msg = f"Nodes={len(result.get('nodes', []))}"
+        return ToolResult("browse_status", Status.PASS, msg)
+    except Exception as exc:
+        status = Status.WARN if _config_missing(str(exc)) else Status.FAIL
+        return ToolResult("browse_status", status, str(exc))
+
+
 async def _test_get_asset_types() -> ToolResult:
     try:
         result = await get_asset_types.fn()
@@ -317,6 +330,7 @@ async def run_suite(
         _test_get_health,
         _test_get_aggregates,
         _test_get_events,
+        _test_browse_status,
         _test_get_asset_types,
         _test_get_asset_instances,
     ]

@@ -64,7 +64,7 @@ Tools are functions that can be directly executed by an MCP client.
 *   **`get_last_known_values(tag_names)`** – grab the most recent sample for one or more tags. Automatically falls back to configured views if no data exists in the requested window.
 *   **`read_timeseries(tag_names, start_time, end_time)`** – canonical path for historical data. Accepts ISO timestamps or Canary relative expressions; watch the `continuation` token for paging.
 *   **`get_tag_data2(tag_names, start_time, end_time, aggregate_name?, aggregate_interval?, max_size?)`** – high-capacity sibling to `read_timeseries` that hits Canary’s `getTagData2` endpoint. Use it for large windows or server-side aggregates when you want fewer continuation hops (tune `max_size`).
-*   **`get_aggregates()`, `get_asset_types(view?)`, `get_asset_instances(asset_type, view?, path?)`, `get_events_limit10(limit?, …)`** – metadata helpers for Canary Views assets/events. They power richer LLM prompts without hitting production historians.
+*   **`get_aggregates()`, `get_asset_types(view?)`, `get_asset_instances(asset_type, view?, path?)`, `get_events_limit10(limit?, …)`, `browse_status(path?, depth?, include_tags?, view?)`** – metadata helpers for Canary Views assets/events plus namespace inspection. Use `browse_status` to walk view hierarchies, confirm `nextPath`, and verify `tags`/`nodes` payloads before doing heavier searches.
 *   **`write_test_dataset(dataset, records, original_prompt, role, dry_run=False)`** – gated write pathway to the Canary SAF API. Only `Test/Maceira` and `Test/Outao` datasets are allowed, and callers must pass a tester role (defaults to `tester`). Use `dry_run=True` to validate payloads before sending and keep `records` under the `CANARY_MAX_WRITE_RECORDS` limit.
 *   **`get_server_info()`** – reports Canary capabilities (timezones, aggregates) and MCP settings. Run it after deployments to ensure the environment is wired correctly.
 *   **`get_metrics()` / `get_metrics_summary()`** – Prometheus output vs. human-readable summary of request counts, latency, cache stats. Use for health dashboards or quick CLI checks.
@@ -380,6 +380,13 @@ Quick one-off tests for ops/SRE use cases:
 | `python scripts/run_get_cache_stats.py` | Shows cache hit/miss counts and entry totals. |
 | `python scripts/run_cleanup_expired_cache.py` | Forces a cache cleanup cycle and prints the summary. |
 | `python scripts/run_get_health.py` | Emits the consolidated MCP health payload (circuit breaker, cache, metrics). |
+| `python scripts/run_get_events_limit10.py` | Fetches recent historian events with optional view/time filters. |
+| `python scripts/run_get_tag_data2.py` | Retrieves tag samples/aggregates for a user-specified time window. |
+| `python scripts/run_invalidate_cache.py` | Purges metadata cache entries matching an optional pattern. |
+| `python scripts/run_write_test_dataset.py` | Dry-run (or execute) writes into `Test/*` datasets; requires SAF configuration. |
+| `python scripts/run_browse_status.py` | Walks namespace hierarchies, returning `nodes`/`tags` and `nextPath` hints. |
+
+Refer to [`docs/development/manual-tool-scripts.md`](docs/development/manual-tool-scripts.md) for CLI docs and environment requirements for every script in this table.
 
 ### Writing Test Telemetry (Test/Maceira + Test/Outao)
 

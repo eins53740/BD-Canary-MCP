@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from canary_mcp.server import (
+    browse_status,
     get_aggregates,
     get_asset_instances,
     get_asset_types,
@@ -47,12 +49,12 @@ async def test_get_aggregates_success(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_get_asset_types_requires_view(monkeypatch):
-    """Missing view (and env override) should return a 400 error."""
-    monkeypatch.delenv("CANARY_ASSET_VIEW", raising=False)
+async def test_get_asset_types_requires_views_base(monkeypatch):
+    """Tool should fail when CANARY_VIEWS_BASE_URL is missing."""
+    monkeypatch.delenv("CANARY_VIEWS_BASE_URL", raising=False)
     result = await get_asset_types.fn()
     assert result["success"] is False
-    assert result["status"] == 400
+    assert "CANARY_VIEWS_BASE_URL" in result["error"]
 
 
 @pytest.mark.asyncio
@@ -85,3 +87,49 @@ async def test_get_events_limit_validation(monkeypatch):
     result = await get_events_limit10.fn(limit=0)
     assert result["success"] is False
     assert result["status"] == 400
+
+
+@pytest.mark.asyncio
+async def test_browse_status_requires_base_url(monkeypatch):
+    """browse_status should fail when the views base URL is missing."""
+    monkeypatch.delenv("CANARY_VIEWS_BASE_URL", raising=False)
+    result = await browse_status.fn()
+    assert result["success"] is False
+    assert result["status"] == 500
+
+
+@pytest.mark.asyncio
+async def test_browse_status_success(monkeypatch):
+    """browse_status should call the API with the provided parameters."""
+    _patch_auth(monkeypatch)
+    captured_params: dict[str, Any] = {}
+
+    async def fake_execute(tool_name, client, url, params=None, json=None):
+        nonlocal captured_params
+        captured_params = params or {}
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+        mock_resp.json.return_value = {
+            "nodes": [{"path": "Secil.Portugal"}],
+            "tags": [],
+            "nextPath": "Secil.Portugal.Kiln6",
+            "status": "Good",
+        }
+        return mock_resp
+
+    monkeypatch.setenv("CANARY_VIEWS_BASE_URL", "https://example.com")
+    monkeypatch.setattr("canary_mcp.server.execute_tool_request", fake_execute)
+
+    result = await browse_status.fn(
+        path="Secil.Portugal",
+        depth=2,
+        include_tags=False,
+        view="Views/Assets",
+    )
+
+    assert result["success"] is True
+    assert result["nodes"][0]["path"] == "Secil.Portugal"
+    assert captured_params["path"] == "Secil.Portugal"
+    assert captured_params["depth"] == "2"
+    assert captured_params["includeTags"] == "false"
+    assert captured_params["views"] == "Views/Assets"

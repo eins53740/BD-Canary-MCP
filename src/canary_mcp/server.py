@@ -103,7 +103,7 @@ def _require_tester_role(role: str) -> str:
 
 
 def _resolve_asset_view(view: Optional[str]) -> str:
-    candidate = (view or DEFAULT_ASSET_VIEW).strip()
+    candidate = (view or os.getenv("CANARY_ASSET_VIEW", "")).strip()
     if not candidate:
         raise ValueError(
             "Asset view is required. Provide the 'view' argument or set CANARY_ASSET_VIEW."
@@ -299,8 +299,6 @@ try:
     DEFAULT_TZINFO = ZoneInfo(DEFAULT_TIMEZONE)
 except ZoneInfoNotFoundError:
     DEFAULT_TZINFO = UTC
-DEFAULT_ASSET_VIEW = os.getenv("CANARY_ASSET_VIEW", "").strip()
-
 SEARCH_TAGS_HINT = (
     "Describe the process area and distinctive identifiers (e.g. 'Maceira kiln shell temperature "
     "P431'). Prefer exact fragments over wildcards; combine with resource://canary/tag-catalog to "
@@ -3904,6 +3902,95 @@ async def get_events_limit10(
         "events": events,
         "count": len(events) if isinstance(events, list) else 0,
         "hint": GET_EVENTS_HINT,
+    }
+
+
+@mcp.tool()
+async def browse_status(
+    path: Optional[str] = None,
+    depth: Optional[int] = None,
+    include_tags: Optional[bool] = True,
+    view: Optional[str] = None,
+) -> dict[str, Any]:
+    """
+    Inspect namespace nodes using the browseStatus endpoint.
+    """
+    request_id = set_request_id()
+    views_base_url = os.getenv("CANARY_VIEWS_BASE_URL", "").strip()
+    if not views_base_url:
+        return {
+            "success": False,
+            "status": 500,
+            "error": "Canary Views base URL not configured. Set CANARY_VIEWS_BASE_URL.",
+        }
+
+    log.info(
+        "browse_status_called",
+        path=path or "root",
+        depth=depth,
+        include_tags=include_tags,
+        view=view,
+        request_id=request_id,
+        tool="browse_status",
+    )
+
+    try:
+        async with CanaryAuthClient() as client:
+            api_token = await client.get_valid_token()
+            params: dict[str, Any] = {"apiToken": api_token}
+            if path:
+                params["path"] = path
+            if depth is not None:
+                params["depth"] = str(depth)
+            if include_tags is not None:
+                params["includeTags"] = "true" if include_tags else "false"
+            if view:
+                params["views"] = view
+
+            async with httpx.AsyncClient(timeout=10.0) as http_client:
+                response = await execute_tool_request(
+                    "browse_status",
+                    http_client,
+                    f"{views_base_url}/api/v2/browseStatus",
+                    params=params,
+                )
+                response.raise_for_status()
+                api_response = response.json()
+    except CanaryAuthError as exc:
+        return {"success": False, "status": 401, "error": str(exc)}
+    except httpx.HTTPStatusError as exc:
+        return {
+            "success": False,
+            "status": exc.response.status_code,
+            "error": f"Failed to browse status: {exc.response.text}",
+        }
+    except Exception as exc:
+        return {
+            "success": False,
+            "status": 500,
+            "error": f"Unexpected error browsing status: {str(exc)}",
+        }
+
+    nodes = api_response.get("nodes", [])
+    tags = api_response.get("tags", [])
+    log.info(
+        "browse_status_success",
+        path=path or "root",
+        node_count=len(nodes) if isinstance(nodes, list) else 0,
+        tag_count=len(tags) if isinstance(tags, list) else 0,
+        request_id=get_request_id(),
+    )
+    return {
+        "success": True,
+        "nodes": nodes,
+        "tags": tags,
+        "next_path": api_response.get("nextPath"),
+        "status": api_response.get("status"),
+        "path": path,
+        "depth": depth,
+        "include_tags": include_tags,
+        "view": view,
+        "hint": BROWSE_STATUS_HINT,
     }
 
 

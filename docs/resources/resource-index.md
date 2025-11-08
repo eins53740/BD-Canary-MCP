@@ -44,3 +44,7 @@ Every tool and resource response goes through the shared payload guard. If you a
 - handles the truncated preview (`{"truncated": true, "preview": "..."}`) gracefully and directs the user to fetch the raw file from disk.
 
 This ensures MCP clients remain deterministic and safe even as we scale the catalog.
+
+## Operational Tooling
+
+- `docs/development/manual-tool-scripts.md` – Command line index for every `scripts/run_*` helper plus the `test_mcp_tools.py` harness. Lists required env variables (CANARY_VIEWS_BASE_URL, CANARY_API_TOKEN, CANARY_SAF_BASE_URL) and sample invocations for faster incident response.
