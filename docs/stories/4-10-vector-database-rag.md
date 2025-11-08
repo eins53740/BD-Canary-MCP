@@ -1,4 +1,4 @@
-# Story 4.10 — Vector Database RAG Foundation
+[x] # Story 4.10 — Vector Database RAG Foundation
 
 Context & Constraints:
 - Build on top of the existing flat Canary documentation (JSON/CSV under `docs/aux_files`).

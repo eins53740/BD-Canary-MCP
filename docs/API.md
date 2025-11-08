@@ -54,6 +54,19 @@ Complete reference for all MCP tools provided by the Canary MCP Server.
 
 ---
 
+## Write API Authentication
+
+The Canary Write API utilizes tokens for authentication, which are configured within the Identity service. Each token is linked to a specific Canary user.
+
+**Key Considerations:**
+
+*   **Tag Security:** If Tag Security is enabled in the Identity service, the Canary user associated with the token must be granted write permissions to the appropriate DataSet(s) or local Historian view.
+*   **`apiToken` Parameter:** When interacting with the Web API, the user must include the `apiToken` in their request.
+*   **SaF Service Configuration:** If the Store and Forward (SaF) service used to write data is remote from the Historian, it must also be configured to use an API token. This can be the same token used in the API request.
+*   **Token Creation:** For detailed instructions on generating API tokens, please refer to the Canary documentation on "How to Create an API Token."
+
+---
+
 ## Core Data Access Tools
 
 ### search_tags

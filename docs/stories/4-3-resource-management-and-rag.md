@@ -1,4 +1,4 @@
-# Story 4.3 — Resource Management and RAG Feasibility
+[x] # Story 4.3 — Resource Management and RAG Feasibility
 
 Context & Constraints:
 - Use on-disk JSON/CSV resources already shipped; no new infra (DB/vector store).

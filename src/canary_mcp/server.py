@@ -25,7 +25,6 @@ from canary_mcp.logging_setup import configure_logging, get_logger
 from canary_mcp.metrics import MetricsTimer, get_metrics_collector
 from canary_mcp.request_context import get_request_id, set_request_id
 from canary_mcp.response_guard import DEFAULT_LIMIT_BYTES, apply_response_size_limit
-from canary_mcp.tag_index import get_local_tag_candidates
 from canary_mcp.write_guard import WriteDatasetError, validate_test_dataset
 
 # Some integration tests expect a globally available mock_data_response placeholder.
@@ -43,6 +42,10 @@ except Exception:  # pragma: no cover - avoid polluting runtime errors
 
 # Load environment variables
 load_dotenv()
+
+configure_logging()
+
+from canary_mcp.tag_index import get_local_tag_candidates
 
 # Initialize FastMCP server
 mcp = FastMCP(
@@ -323,6 +326,10 @@ GET_ASSET_TYPES_HINT = (
 GET_EVENTS_HINT = (
     "Use get_events_limit10 to fetch the latest historian events. Limit defaults to 10 but can be "
     "raised cautiously; provide start/end windows to filter further."
+)
+BROWSE_STATUS_HINT = (
+    "Use browse_status to explore namespaces, verify view availability, and confirm the next "
+    "pagination path before drilling into metadata."
 )
 DEFAULT_SEARCH_PATH_FALLBACKS = ("Secil.Portugal",)
 NORMALIZED_PROPERTY_KEY_ALIASES = {

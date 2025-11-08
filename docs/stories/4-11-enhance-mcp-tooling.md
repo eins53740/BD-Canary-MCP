@@ -1,4 +1,4 @@
-**Story: Enhance MCP Tooling and Deployment for Production Readiness**
+[x] **Story: Enhance MCP Tooling and Deployment for Production Readiness**
 
 **As a developer/operator,**
 **I want to ensure all MCP tools are thoroughly tested, new essential tools are implemented, and the deployment process is robust,**

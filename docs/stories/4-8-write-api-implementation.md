@@ -1,4 +1,4 @@
-# Story 4.8 — Write API Implementation (Test Datasets Only)
+[x] # Story 4.8 — Write API Implementation (Test Datasets Only)
 
 Context & Constraints:
 - Production is read-only; allow writes strictly to approved test datasets.

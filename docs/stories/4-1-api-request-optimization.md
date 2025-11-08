@@ -1,4 +1,4 @@
-# Story 4.1 — API Request Optimization
+[x] # Story 4.1 — API Request Optimization
 
 Context & Constraints:
 - Brownfield Canary deployment; do not change existing API URLs or server configs.

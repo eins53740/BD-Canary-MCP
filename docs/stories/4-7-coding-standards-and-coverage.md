@@ -1,4 +1,4 @@
-# Story 4.7 — Coding Standards and Coverage
+[x] # Story 4.7 — Coding Standards and Coverage
 
 Context & Constraints:
 - Enforce linters/formatters and minimum coverage, but do not block PRs below threshold.

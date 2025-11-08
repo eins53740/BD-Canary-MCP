@@ -1,4 +1,4 @@
-# Story 4.9 — Add getTagData2 Tool
+[x] # Story 4.9 — Add getTagData2 Tool
 
 **User Story:** As a developer, I want to use the `getTagData2` API endpoint to retrieve historical data from Canary Historian, so that I can leverage its improved performance and simplified pagination.
 

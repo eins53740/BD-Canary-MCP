@@ -1,4 +1,4 @@
-# Story 4.5 — Definition of Success Validation
+[x] # Story 4.5 — Definition of Success Validation
 
 Context & Constraints:
 - Validate end-to-end outcomes without altering production historians.

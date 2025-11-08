@@ -353,11 +353,11 @@ uv run pytest
 # Run unit tests only
 uv run pytest -m unit -q
 
-# Run integration tests only
+# Run integration tests only (using pytest)
 uv run pytest -m integration -q
 
-# Run with coverage
-uv run pytest --cov=. --cov-report=term-missing -q
+# Run integration tests with a specific environment (as used in CI)
+python scripts/run_integration_tests.py --env test
 ```
 
 ### CLI Tool Validator
