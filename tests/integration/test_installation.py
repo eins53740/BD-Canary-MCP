@@ -5,7 +5,6 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Generator
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -45,7 +44,9 @@ LOG_LEVEL=DEBUG
 @pytest.mark.integration
 def test_validation_script_exists(validation_script_path: Path):
     """Test that the installation validation script exists."""
-    assert validation_script_path.exists(), f"Validation script not found at {validation_script_path}"
+    assert (
+        validation_script_path.exists()
+    ), f"Validation script not found at {validation_script_path}"
     assert validation_script_path.is_file()
 
 
@@ -55,7 +56,9 @@ def test_validation_script_is_executable(validation_script_path: Path):
     # Check it starts with shebang or is valid Python
     with open(validation_script_path, "r", encoding="utf-8") as f:
         first_line = f.readline()
-        assert first_line.startswith("#!/usr/bin/env python") or first_line.startswith("#")
+        assert first_line.startswith("#!/usr/bin/env python") or first_line.startswith(
+            "#"
+        )
 
 
 @pytest.mark.integration
@@ -85,7 +88,10 @@ def test_validation_script_imports():
 def test_python_version_check():
     """Test that Python version meets requirements (>= 3.13)."""
     major, minor = sys.version_info[:2]
-    assert (major, minor) >= (3, 13), f"Python {major}.{minor} found, but 3.13+ required"
+    assert (major, minor) >= (
+        3,
+        13,
+    ), f"Python {major}.{minor} found, but 3.13+ required"
 
 
 @pytest.mark.integration
@@ -230,7 +236,9 @@ def test_docker_compose_content(project_root: Path):
     assert "canary-mcp-server:" in content, "Missing service definition"
 
     # Check for environment file
-    assert "env_file:" in content or "environment:" in content, "Missing environment configuration"
+    assert (
+        "env_file:" in content or "environment:" in content
+    ), "Missing environment configuration"
 
     # Check for volumes
     assert "volumes:" in content, "Missing volume configuration"
@@ -291,7 +299,9 @@ def test_docker_image_builds(project_root: Path):
     )
 
     assert result.returncode == 0, f"Docker build failed: {result.stderr}"
-    assert "Successfully built" in result.stdout or "Successfully tagged" in result.stdout
+    assert (
+        "Successfully built" in result.stdout or "Successfully tagged" in result.stdout
+    )
 
 
 @pytest.mark.integration
@@ -337,12 +347,18 @@ def test_docker_container_starts(project_root: Path, mock_env_file: Path):
             text=True,
         )
 
-        assert "Up" in status_result.stdout, f"Container not running: {status_result.stdout}"
+        assert (
+            "Up" in status_result.stdout
+        ), f"Container not running: {status_result.stdout}"
 
     finally:
         # Cleanup: Stop and remove container
-        subprocess.run(["docker", "stop", container_name], capture_output=True, timeout=10)
-        subprocess.run(["docker", "rm", container_name], capture_output=True, timeout=10)
+        subprocess.run(
+            ["docker", "stop", container_name], capture_output=True, timeout=10
+        )
+        subprocess.run(
+            ["docker", "rm", container_name], capture_output=True, timeout=10
+        )
 
 
 # =============================================================================
@@ -406,11 +422,11 @@ def test_configuration_loading_from_env(mock_env_file: Path):
     # to avoid conflicts with the conftest.py patch
 
     # Simulate what load_dotenv would do by reading the file and setting env vars
-    with open(mock_env_file, 'r') as f:
+    with open(mock_env_file, "r") as f:
         for line in f:
             line = line.strip()
-            if line and not line.startswith('#') and '=' in line:
-                key, value = line.split('=', 1)
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
                 os.environ[key] = value
 
     # Verify variables are in environment
@@ -420,7 +436,12 @@ def test_configuration_loading_from_env(mock_env_file: Path):
     assert os.getenv("LOG_LEVEL") == "DEBUG"
 
     # Cleanup
-    for var in ["CANARY_SAF_BASE_URL", "CANARY_VIEWS_BASE_URL", "CANARY_API_TOKEN", "LOG_LEVEL"]:
+    for var in [
+        "CANARY_SAF_BASE_URL",
+        "CANARY_VIEWS_BASE_URL",
+        "CANARY_API_TOKEN",
+        "LOG_LEVEL",
+    ]:
         os.environ.pop(var, None)
 
 
@@ -553,11 +574,17 @@ def test_readme_has_installation_section(project_root: Path):
     assert "## Installation" in content, "Missing Installation section in README"
 
     # Check for installation comparison table
-    assert "Installation Options" in content or "Feature" in content, "Missing installation comparison"
+    assert (
+        "Installation Options" in content or "Feature" in content
+    ), "Missing installation comparison"
 
     # Check for links to detailed guides
-    assert "docs/installation/non-admin-windows.md" in content, "Missing link to non-admin guide"
-    assert "docs/installation/docker-installation.md" in content, "Missing link to Docker guide"
+    assert (
+        "docs/installation/non-admin-windows.md" in content
+    ), "Missing link to non-admin guide"
+    assert (
+        "docs/installation/docker-installation.md" in content
+    ), "Missing link to Docker guide"
 
 
 # =============================================================================

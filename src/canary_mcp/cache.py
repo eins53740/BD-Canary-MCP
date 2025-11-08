@@ -44,8 +44,12 @@ class CacheConfig:
         self.cache_db = self.cache_dir / "canary_mcp_cache.db"
 
         # TTL settings (in seconds)
-        self.metadata_ttl = int(os.getenv("CANARY_CACHE_METADATA_TTL", "3600"))  # 1 hour
-        self.timeseries_ttl = int(os.getenv("CANARY_CACHE_TIMESERIES_TTL", "300"))  # 5 min
+        self.metadata_ttl = int(
+            os.getenv("CANARY_CACHE_METADATA_TTL", "3600")
+        )  # 1 hour
+        self.timeseries_ttl = int(
+            os.getenv("CANARY_CACHE_TIMESERIES_TTL", "300")
+        )  # 5 min
 
         # Size limits
         self.max_cache_size_mb = int(os.getenv("CANARY_CACHE_MAX_SIZE_MB", "100"))
@@ -87,7 +91,8 @@ class CacheStore:
         self.config.cache_dir.mkdir(parents=True, exist_ok=True)
 
         with self._get_connection() as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS cache_entries (
                     key TEXT PRIMARY KEY,
                     value TEXT NOT NULL,
@@ -97,19 +102,24 @@ class CacheStore:
                     last_accessed REAL NOT NULL,
                     size_bytes INTEGER NOT NULL
                 )
-            """)
+            """
+            )
 
             # Index for efficient expiration queries
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_expires_at
                 ON cache_entries(expires_at)
-            """)
+            """
+            )
 
             # Index for LRU eviction
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_last_accessed
                 ON cache_entries(last_accessed)
-            """)
+            """
+            )
 
             conn.commit()
 
@@ -216,7 +226,9 @@ class CacheStore:
                 conn.commit()
 
                 self._hits += 1
-                log.debug("cache_hit", key=key[:16], access_count=row["access_count"] + 1)
+                log.debug(
+                    "cache_hit", key=key[:16], access_count=row["access_count"] + 1
+                )
 
                 # Deserialize value
                 try:

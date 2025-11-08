@@ -27,10 +27,16 @@ This repository ships all reference material locally so MCP clients can perform 
 3. Combine the results with the new `confidence` field exposed by `get_tag_path`. Even without Canary online you can still propose the most likely historian path, then confirm once connectivity returns.
 4. If the JSON resource grows beyond 1 MB for a single response, the payload guard (`CANARY_MAX_RESPONSE_BYTES`, default 1 000 000) automatically truncates and includes a preview plus guidance to narrow the query.
 
-## RAG Feasibility (Current vs Future)
-- **Current state:** purely local inverted index + curated MCP resources. No external databases, no embeddings, no vector services.
-- **Extension path:** Story 4.10 tracks the work to flatten these resources into JSONL, embed them, and drop the vectors into a pluggable index (FAISS/Chroma to start). The MCP server will keep keyword search as the default and treat semantic hits as an additive boost so we never regress on determinism.
-- **Operational note:** because resources live in the repo, refreshing the index is as simple as updating the JSON file and restarting the server; once the vector pipeline lands, the same JSON will serve both keyword and semantic flows.
+## 5. Vector Index (Semantic RAG)
+- **Conversion:** `scripts/build_vector_index.py` flattens the canonical catalog into `data/vector-index/catalog.jsonl` and generates `embeddings.npy` + `records.json` using SentenceTransformers (default `all-MiniLM-L6-v2`).
+- **Integration:** `src/canary_mcp/tag_index.py` loads the index when `CANARY_ENABLE_VECTOR_SEARCH=true` and merges top‑k semantic matches with the legacy inverted index.
+- **Config knobs:**
+  - `CANARY_ENABLE_VECTOR_SEARCH` – opt-in switch (default false).
+  - `CANARY_VECTOR_INDEX_PATH` – location of the generated index folder (default `data/vector-index`).
+  - `CANARY_VECTOR_TOP_K`, `CANARY_VECTOR_DIM`, `CANARY_VECTOR_HASH_SEED` – number of semantic suggestions plus the hash embedding parameters shared by the builder/runtime.
+- **Rebuild steps:** rerun the script whenever `Canary_Path_description_maceira.json` or other catalog sources change. The index directory is ignored by Git; keep it in artifact storage if you need to distribute it.
+
+## Metadata-Only Discovery (No Live API)
 
 ## Size-Limit Reminder
 Every tool and resource response goes through the shared payload guard. If you add a new resource or CLI that surfaces these files, make sure it either:

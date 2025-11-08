@@ -2,6 +2,7 @@
 """
 Simple verification script to list all MCP tools and their documentation.
 """
+
 import sys
 from pathlib import Path
 
@@ -9,6 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from canary_mcp.server import mcp
+
 
 def verify_tools():
     """Verify all registered MCP tools."""
@@ -35,7 +37,7 @@ def verify_tools():
         "read_timeseries",
         "get_server_info",
         "get_metrics",
-        "get_metrics_summary"
+        "get_metrics_summary",
     ]
 
     for tool_name in tool_names:
@@ -43,12 +45,10 @@ def verify_tools():
             tool_func = getattr(mcp, tool_name)
             doc = tool_func.__doc__ or "No documentation"
             # Get first line of docstring
-            first_line = doc.strip().split('\n')[0] if doc else "No description"
-            tools_info.append({
-                'name': tool_name,
-                'description': first_line,
-                'function': tool_func
-            })
+            first_line = doc.strip().split("\n")[0] if doc else "No description"
+            tools_info.append(
+                {"name": tool_name, "description": first_line, "function": tool_func}
+            )
             tool_count += 1
 
     # Display tool information
@@ -60,12 +60,13 @@ def verify_tools():
 
         # Get function signature
         import inspect
-        sig = inspect.signature(tool['function'])
+
+        sig = inspect.signature(tool["function"])
         params = list(sig.parameters.keys())
         if params:
             print(f"   Parameters: {', '.join(params)}")
         else:
-            print(f"   Parameters: None")
+            print("   Parameters: None")
         print()
 
     print("=" * 70)
@@ -89,6 +90,7 @@ def verify_tools():
     print("  2. Connect via Claude Desktop")
     print("  3. Use any MCP-compatible client")
     print()
+
 
 if __name__ == "__main__":
     verify_tools()

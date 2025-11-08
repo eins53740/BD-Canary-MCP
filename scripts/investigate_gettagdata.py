@@ -7,12 +7,12 @@ import requests
 # The script will try to get the configuration from environment variables.
 # If they are not found, it will use the placeholder values.
 # Please replace the placeholder values if you are not using environment variables.
-API_URL = os.environ.get("CANARY_VIEWS_BASE_URL", "https://scunscanary.secil.pt:55236/api")
+API_URL = os.environ.get(
+    "CANARY_VIEWS_BASE_URL", "https://scunscanary.secil.pt:55236/api"
+)
 API_TOKEN = os.environ.get("CANARY_API_TOKEN", "63c9a371-2768-4730-9416-28a42d5ac36e")
 VIEW_NAME = os.environ.get("x CANARY_VIEW_NAME", "localhost")
-TAG_NAME = (
-    f"{VIEW_NAME}.{{Diagnostics}}.Sys.Memory Physical"  # Note: {{Diagnostics}} is a placeholder
-)
+TAG_NAME = f"{VIEW_NAME}.{{Diagnostics}}.Sys.Memory Physical"  # Note: {{Diagnostics}} is a placeholder
 API_VERSION = "v2"
 
 # --- Request Parameters ---
@@ -32,7 +32,9 @@ def make_request(method, endpoint, request_params):
     try:
         if method.upper() == "GET":
             response = requests.get(
-                f"{API_URL}/{API_VERSION}/{endpoint}", params=request_params, headers=headers
+                f"{API_URL}/{API_VERSION}/{endpoint}",
+                params=request_params,
+                headers=headers,
             )
         elif method.upper() == "POST":
             # For POST, the `tags` parameter is expected to be a list

@@ -48,7 +48,20 @@ param(
     [string]$ApiToken = "",
 
     [Parameter(Mandatory=$false)]
-    [switch]$SkipValidation = $false
+    [switch]$SkipValidation = $false,
+
+    [Parameter(Mandatory=$false)]
+    [ValidateSet("stdio","http")]
+    [string]$McpTransport = "stdio",
+
+    [Parameter(Mandatory=$false)]
+    [string]$McpHost = "0.0.0.0",
+
+    [Parameter(Mandatory=$false)]
+    [int]$McpPort = 6000,
+
+    [Parameter(Mandatory=$false)]
+    [switch]$ConfigureClaude = $true
 )
 
 # =============================================================================
@@ -360,6 +373,11 @@ CANARY_CACHE_MAX_SIZE_MB=100
 CANARY_CIRCUIT_CONSECUTIVE_FAILURES=5
 CANARY_CIRCUIT_RESET_SECONDS=60
 
+# MCP Transport
+CANARY_MCP_TRANSPORT=$McpTransport
+CANARY_MCP_HOST=$McpHost
+CANARY_MCP_PORT=$McpPort
+
 # Logging
 LOG_LEVEL=INFO
 "@
@@ -379,6 +397,16 @@ LOG_LEVEL=INFO
 
 function Update-ClaudeDesktopConfig {
     Write-Step "Configuring Claude Desktop..."
+
+    if ($McpTransport -ne "stdio") {
+        Write-Warning "MCP transport is 'http'; skipping Claude Desktop stdio wiring. Configure your MCP client to call the remote HTTP endpoint manually."
+        return
+    }
+
+    if (-not $ConfigureClaude) {
+        Write-Warning "ConfigureClaude flag disabled — skipping Claude Desktop updates."
+        return
+    }
 
     $claudeConfigDir = "$env:APPDATA\Claude"
     $claudeConfigFile = "$claudeConfigDir\claude_desktop_config.json"
@@ -508,13 +536,21 @@ function Start-Installation {
         Write-Host ""
 
         Write-Host "Next Steps:" -ForegroundColor $ColorInfo
-        Write-Host "  1. Restart Claude Desktop" -ForegroundColor White
-        Write-Host "  2. Look for 'Connected' status in Claude Desktop" -ForegroundColor White
-        Write-Host "  3. Try: 'What MCP tools are available?'" -ForegroundColor White
+        if ($McpTransport -eq "stdio") {
+            Write-Host "  1. Restart Claude Desktop" -ForegroundColor White
+            Write-Host "  2. Look for 'Connected' status in Claude Desktop" -ForegroundColor White
+            Write-Host "  3. Try: 'What MCP tools are available?'" -ForegroundColor White
+        } else {
+            Write-Host "  1. Start the MCP server with: uv run python -m canary_mcp.server" -ForegroundColor White
+            Write-Host ("     (ensure CANARY_MCP_TRANSPORT=http, host={0}, port={1})" -f $McpHost, $McpPort) -ForegroundColor White
+            Write-Host "  2. Configure your MCP client to call http://$McpHost`:$McpPort" -ForegroundColor White
+            Write-Host "  3. Run: scripts/check_mcp.sh http http://$McpHost`:$McpPort" -ForegroundColor White
+        }
         Write-Host ""
         Write-Host "Installation Path: $InstallPath" -ForegroundColor Gray
         Write-Host "Documentation: $InstallPath\docs\" -ForegroundColor Gray
         Write-Host "Examples: $InstallPath\docs\examples.md" -ForegroundColor Gray
+        Write-Host "MCP Transport: $McpTransport (host=$McpHost, port=$McpPort)" -ForegroundColor Gray
         Write-Host ""
 
     } catch {

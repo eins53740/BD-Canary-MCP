@@ -1,6 +1,6 @@
 Need to install the following packages:
 postman-to-openapi@2.9.0
-Ok to proceed? (y) 
+Ok to proceed? (y)
 openapi: 3.0.0
 info:
   title: CanaryWebReadAPI
@@ -284,14 +284,14 @@ paths:
                 Physical\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.CPU Usage
                 Historian\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.CPU Usage
                 Total\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Historian
-                Handle Count\",\r\n     
+                Handle Count\",\r\n
                 \"{{ViewName}}.{Diagnostics}.Sys.Historian Thread
                 Count\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Historian
-                Working Set (memory)\",\r\n     
-                \"{{ViewName}}.{Diagnostics}.Sys.Memory Page\",\r\n     
-                \"{{ViewName}}.{Diagnostics}.Reading.NumClients\",\r\n     
-                \"{{ViewName}}.{Diagnostics}.Sys.Memory Virtual\",\r\n     
-                \"{{ViewName}}.{Diagnostics}.Reading.TagHandles\"\r\n     
+                Working Set (memory)\",\r\n
+                \"{{ViewName}}.{Diagnostics}.Sys.Memory Page\",\r\n
+                \"{{ViewName}}.{Diagnostics}.Reading.NumClients\",\r\n
+                \"{{ViewName}}.{Diagnostics}.Sys.Memory Virtual\",\r\n
+                \"{{ViewName}}.{Diagnostics}.Reading.TagHandles\"\r\n
                 ],\r\n  \"startTime\": \"now-6month\",\r\n  \"endTime\":
                 \"now\",\r\n  \"maxSize\": 1000000,\r\n  \"aggregateName\":
                 \"TimeAverage2\",\r\n  \"aggregateInterval\": \"00:00:01\"\r\n}"
@@ -919,9 +919,9 @@ paths:
               type: string
               example: >-
                 "{\r\n  \"apiToken\": \"{{ApiToken}}\",\r\n  \"viewName\":
-                \"{{ViewName}}\",\r\n  \"searchFrom\": \"now-1w\",\r\n 
+                \"{{ViewName}}\",\r\n  \"searchFrom\": \"now-1w\",\r\n
                 \"searchTo\": \"now\",\r\n  \"startTrigger\": \"[{{AdhocTag}}] >
-                1\",\r\n  \"assetType\": \"\",\r\n 
+                1\",\r\n  \"assetType\": \"\",\r\n
                 \"minDuration\":\"00:00:01\"\r\n}"
       parameters:
         - name: Content-Type
@@ -1060,14 +1060,14 @@ paths:
                 Physical\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.CPU Usage
                 Historian\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.CPU Usage
                 Total\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Historian
-                Handle Count\",\r\n     
+                Handle Count\",\r\n
                 \"{{ViewName}}.{Diagnostics}.Sys.Historian Thread
                 Count\",\r\n      \"{{ViewName}}.{Diagnostics}.Sys.Historian
-                Working Set (memory)\",\r\n     
-                \"{{ViewName}}.{Diagnostics}.Sys.Memory Page\",\r\n     
-                \"{{ViewName}}.{Diagnostics}.Reading.NumClients\",\r\n     
-                \"{{ViewName}}.{Diagnostics}.Sys.Memory Virtual\",\r\n     
-                \"{{ViewName}}.{Diagnostics}.Reading.TagHandles\"\r\n     
+                Working Set (memory)\",\r\n
+                \"{{ViewName}}.{Diagnostics}.Sys.Memory Page\",\r\n
+                \"{{ViewName}}.{Diagnostics}.Reading.NumClients\",\r\n
+                \"{{ViewName}}.{Diagnostics}.Sys.Memory Virtual\",\r\n
+                \"{{ViewName}}.{Diagnostics}.Reading.TagHandles\"\r\n
                 ],\r\n  \"startTime\": \"now-3month\",\r\n  \"endTime\":
                 \"now\",\r\n  \"maxSize\": 10,\r\n  \"aggregateName\":
                 \"TimeAverage2\",\r\n  \"aggregateInterval\": \"00:00:01\"\r\n}"
@@ -1198,7 +1198,7 @@ paths:
               type: string
               example: >-
                 "{\r\n    \"apiToken\": \"{{ApiToken}}\",\r\n    \"tags\":
-                [\"{{ViewName}}.{Diagnostics}.Sys.Memory Physical\"],\r\n   
+                [\"{{ViewName}}.{Diagnostics}.Sys.Memory Physical\"],\r\n
                 \"startTime\": \"now-1d\",\r\n    \"endTime\": \"now\"\r\n}"
       parameters:
         - name: Content-Type
@@ -1216,4 +1216,3 @@ paths:
           description: Successful response
           content:
             application/json: {}
-

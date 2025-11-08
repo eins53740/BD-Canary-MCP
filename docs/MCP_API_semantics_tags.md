@@ -46,6 +46,9 @@ Explore hierarchy and enumerate tags under a path.
 Read: getTagData and getTagData2
 Retrieve raw/aggregated values with startTime, endTime, aggregateName, includeQuality, maxSize, and continuationToken handling.
 
+Assets & Events: getAssetTypes/getAssetInstances + getEvents
+Expose Canary asset models (types + instances) and the latest historian events so prompts can blend qualitative context with numeric trends.
+
 Aggregates: getAggregates
 Discover supported aggregate names/descriptions.
 
@@ -157,6 +160,23 @@ Use B first for speed; if zero/low hits, fall back to A.
 Inputs: tagName, tagPath, tokens, context.
 
 Scoring (suggested weights)
+
+8) Asset Models & Events
+
+- **getAssetTypes / getAssetInstances**
+  - Requires a Canary asset view (set `CANARY_ASSET_VIEW` or pass `view`).
+  - Use `getAssetTypes` to list the modeled equipment (Kiln, Preheater, etc.).
+  - Feed a chosen type into `getAssetInstances` to surface concrete plant assets (Kiln 6, Kiln 7).
+  - Combine the returned `path` / metadata with `get_tag_path` or `read_timeseries` to fetch live data bound to that asset.
+
+- **getAggregates**
+  - Call once per session to learn the valid aggregate names (`TimeAverage2`, `Interpolated`, …).
+  - Prompts can cite this list to keep LLM requests within Canary’s supported aggregations.
+
+- **getEvents_Limit10**
+  - Quickly retrieve the last N events/alarms (`limit` defaults to 10, can be raised cautiously).
+  - Optional `start_time`/`end_time` filters let you align qualitative events with numeric time windows.
+  - Include event snippets in LLM responses so operators see *why* telemetry changed (e.g., “Kiln6 temp high warning at 23:00Z”).
 
 Exact token match in name: +4
 
@@ -425,6 +445,64 @@ canary.read — executes the read
     "required": ["startTime", "endTime"]
   }
 }
+
+canary.get_aggregates
+
+{
+  "type": "function",
+  "name": "canary.get_aggregates",
+  "description": "Retrieve supported aggregation functions from the Canary historian.",
+  "parameters": {
+    "type": "object",
+    "properties": {}
+  }
+}
+
+canary.get_events
+
+{
+  "type": "function",
+  "name": "canary.get_events",
+  "description": "Retrieve event data from the Canary historian.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "start_time": {"type": "string"},
+      "end_time": {"type": "string"},
+      "limit": {"type": "integer", "default": 10},
+      "tag_names": {"type": "array", "items": {"type": "string"}}
+    },
+    "required": ["start_time", "end_time"]
+  }
+}
+
+canary.get_asset_types
+
+{
+  "type": "function",
+  "name": "canary.get_asset_types",
+  "description": "Retrieve available asset types from the Canary historian.",
+  "parameters": {
+    "type": "object",
+    "properties": {}
+  }
+}
+
+canary.get_asset_instances
+
+{
+  "type": "function",
+  "name": "canary.get_asset_instances",
+  "description": "Retrieve instances of a specific asset type from the Canary historian.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "asset_type": {"type": "string"}
+    },
+    "required": ["asset_type"]
+  }
+}
+
 15) Prompting Guide for the LLM
 
 Always echo assumptions and offer the top‑K tags when confidence is low.

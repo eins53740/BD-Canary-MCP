@@ -1,0 +1,12 @@
+{
+  "story": "4.5",
+  "scenario": "tag_lookup_batch_accuracy",
+  "timestamp": "2025-11-07T22:51:17Z",
+  "batch_size": 200,
+  "high_confidence": 182,
+  "clarifications": 18,
+  "accuracy": 0.91,
+  "confidence_threshold": 0.7,
+  "test_reference": "tests/e2e/test_success_validation.py::test_tag_lookup_batch_accuracy_and_clarifications",
+  "notes": "Derived from the offline batch harness that exercises 200 NL descriptions; clarifications cover low-confidence (<0.7) paths."
+}

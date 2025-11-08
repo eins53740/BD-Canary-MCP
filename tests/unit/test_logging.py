@@ -8,21 +8,15 @@ import json
 import logging
 import os
 from io import StringIO
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-import structlog
 
-from canary_mcp.logging_setup import (
-    configure_logging,
-    get_logger,
-    _mask_sensitive_data,
-)
+from canary_mcp.logging_setup import _mask_sensitive_data, configure_logging, get_logger
 from canary_mcp.request_context import (
-    set_request_id,
-    get_request_id,
     clear_request_context,
+    get_request_id,
+    set_request_id,
 )
 
 
@@ -92,7 +86,8 @@ class TestLoggingConfiguration:
             root_logger = logging.getLogger()
             # Check that at least one RotatingFileHandler exists
             file_handlers = [
-                h for h in root_logger.handlers
+                h
+                for h in root_logger.handlers
                 if isinstance(h, logging.handlers.RotatingFileHandler)
             ]
             assert len(file_handlers) > 0
@@ -104,7 +99,8 @@ class TestLoggingConfiguration:
         root_logger = logging.getLogger()
         # Check that at least one StreamHandler exists
         stream_handlers = [
-            h for h in root_logger.handlers
+            h
+            for h in root_logger.handlers
             if isinstance(h, logging.StreamHandler)
             and not isinstance(h, logging.handlers.RotatingFileHandler)
         ]
@@ -357,7 +353,8 @@ class TestLogRotation:
 
         root_logger = logging.getLogger()
         file_handlers = [
-            h for h in root_logger.handlers
+            h
+            for h in root_logger.handlers
             if isinstance(h, logging.handlers.RotatingFileHandler)
         ]
 
@@ -374,7 +371,8 @@ class TestLogRotation:
 
         root_logger = logging.getLogger()
         file_handlers = [
-            h for h in root_logger.handlers
+            h
+            for h in root_logger.handlers
             if isinstance(h, logging.handlers.RotatingFileHandler)
         ]
 

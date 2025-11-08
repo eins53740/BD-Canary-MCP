@@ -115,6 +115,35 @@ As requested, here are the three deployment tools created for your team:
 
 ---
 
+## 🚦 Transport & Installer Matrix (Story 4.6)
+
+| Path | Transport | Privileges | Entry Point | Notes |
+| --- | --- | --- | --- | --- |
+| Local MCP (STDIO) | STDIO (pipes via MCP client) | **No admin required** | `Install-Canary-MCP.cmd` → `deploy_canary_mcp.ps1` | Per-user install under `%USERPROFILE%`. Keeps credentials local and is the recommended default for pilots. |
+| Remote MCP (HTTP/SSE) | HTTP + Server-Sent Events | Standard service account on VM/container | Manual `uv run python -m canary_mcp.server` or container deployment | Enable when multiple users share the same VM. Remember to open port 6000 (or your override) and secure ingress. |
+
+Both paths share the same `.env` schema. Switch transports by flipping `CANARY_MCP_TRANSPORT` between `stdio` and `http` and, for HTTP mode, set `CANARY_MCP_HOST/PORT`.
+
+---
+
+## ✅ Installation Validation Checklist
+
+1. **Run the installer**
+   - For STDIO/non-admin users, double-click `Install-Canary-MCP.cmd` (wraps the PowerShell script) and supply the Canary SAF/Views URLs.
+   - For remote HTTP deployments, clone the repo on the VM and run `uv run python -m canary_mcp.server` with `CANARY_MCP_TRANSPORT=http`.
+2. **Refresh the MCP client**
+   - Restart Claude Desktop or your MCP consumer so it reloads the new transport.
+3. **Execute `ping`**
+   - In the MCP client, run `ping`. Expect `pong - Canary MCP Server is running!`
+4. **Run a read-only tool**
+   - Call `get_server_info` or `list_namespaces` to ensure Canary credentials/token work (Tag Security covered).
+5. **Capture proof**
+   - Save the console snippet or screenshot in the deployment log. Include payload size (<1 MB) confirmation if applicable.
+
+Document any deviations in `docs/troubleshooting/DEBUG_MCP_SERVER.md` so subsequent installs have ready mitigations.
+
+---
+
 ## 🎯 Deployment Architecture Explained
 
 ### How It Works - End User Perspective

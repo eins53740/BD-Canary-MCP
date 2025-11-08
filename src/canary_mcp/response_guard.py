@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Tuple
-
 import json
+from typing import Any, Tuple
 
 DEFAULT_LIMIT_BYTES = 1_000_000
 

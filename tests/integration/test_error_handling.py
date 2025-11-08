@@ -5,10 +5,9 @@ Story 2.3: Advanced Error Handling & Retry Logic
 Validates retry with exponential backoff, circuit breaker, and graceful degradation.
 """
 
-import asyncio
 import os
 import time
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
@@ -84,7 +83,9 @@ class TestRetryLogic:
         with patch.dict(os.environ, mock_env):
             delays = []
 
-            @retry_with_backoff(max_attempts=4, base_delay=0.1, exponential_base=2.0, jitter=False)
+            @retry_with_backoff(
+                max_attempts=4, base_delay=0.1, exponential_base=2.0, jitter=False
+            )
             async def always_failing_with_timing():
                 nonlocal delays
                 if len(delays) > 0:
@@ -354,8 +355,8 @@ class TestHealthCheckTool:
     def test_get_health_function_exists(self):
         """Test that get_health function exists and is callable."""
         # Import the module to check the function exists
+
         import canary_mcp.server as server_module
-        import inspect
 
         # Check that get_health exists in the module
         assert hasattr(server_module, "get_health")
@@ -455,7 +456,9 @@ class TestEndToEndErrorHandling:
                     mock_response.raise_for_status = MagicMock()
                     return mock_response
 
-                with patch.object(client._client, "post", side_effect=mock_post_with_failure):
+                with patch.object(
+                    client._client, "post", side_effect=mock_post_with_failure
+                ):
                     # This should succeed after retry
                     token = await client.authenticate()
 

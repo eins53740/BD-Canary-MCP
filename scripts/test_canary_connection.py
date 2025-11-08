@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Test Canary API connection with real token."""
-import sys
+
 import asyncio
+import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from canary_mcp.server import get_server_info
+
 
 async def test_connection():
     """Test connection to Canary server."""
@@ -25,10 +27,12 @@ async def test_connection():
             print(f"  API Version: {server_info.get('api_version')}")
             print(f"  Connected: {server_info.get('connected')}")
             print(f"  Supported Timezones: {server_info.get('total_timezones')} total")
-            print(f"  Supported Aggregates: {server_info.get('total_aggregates')} total")
+            print(
+                f"  Supported Aggregates: {server_info.get('total_aggregates')} total"
+            )
 
             mcp_info = result.get("mcp_info", {})
-            print(f"\nMCP Server:")
+            print("\nMCP Server:")
             print(f"  Name: {mcp_info.get('server_name')}")
             print(f"  Version: {mcp_info.get('version')}")
 
@@ -49,6 +53,7 @@ async def test_connection():
         print("  1. CANARY_API_TOKEN is set correctly in .env")
         print("  2. CANARY_VIEWS_BASE_URL is accessible from your network")
         return 1
+
 
 if __name__ == "__main__":
     exit_code = asyncio.run(test_connection())

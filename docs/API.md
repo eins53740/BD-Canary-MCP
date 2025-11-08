@@ -12,9 +12,15 @@ Complete reference for all MCP tools provided by the Canary MCP Server.
   - [get_tag_path](#get_tag_path)
   - [get_tag_metadata](#get_tag_metadata)
   - [read_timeseries](#read_timeseries)
+  - [get_tag_data2](#get_tag_data2)
+  - [get_aggregates](#get_aggregates)
+  - [get_asset_types](#get_asset_types)
+  - [get_asset_instances](#get_asset_instances)
+  - [get_events_limit10](#get_events_limit10)
   - [get_tag_properties](#get_tag_properties)
   - [list_namespaces](#list_namespaces)
   - [get_server_info](#get_server_info)
+  - [write_test_dataset](#write_test_dataset)
 - [Performance & Monitoring Tools](#performance--monitoring-tools)
   - [get_metrics](#get_metrics)
   - [get_metrics_summary](#get_metrics_summary)
@@ -291,6 +297,65 @@ Assistant uses: read_timeseries(
 
 ---
 
+### get_tag_data2
+
+High-capacity variant of `read_timeseries` that leverages Canary’s `getTagData2` endpoint.
+
+**Purpose**: Pull larger windows (or aggregated traces) with fewer continuation hops by increasing `maxSize`.
+
+**Parameters:**
+- `tag_names` (string or array, required) – Same normalization rules as `read_timeseries`.
+- `start_time`, `end_time` (string, required) – ISO or natural-language timestamps.
+- `aggregate_name` (string, optional) – Canary aggregate (e.g., `TimeAverage2`).
+- `aggregate_interval` (string, optional) – Interval string required when aggregates are requested.
+- `max_size` (integer, optional) – Desired payload size before Canary paginates (default 1000).
+
+**Returns:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "timestamp": "2025-10-30T12:00:00Z",
+      "value": 832.5,
+      "quality": "Good",
+      "tagName": "Secil.Portugal.Kiln6.Section15.ShellTemp"
+    }
+  ],
+  "count": 720,
+  "tag_names": [
+    "Secil.Portugal.Kiln6.Section15.ShellTemp"
+  ],
+  "start_time": "2025-10-30T00:00:00Z",
+  "end_time": "2025-10-31T00:00:00Z",
+  "max_size": 5000,
+  "aggregate_name": "TimeAverage2",
+  "aggregate_interval": "00:05:00",
+  "summary": {
+    "site_hint": "Secil.Portugal",
+    "total_samples": 720,
+    "range": {
+      "start": "2025-10-30T00:00:00Z",
+      "end": "2025-10-31T00:00:00Z",
+      "duration_seconds": 86400
+    }
+  }
+}
+```
+
+**Usage Guidance:** Reach for `get_tag_data2` when you expect very large result sets or when you want Canary to compute aggregates server-side. Increase `max_size` first; if the response still indicates continuation, loop with the returned token just like `read_timeseries`.
+
+#### getTagData vs getTagData2
+
+| Capability | `read_timeseries` / `getTagData` | `get_tag_data2` / `getTagData2` |
+| --- | --- | --- |
+| Payload sizing | `page_size` (default 1000) | `max_size` (default 1000 but commonly raised to 5k+/call) |
+| Continuation handling | Continuation token returned frequently on wide windows | Designed for higher ceilings; continuation appears less often |
+| Aggregates | Optional but tuned for typical workloads | Same aggregate fields, but intended for processed data pipelines |
+| Ideal use case | Standard reads, backwards-compatible flows | High-volume or aggregate-heavy reads needing fewer round trips |
+
+---
+
 ### get_tag_properties
 
 Retrieve detailed property dictionaries for one or more tags.
@@ -425,6 +490,55 @@ Assistant uses: get_server_info()
 ```
 
 **Usage Guidance:** Run after deployments or when diagnosing read/write failures to confirm Canary version, timezones, and aggregate support. Non-success responses usually indicate credential issues.
+
+---
+
+### write_test_dataset
+
+Writes manual-entry samples to the Canary Store & Forward (SaF) API while enforcing the Epic 4 guardrails.
+
+**Purpose**: Allow QA/test users to seed `Test/Maceira` or `Test/Outao` datasets without risking production historians.
+
+**Parameters:**
+- `dataset` (string, required) – Must be one of the whitelisted `Test/*` datasets (`CANARY_WRITE_ALLOWED_DATASETS`).
+- `records` (array, required) – Each item must contain:
+  - `tag` (string) – Fully qualified Test tag (e.g., `Test/Maceira/MCP.Audit.Success`).
+  - `value` (number) – Numeric value written via `manualEntryStoreData`.
+  - `timestamp` (string, optional) – ISO 8601 timestamp; defaults to now (UTC).
+  - `quality` (string, optional) – Optional quality flag stored as the third TVQ element.
+- `original_prompt` (string, required) – Natural-language instruction captured for auditing.
+- `role` (string, required) – Must match `CANARY_TESTER_ROLES` (defaults to `tester`).
+- `dry_run` (bool, optional) – Validate and preview without calling Canary (default `false`).
+
+**Returns:**
+```json
+{
+  "success": true,
+  "write_success": true,
+  "dataset": "Test/Maceira",
+  "records_written": 1,
+  "records": [
+    {
+      "tag": "Test/Maceira/MCP.Audit.Success",
+      "timestamp": "2025-11-07T23:00:00.000Z",
+      "value": 1,
+      "quality": null
+    }
+  ],
+  "original_prompt": "Log that the kiln temperature sanity check succeeded.",
+  "role": "tester",
+  "api_response": {"status": "OK"}
+}
+```
+
+**Usage Guidance:**
+
+1. Run with `dry_run=true` to ensure the dataset, role, and payload size pass validation.
+2. Flip to `dry_run=false` once the summary looks correct. The tool captures the prompt/role for every call.
+3. Clean up test data via Canary’s `/deleteRange` endpoint or the Historian UI when needed.
+4. Writes are disabled entirely when `CANARY_WRITER_ENABLED=false`, and requests from non-tester roles return HTTP 403-style errors.
+
+**Safety Notes:** The tool automatically rejects non-Test datasets, enforces the record-count limit (`CANARY_MAX_WRITE_RECORDS`, default 50), and requires an explicit tester role so production users can’t opt in accidentally.
 
 ---
 
@@ -704,3 +818,100 @@ For API questions or issues:
 
 *Last Updated: Story 2.6 Implementation*
 *API Version: 1.0.0*
+
+### get_aggregates
+
+Retrieve the list of aggregate functions supported by the Canary Views API.
+
+**Purpose**: Programmatically discover which aggregate names (`TimeAverage2`, `Interpolated`, etc.) are valid before issuing data reads.
+
+**Parameters**: none
+
+**Returns:**
+```json
+{
+  "success": true,
+  "aggregates": [
+    "TimeAverage2",
+    "Interpolated"
+  ],
+  "count": 12
+}
+```
+
+**Usage Guidance:** Call this tool once per session (results rarely change) and cache the names in your LLM prompt so you can recommend valid aggregates to operators.
+
+---
+
+### get_asset_types
+
+Enumerate Canary asset types stored in a particular view.
+
+**Parameters:**
+- `view` (string, optional) – Canary asset view (defaults to `CANARY_ASSET_VIEW` when omitted).
+
+**Returns:**
+```json
+{
+  "success": true,
+  "view": "Views/Maceira.Assets",
+  "asset_types": [
+    {"name": "Kiln", "description": "Rotary kiln model"},
+    {"name": "Preheater", "description": "Cyclone string"}
+  ],
+  "count": 2
+}
+```
+
+**Usage Guidance:** Use this before prompting an LLM to reason over Canary Asset Models. Pair it with `get_asset_instances` to drill into specific equipment and then feed the resulting instance paths to other MCP tools.
+
+---
+
+### get_asset_instances
+
+List instances for a given asset type (optionally filtered by path).
+
+**Parameters:**
+- `asset_type` (string, required) – Asset type identifier returned by `get_asset_types`.
+- `view` (string, optional) – Overrides `CANARY_ASSET_VIEW`.
+- `path` (string, optional) – Limits the search to a subtree.
+
+**Returns:**
+```json
+{
+  "success": true,
+  "asset_type": "Kiln",
+  "instances": [
+    {"path": "Kilns/Line1/K6", "displayName": "Kiln 6"},
+    {"path": "Kilns/Line2/K7", "displayName": "Kiln 7"}
+  ],
+  "count": 2
+}
+```
+
+**Usage Guidance:** After locating an asset instance, feed its `path` and tags into `get_tag_path` or `read_timeseries` to gather the actual historian values tied to that asset.
+
+---
+
+### get_events_limit10
+
+Fetch recent Canary event records (default limit = 10).
+
+**Parameters:**
+- `limit` (integer, optional) – Number of events to retrieve (default 10).
+- `view`, `start_time`, `end_time` (strings, optional) – Narrow the query.
+
+**Returns:**
+```json
+{
+  "success": true,
+  "events": [
+    {"timestamp": "2025-11-07T23:00:00Z", "message": "Kiln6 temp high", "severity": "Warning"}
+  ],
+  "count": 1
+}
+```
+
+**Usage Guidance:** Use this tool when an operator asks “What alarms fired recently?” or when you need qualitative context (warnings, trips) to pair with numeric timeseries data.
+
+---

@@ -38,9 +38,10 @@ async def test_list_namespaces_success():
         mock_ns_response.raise_for_status = MagicMock()
         mock_ns_response.status_code = 200
 
-        with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post, patch(
-            "httpx.AsyncClient.get", new_callable=AsyncMock
-        ) as mock_get:
+        with (
+            patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post,
+            patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get,
+        ):
             mock_post.side_effect = [mock_auth_response]
             mock_get.return_value = mock_ns_response
 
@@ -75,9 +76,10 @@ async def test_list_namespaces_empty_response():
         mock_ns_response.json.return_value = {"nodes": []}
         mock_ns_response.raise_for_status = MagicMock()
 
-        with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post, patch(
-            "httpx.AsyncClient.get", new_callable=AsyncMock
-        ) as mock_get:
+        with (
+            patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post,
+            patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get,
+        ):
             mock_post.side_effect = [mock_auth_response]
             mock_get.return_value = mock_ns_response
 
@@ -142,9 +144,10 @@ async def test_list_namespaces_api_error():
         mock_error_response.status_code = 500
         mock_error_response.text = "Internal Server Error"
 
-        with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post, patch(
-            "httpx.AsyncClient.get", new_callable=AsyncMock
-        ) as mock_get:
+        with (
+            patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post,
+            patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get,
+        ):
             mock_post.side_effect = [mock_auth_response]
             mock_get.side_effect = httpx.HTTPStatusError(
                 "500 Internal Server Error",
@@ -176,9 +179,10 @@ async def test_list_namespaces_network_error():
         mock_auth_response.json.return_value = {"sessionToken": "session-123"}
         mock_auth_response.raise_for_status = MagicMock()
 
-        with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post, patch(
-            "httpx.AsyncClient.get", new_callable=AsyncMock
-        ) as mock_get:
+        with (
+            patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post,
+            patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get,
+        ):
             mock_post.side_effect = [mock_auth_response]
             mock_get.side_effect = httpx.ConnectError("Connection refused")
 
@@ -186,7 +190,10 @@ async def test_list_namespaces_network_error():
 
             assert result["success"] is False
             assert "error" in result
-            assert "Network error" in result["error"] or "Authentication failed" in result["error"]
+            assert (
+                "Network error" in result["error"]
+                or "Authentication failed" in result["error"]
+            )
 
 
 @pytest.mark.integration
@@ -222,9 +229,10 @@ async def test_list_namespaces_malformed_response():
         mock_ns_response.json.return_value = {"invalid_key": "invalid_data"}
         mock_ns_response.raise_for_status = MagicMock()
 
-        with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post, patch(
-            "httpx.AsyncClient.get", new_callable=AsyncMock
-        ) as mock_get:
+        with (
+            patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post,
+            patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get,
+        ):
             mock_post.side_effect = [mock_auth_response]
             mock_get.return_value = mock_ns_response
 

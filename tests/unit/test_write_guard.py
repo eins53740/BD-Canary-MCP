@@ -1,7 +1,5 @@
 """Tests for the WRITE dataset guard helpers."""
 
-import os
-
 import pytest
 
 from canary_mcp.write_guard import (

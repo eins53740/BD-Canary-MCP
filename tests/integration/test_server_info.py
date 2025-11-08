@@ -51,7 +51,9 @@ async def test_get_server_info_success():
         mock_http_client.__aexit__ = AsyncMock(return_value=None)
 
         with patch("canary_mcp.server.CanaryAuthClient", return_value=mock_auth_client):
-            with patch("canary_mcp.server.httpx.AsyncClient", return_value=mock_http_client):
+            with patch(
+                "canary_mcp.server.httpx.AsyncClient", return_value=mock_http_client
+            ):
                 result = await get_server_info.fn()
 
         assert result["success"] is True
@@ -100,7 +102,9 @@ async def test_get_server_info_many_timezones():
         mock_http_client.__aexit__ = AsyncMock(return_value=None)
 
         with patch("canary_mcp.server.CanaryAuthClient", return_value=mock_auth_client):
-            with patch("canary_mcp.server.httpx.AsyncClient", return_value=mock_http_client):
+            with patch(
+                "canary_mcp.server.httpx.AsyncClient", return_value=mock_http_client
+            ):
                 result = await get_server_info.fn()
 
         assert result["success"] is True
@@ -142,7 +146,9 @@ async def test_get_server_info_list_response_format():
         mock_http_client.__aexit__ = AsyncMock(return_value=None)
 
         with patch("canary_mcp.server.CanaryAuthClient", return_value=mock_auth_client):
-            with patch("canary_mcp.server.httpx.AsyncClient", return_value=mock_http_client):
+            with patch(
+                "canary_mcp.server.httpx.AsyncClient", return_value=mock_http_client
+            ):
                 result = await get_server_info.fn()
 
         assert result["success"] is True
@@ -212,7 +218,9 @@ async def test_get_server_info_api_error():
         mock_http_client.__aexit__ = AsyncMock(return_value=None)
 
         with patch("canary_mcp.server.CanaryAuthClient", return_value=mock_auth_client):
-            with patch("canary_mcp.server.httpx.AsyncClient", return_value=mock_http_client):
+            with patch(
+                "canary_mcp.server.httpx.AsyncClient", return_value=mock_http_client
+            ):
                 result = await get_server_info.fn()
 
         assert result["success"] is False
@@ -244,7 +252,9 @@ async def test_get_server_info_network_error():
         mock_http_client.__aexit__ = AsyncMock(return_value=None)
 
         with patch("canary_mcp.server.CanaryAuthClient", return_value=mock_auth_client):
-            with patch("canary_mcp.server.httpx.AsyncClient", return_value=mock_http_client):
+            with patch(
+                "canary_mcp.server.httpx.AsyncClient", return_value=mock_http_client
+            ):
                 result = await get_server_info.fn()
 
         assert result["success"] is False
@@ -296,7 +306,9 @@ async def test_get_server_info_empty_response():
         mock_http_client.__aexit__ = AsyncMock(return_value=None)
 
         with patch("canary_mcp.server.CanaryAuthClient", return_value=mock_auth_client):
-            with patch("canary_mcp.server.httpx.AsyncClient", return_value=mock_http_client):
+            with patch(
+                "canary_mcp.server.httpx.AsyncClient", return_value=mock_http_client
+            ):
                 result = await get_server_info.fn()
 
         assert result["success"] is True
@@ -328,7 +340,9 @@ async def test_get_server_info_malformed_response():
         mock_http_client.__aexit__ = AsyncMock(return_value=None)
 
         with patch("canary_mcp.server.CanaryAuthClient", return_value=mock_auth_client):
-            with patch("canary_mcp.server.httpx.AsyncClient", return_value=mock_http_client):
+            with patch(
+                "canary_mcp.server.httpx.AsyncClient", return_value=mock_http_client
+            ):
                 result = await get_server_info.fn()
 
         assert result["success"] is False

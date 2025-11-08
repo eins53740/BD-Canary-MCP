@@ -28,3 +28,13 @@
 *   New tool: `get_tag_data2`
 *   Updated documentation: `docs/API.md` and tool manifest.
 *   Unit tests for the new tool.
+
+---
+
+## Implementation Snapshot (2025-11-07)
+
+- `src/canary_mcp/server.py` now exposes `get_tag_data2`, which mirrors the `read_timeseries` inputs but adds `aggregate_name`, `aggregate_interval`, and `max_size`. Responses include the same summary metadata plus the requested aggregate information so LLMs can describe results without re-querying.
+- The HTTP helper (`src/canary_mcp/http_client.py`) registers `"get_tag_data2"` as a POST tool and the API reference documents when to choose it over `getTagData` (see `docs/API.md` comparison table).
+- README highlights the tool in the capabilities list, and `.env.example` already carries the shared read configuration (no extra env vars required).
+- Unit tests live in `tests/unit/test_get_tag_data2_tool.py`; they verify aggregate payload construction and the maxSize validation. Run with `python3 -m pytest tests/unit/test_get_tag_data2_tool.py -q -s`.
+- Validation hint (`GET_TAG_DATA2_HINT`) guides LLMs to choose this tool for high-volume reads, and the default `max_size` stays at 1000 but can be overridden per call.

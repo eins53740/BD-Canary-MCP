@@ -13,7 +13,7 @@ import httpx
 import pytest
 
 from canary_mcp.auth import CanaryAuthClient
-from canary_mcp.metrics import get_metrics_collector, MetricsTimer, RequestMetrics
+from canary_mcp.metrics import MetricsTimer, RequestMetrics, get_metrics_collector
 
 
 @pytest.fixture
@@ -56,7 +56,9 @@ class TestConnectionPooling:
 
     @pytest.mark.asyncio
     @pytest.mark.integration
-    async def test_connection_reuse_sequential_requests(self, mock_env, mock_canary_response):
+    async def test_connection_reuse_sequential_requests(
+        self, mock_env, mock_canary_response
+    ):
         """Test that connection pool reuses connections for sequential requests."""
         with patch.dict(os.environ, mock_env):
             async with CanaryAuthClient() as client:
@@ -88,7 +90,9 @@ class TestConnectionPooling:
                     await asyncio.sleep(0.01)  # Small delay to simulate network
                     return mock_canary_response
 
-                with patch.object(client._client, "post", side_effect=mock_post_with_delay):
+                with patch.object(
+                    client._client, "post", side_effect=mock_post_with_delay
+                ):
                     # Launch 10 concurrent requests
                     tasks = [client.refresh_token() for _ in range(10)]
                     tokens = await asyncio.gather(*tasks)
@@ -111,7 +115,9 @@ class TestConnectionPooling:
 
                 # httpx timeout includes connect, read, write, pool timeout
                 # We expect the timeout to be set (exact value depends on implementation)
-                assert timeout_config.read is not None or timeout_config.pool is not None
+                assert (
+                    timeout_config.read is not None or timeout_config.pool is not None
+                )
 
     @pytest.mark.asyncio
     @pytest.mark.integration
@@ -300,6 +306,7 @@ class TestConcurrentPerformance:
 
                 with patch.object(client._client, "post", side_effect=mock_post):
                     import time
+
                     start = time.time()
 
                     # Launch 10 concurrent requests
@@ -332,6 +339,7 @@ class TestConcurrentPerformance:
 
                 with patch.object(client._client, "post", side_effect=mock_post):
                     import time
+
                     start = time.time()
 
                     # Launch 25 concurrent requests
@@ -369,7 +377,9 @@ class TestConcurrentPerformance:
                     mock_response.raise_for_status = MagicMock()
                     return mock_response
 
-                with patch.object(client._client, "post", side_effect=mock_post_with_failures):
+                with patch.object(
+                    client._client, "post", side_effect=mock_post_with_failures
+                ):
                     # Launch 20 concurrent requests
                     tasks = [client.refresh_token() for _ in range(20)]
                     results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -389,10 +399,13 @@ class TestPerformanceBaseline:
 
     @pytest.mark.asyncio
     @pytest.mark.integration
-    async def test_single_request_latency_baseline(self, mock_env, mock_canary_response):
+    async def test_single_request_latency_baseline(
+        self, mock_env, mock_canary_response
+    ):
         """Measure baseline latency for single request."""
         with patch.dict(os.environ, mock_env):
             async with CanaryAuthClient() as client:
+
                 async def mock_post(*args, **kwargs):
                     await asyncio.sleep(0.01)  # Simulate 10ms latency
                     return mock_canary_response
@@ -415,6 +428,7 @@ class TestPerformanceBaseline:
         """Measure baseline throughput (queries per second)."""
         with patch.dict(os.environ, mock_env):
             async with CanaryAuthClient() as client:
+
                 async def mock_post(*args, **kwargs):
                     await asyncio.sleep(0.001)  # 1ms per query
                     return mock_canary_response

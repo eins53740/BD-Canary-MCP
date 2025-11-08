@@ -94,7 +94,7 @@ if (-not (Test-Path $claudeCmd)) {
     try {
         # Run npm.cmd explicitly inside cmd.exe (works in SYSTEM)
         Start-Process "cmd.exe" -ArgumentList "/c `"$npmCmd install -g @anthropic-ai/claude-code@latest --no-fund --no-audit --silent --loglevel=error`"" -Wait -NoNewWindow
-        
+
         if (Test-Path $claudeCmd) {
             Log "Claude CLI installed successfully."
         } else {

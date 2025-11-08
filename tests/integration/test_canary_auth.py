@@ -30,7 +30,9 @@ async def test_successful_authentication():
             mock_response.raise_for_status = MagicMock()
 
             with patch.object(
-                client._client, "post", return_value=mock_response  # type: ignore
+                client._client,
+                "post",
+                return_value=mock_response,  # type: ignore
             ):
                 token = await client.authenticate()
 
@@ -166,7 +168,9 @@ async def test_retry_logic_on_connection_failure():
                 return mock_response
 
             with patch.object(
-                client._client, "post", side_effect=mock_post_with_retries  # type: ignore
+                client._client,
+                "post",
+                side_effect=mock_post_with_retries,  # type: ignore
             ):
                 # Should succeed on 3rd attempt
                 token = await client.authenticate()
@@ -222,7 +226,9 @@ async def test_get_valid_token_auto_refresh():
             mock_response.raise_for_status = MagicMock()
 
             with patch.object(
-                client._client, "post", return_value=mock_response  # type: ignore
+                client._client,
+                "post",
+                return_value=mock_response,  # type: ignore
             ):
                 # Force token to be expired
                 client._session_token = None

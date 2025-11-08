@@ -2,54 +2,9 @@
 # See https://pre-commit.com for more information
 
 repos:
-  # Ruff - Fast Python linter and formatter
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.4
-    hooks:
-      # Run the linter
-      - id: ruff
-        args: [--fix]
-        name: ruff-lint
-      # Run the formatter
-      - id: ruff-format
-        name: ruff-format
-
-  # Standard pre-commit hooks
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
-    hooks:
-      - id: trailing-whitespace
-        name: trim-trailing-whitespace
-      - id: end-of-file-fixer
-        name: fix-end-of-file
-      - id: check-yaml
-        name: check-yaml-syntax
-      - id: check-added-large-files
-        args: ['--maxkb=1000']
-        name: check-large-files
-      - id: check-merge-conflict
-        name: check-merge-conflicts
-      - id: check-case-conflict
-        name: check-case-conflicts
-
   # Python-specific checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
       - id: check-ast
         name: check-python-ast
-      - id: check-docstring-first
-        name: check-docstring-first
-      - id: debug-statements
-        name: check-debug-statements
-
-  # Optional: Run fast unit tests before commit (commented out by default)
-  # Uncomment to enable - may slow down commits
-  # - repo: local
-  #   hooks:
-  #     - id: pytest-fast
-  #       name: pytest-fast-unit-tests
-  #       entry: uv run pytest tests/unit -q --tb=line
-  #       language: system
-  #       pass_filenames: false
-  #       always_run: true

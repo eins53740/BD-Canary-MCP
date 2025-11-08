@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import Iterable, Tuple
+from typing import Tuple
 
 DEFAULT_ALLOWED_DATASETS: Tuple[str, ...] = ("Test/Maceira", "Test/Outao")
 

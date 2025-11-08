@@ -7,9 +7,9 @@ and exception serialization for logging.
 import pytest
 
 from canary_mcp.exceptions import (
-    CanaryMCPError,
-    CanaryAuthError,
     CanaryAPIError,
+    CanaryAuthError,
+    CanaryMCPError,
     ConfigurationError,
     TagNotFoundError,
 )
@@ -158,14 +158,20 @@ class TestCanaryAPIError:
         error = CanaryAPIError(status_code=404)
         assert "404" in error.what
         assert "not found" in error.why.lower()
-        assert "tag name" in error.how_to_fix.lower() or "namespace" in error.how_to_fix.lower()
+        assert (
+            "tag name" in error.how_to_fix.lower()
+            or "namespace" in error.how_to_fix.lower()
+        )
 
     def test_api_error_status_500_defaults(self):
         """Test CanaryAPIError defaults for 500 status."""
         error = CanaryAPIError(status_code=500)
         assert "500" in error.what
         assert "internal error" in error.why.lower()
-        assert "server logs" in error.how_to_fix.lower() or "administrator" in error.how_to_fix.lower()
+        assert (
+            "server logs" in error.how_to_fix.lower()
+            or "administrator" in error.how_to_fix.lower()
+        )
 
     def test_api_error_default_why(self):
         """Test CanaryAPIError default 'why' without status code."""
@@ -279,7 +285,9 @@ class TestTagNotFoundError:
     def test_tag_not_found_error_default_how_to_fix(self):
         """Test TagNotFoundError default remediation."""
         error = TagNotFoundError(tag_name="Temperature.PV")
-        assert "search_tags" in error.how_to_fix or "list_namespaces" in error.how_to_fix
+        assert (
+            "search_tags" in error.how_to_fix or "list_namespaces" in error.how_to_fix
+        )
 
     def test_tag_not_found_error_to_dict_includes_tag_details(self):
         """Test TagNotFoundError serialization includes tag details."""
@@ -407,6 +415,7 @@ class TestLLMFriendlyErrorMessages:
 
         # Should be JSON-serializable
         import json
+
         try:
             json.dumps(error_dict)
         except (TypeError, ValueError):

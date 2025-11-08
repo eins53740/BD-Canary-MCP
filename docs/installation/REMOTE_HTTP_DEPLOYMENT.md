@@ -146,7 +146,7 @@ Ensure `.env` is ACL-restricted (for example, grant read access only to `canarym
 ### 3.3 Run as a Windows service
 The two most common approaches:
 
-1. **NSSM (Non-Sucking Service Manager)**  
+1. **NSSM (Non-Sucking Service Manager)**
    - Download NSSM from https://nssm.cc/download and place `nssm.exe` in `C:\Windows\System32`.
    - Register the service:
      ```powershell
@@ -161,8 +161,8 @@ The two most common approaches:
      ```
      NSSM automatically restarts the process on failure. Make sure the logs directory exists and has write permission for the service account.
 
-2. **Task Scheduler (fallback)**  
-   - Create a scheduled task that runs `python -m canary_mcp.server` at startup, configured to run whether or not the user is logged on.  
+2. **Task Scheduler (fallback)**
+   - Create a scheduled task that runs `python -m canary_mcp.server` at startup, configured to run whether or not the user is logged on.
    - Set the task to restart on failure and to run using the `canarymcp` account.
 
 Whichever option you use, verify the service is reachable:

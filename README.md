@@ -24,7 +24,19 @@ Quick links:
 
 ## Installation
 
-To install and run this server locally, please follow the instructions in the [Quick setup (uv)](#quick-setup-uv) section. For non-admin Windows installation, see the [non-admin Windows guide](docs/installation/non-admin-windows.md).
+Two transport modes are supported and both work without administrator rights:
+
+| Mode | Transport | When to use | Install entry point |
+| --- | --- | --- | --- |
+| **Local STDIO (default)** | STDIO piping between the MCP client and this repo | Individual laptops, air‑gapped testing, fastest iteration | Run `scripts/Install-Canary-MCP.cmd` (wraps `deploy_canary_mcp.ps1`) or follow the [non-admin Windows guide](docs/installation/non-admin-windows.md). No elevation required. |
+| **Remote HTTP/SSE** | HTTP server with SSE streaming | Team-shared VM or container deployment | Use the same repo on a server/VM and expose port 6000 (see [Remote HTTP deployment](docs/installation/REMOTE_HTTP_DEPLOYMENT.md)). |
+
+**STDIO validation checklist**
+1. Double-click `Install-Canary-MCP.cmd` (or run `deploy_canary_mcp.ps1`) and provide the Canary URLs when prompted.
+2. After the script finishes, reopen Claude Desktop (or your MCP client) and run the `ping` tool. Success message: “pong – Canary MCP Server is running!”
+3. If `ping` fails, rerun the installer with `--verbose` or consult `docs/troubleshooting/DEBUG_MCP_SERVER.md`.
+
+For hands-on configuration via uv, jump down to [Quick setup (uv)](#quick-setup-uv).
 
 ## MCP Server Capabilities
 
@@ -51,6 +63,9 @@ Tools are functions that can be directly executed by an MCP client.
 *   **`list_namespaces()`** – discover namespace roots/folders. Use this to confirm a plant’s structure or to seed UI pickers.
 *   **`get_last_known_values(tag_names)`** – grab the most recent sample for one or more tags. Automatically falls back to configured views if no data exists in the requested window.
 *   **`read_timeseries(tag_names, start_time, end_time)`** – canonical path for historical data. Accepts ISO timestamps or Canary relative expressions; watch the `continuation` token for paging.
+*   **`get_tag_data2(tag_names, start_time, end_time, aggregate_name?, aggregate_interval?, max_size?)`** – high-capacity sibling to `read_timeseries` that hits Canary’s `getTagData2` endpoint. Use it for large windows or server-side aggregates when you want fewer continuation hops (tune `max_size`).
+*   **`get_aggregates()`, `get_asset_types(view?)`, `get_asset_instances(asset_type, view?, path?)`, `get_events_limit10(limit?, …)`** – metadata helpers for Canary Views assets/events. They power richer LLM prompts without hitting production historians.
+*   **`write_test_dataset(dataset, records, original_prompt, role, dry_run=False)`** – gated write pathway to the Canary SAF API. Only `Test/Maceira` and `Test/Outao` datasets are allowed, and callers must pass a tester role (defaults to `tester`). Use `dry_run=True` to validate payloads before sending and keep `records` under the `CANARY_MAX_WRITE_RECORDS` limit.
 *   **`get_server_info()`** – reports Canary capabilities (timezones, aggregates) and MCP settings. Run it after deployments to ensure the environment is wired correctly.
 *   **`get_metrics()` / `get_metrics_summary()`** – Prometheus output vs. human-readable summary of request counts, latency, cache stats. Use for health dashboards or quick CLI checks.
 *   **`get_cache_stats()`**, **`invalidate_cache(pattern)`**, **`cleanup_expired_cache()`** – manage the local metadata cache when debugging stale data.
@@ -228,6 +243,36 @@ podman-compose up --build
 
 Inject `.env` via environment variables or bind mount and place the container behind corporate ingress as needed.
 
+### Example `.env` entries (copy from `.env.example`)
+
+```ini
+# Transport (stdio keeps everything local)
+CANARY_MCP_TRANSPORT=stdio
+# Canary endpoints (read & write)
+CANARY_SAF_BASE_URL=https://scunscanary.secil.pt/api/v1
+CANARY_VIEWS_BASE_URL=https://scunscanary.secil.pt
+# Optional: default view scoping for read_timeseries
+CANARY_DEFAULT_VIEW=Secil.Portugal.Default
+# Asset metadata view for get_asset_types / get_asset_instances
+CANARY_ASSET_VIEW=Views/Maceira.Assets
+# Token issued in Canary Identity (Tag Security applies)
+CANARY_API_TOKEN=00000000-0000-0000-0000-000000000000
+# Write tool guardrails
+CANARY_WRITER_ENABLED=true
+CANARY_TESTER_ROLES=tester,qa
+CANARY_WRITE_ALLOWED_DATASETS=Test/Maceira,Test/Outao
+# Vector/RAG knobs (optional)
+CANARY_ENABLE_VECTOR_SEARCH=false
+CANARY_VECTOR_INDEX_PATH=data/vector-index
+CANARY_VECTOR_TOP_K=5
+CANARY_VECTOR_DIM=512
+CANARY_VECTOR_HASH_SEED=0
+```
+
+Set `CANARY_MCP_TRANSPORT=http` plus `CANARY_MCP_HOST`/`CANARY_MCP_PORT` when you promote the same build to a remote VM.
+
+Need a token or Tag Security refresher? See [API Contracts (Local Docs)](#api-contracts-local-docs) for links to the Canary READ/WRITE PDFs inside `docs/aux_files/Canary API`.
+
 ## API Contracts (Local Docs)
 
 - Location: `docs/aux_files/Canary API`
@@ -324,6 +369,70 @@ python scripts/test_mcp_tools.py \
   --sample-tag "Maceira.Cement.Kiln6.Temperature.Outlet" \
   --search-pattern "Kiln*Temp"
 ```
+
+### Operational Smoke Scripts
+
+Quick one-off tests for ops/SRE use cases:
+
+| Script | Purpose |
+| --- | --- |
+| `python scripts/run_get_metrics.py` | Dumps the Prometheus exposition string. |
+| `python scripts/run_get_cache_stats.py` | Shows cache hit/miss counts and entry totals. |
+| `python scripts/run_cleanup_expired_cache.py` | Forces a cache cleanup cycle and prints the summary. |
+| `python scripts/run_get_health.py` | Emits the consolidated MCP health payload (circuit breaker, cache, metrics). |
+
+### Writing Test Telemetry (Test/Maceira + Test/Outao)
+
+1. **Build the payload** – each record needs a fully qualified tag under the allowed Test dataset, a numeric value, and (optionally) an ISO timestamp. Missing timestamps default to "now" (UTC).
+2. **Dry-run first** – set `dry_run=true` to validate dataset, role, and payload size before anything touches Canary.
+3. **Tester-only** – the `role` argument must match `CANARY_TESTER_ROLES` (defaults to `tester`). Non-matching roles receive a 403 response.
+4. **Cleanup guidance** – use Canary’s `/deleteRange` endpoint or the historian UI to remove test data after experiments. Because writes are confined to `Test/*`, production datasets remain untouched.
+
+Sample MCP payload:
+
+```jsonc
+{
+  "tool": "write_test_dataset",
+  "args": {
+    "dataset": "Test/Maceira",
+    "records": [
+      {
+        "tag": "Test/Maceira/MCP.Audit.Success",
+        "value": 1,
+        "timestamp": "2025-11-07T23:00:00Z"
+      }
+    ],
+    "original_prompt": "Log that the kiln temperature sanity check succeeded.",
+    "role": "tester",
+    "dry_run": true
+  }
+}
+```
+
+Flip `dry_run` to `false` once the preview looks correct. The response echoes the captured prompt, role, and record details for auditing.
+
+### Vector Index / RAG Pipeline (Optional)
+
+1. **Build the JSONL + embeddings**
+   ```bash
+   python scripts/build_vector_index.py \
+     --source "docs/aux_files/Canary Resources/Canary_Path_description_maceira.json" \
+     --out data/vector-index
+   ```
+   - Produces `catalog.jsonl`, `embeddings.npy`, `records.json`, and `meta.json`.
+   - Uses a deterministic hash-based embedding (configurable via `CANARY_VECTOR_DIM` / `--dimension`) so the index can be rebuilt without external services or GPU dependencies.
+2. **Enable semantic search**
+   ```
+   CANARY_ENABLE_VECTOR_SEARCH=true
+   CANARY_VECTOR_INDEX_PATH=data/vector-index
+   CANARY_VECTOR_TOP_K=5
+   ```
+   Keep these in `.env`. When enabled, `get_local_tag_candidates` augments keyword hits with top semantic matches (still capped by the 1 MB payload guard).
+3. **Rebuild cadence**
+   - Re-run the script whenever the catalog JSON changes.
+   - The resulting `data/vector-index/` directory is ignored by Git; archive it separately if you need to share the index.
+
+> Semantic suggestions are additive—the inverted index remains the source of truth, and vector matches include `"source": "vector-index"` metadata so MCP clients can explain where each candidate originated.
 
 The script prints a human-readable PASS/WARN/FAIL summary and respects the global 1 MB response guardrail.
 
@@ -521,11 +630,16 @@ Comprehensive documentation is available in the `docs/` directory:
 
 ### Development Workflow
 
-1. Make changes to source code
-2. Run tests: `uv run pytest`
-3. Check linting: `uvx ruff check .`
-4. Format code: `uvx black .`
-5. Verify coverage: `uv run pytest --cov=. --cov-report=term-missing`
+1. **Install hooks once**: `pre-commit install` (adds Ruff, Black, and isort to every commit per Story 4.7). No TypeScript lives in this repo yet, so ESLint/Prettier will be added when a TS package appears.
+2. **Before each PR** (quick checklist):
+   1. `pre-commit run --all-files`
+   2. `uv run pytest -m "unit or not integration" -q`
+   3. `uv run pytest -m integration -q` *(requires `CANARY_*` creds)*
+   4. `uv run pytest --cov=canary_mcp --cov-report=term --cov-report=html --cov-report=json:coverage.json`
+   5. `python scripts/ci/check_coverage.py coverage.json --baseline-file docs/coverage-baseline.json`
+   6. Open `htmlcov/index.html` to inspect changed modules.
+
+See [docs/development/testing-and-coverage.md](docs/development/testing-and-coverage.md) for the expanded playbook, CI job matrix, and guidance on updating the coverage baseline.
 
 ### Adding New MCP Tools
 
@@ -584,10 +698,15 @@ All planned epics are complete. The MCP server now ships with:
 ## Testing
 ### Coverage
 
-Generate the latest coverage report with:
+Generate the latest coverage reports with:
 ```bash
-uv run pytest --cov=src --cov-report=term
+uv run pytest --cov=canary_mcp --cov-report=term --cov-report=html --cov-report=json:coverage.json
+python scripts/ci/check_coverage.py coverage.json --baseline-file docs/coverage-baseline.json
 ```
+
+- `htmlcov/index.html` → drill into individual files/lines.
+- `scripts/ci/check_coverage.py` enforces Story 4.7’s policy (warn if repo coverage <75 %, fail if regression >5 pp vs `docs/coverage-baseline.json`).
+- CI/CD tip: run the two commands above and treat the script’s warning output (`[coverage] WARNING: overall coverage 73% ...`) as a non-blocking signal; only regressions >5 pp trigger a non-zero exit code.
 
 > Note: automated coverage collection may require Python to be available on PATH inside your environment. If the command fails (for example on Windows Subsystem for Linux without Python), install Python 3.12+ or use the project virtual environment (`.venv/Scripts/python.exe -m pytest ...`).
 

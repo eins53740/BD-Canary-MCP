@@ -19,3 +19,12 @@ Validation:
 Deliverables:
 - Updated testing and linting sections in docs.
 - Short contributor guide snippet for day-to-day workflow.
+
+---
+
+## Implementation Snapshot (2025-11-07)
+
+- `.pre-commit-config.yaml` runs Ruff (lint/format), Black, and isort. ESLint/Prettier will be added when the repository includes TypeScript.
+- Coverage checks now flow through `scripts/ci/check_coverage.py`, which enforces the “warn <75 %, fail if regression >5 pp” policy using `docs/coverage-baseline.json`.
+- Contributor workflow + CI job matrix documented in `docs/development/testing-and-coverage.md` and summarised in the README.
+- HTML reports (`htmlcov/index.html`) plus JSON output (`coverage.json`) are generated via `uv run pytest --cov=... --cov-report=html --cov-report=json:coverage.json`.

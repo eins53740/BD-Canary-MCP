@@ -10,7 +10,7 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Awaitable, Callable, Optional
+from typing import Awaitable, Callable
 
 # Ensure src/ is importable
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -19,15 +19,22 @@ if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
 
 from canary_mcp.server import (  # noqa: E402  pylint: disable=wrong-import-position
+    cleanup_expired_cache,
+    get_aggregates,
     get_asset_catalog,
+    get_asset_instances,
+    get_asset_types,
+    get_cache_stats,
+    get_events,
+    get_health,
     get_last_known_values,
+    get_metrics,
     get_metrics_summary,
     get_server_info,
     get_tag_metadata,
     get_tag_path,
     get_tag_properties,
     list_namespaces,
-    mcp,
     ping,
     read_timeseries,
     search_tags,
@@ -105,7 +112,9 @@ async def _test_get_tag_path(description: str) -> ToolResult:
         if result.get("success"):
             msg = f"Resolved {result.get('most_likely_path')} (confidence={result.get('confidence')})"
             return ToolResult("get_tag_path", Status.PASS, msg)
-        clarifier = result.get("clarifying_question") or result.get("error", "Clarification needed")
+        clarifier = result.get("clarifying_question") or result.get(
+            "error", "Clarification needed"
+        )
         return ToolResult("get_tag_path", Status.WARN, clarifier)
     except Exception as exc:
         return ToolResult("get_tag_path", Status.FAIL, str(exc))
@@ -172,7 +181,9 @@ async def _test_get_server_info() -> ToolResult:
         result = await get_server_info.fn()
         if not result.get("success"):
             raise RuntimeError(result.get("error", "Unknown error"))
-        msg = result.get("server_info", {}).get("canary_version", "Canary version unknown")
+        msg = result.get("server_info", {}).get(
+            "canary_version", "Canary version unknown"
+        )
         return ToolResult("get_server_info", Status.PASS, msg)
     except Exception as exc:
         status = Status.WARN if _config_missing(str(exc)) else Status.FAIL
@@ -182,13 +193,112 @@ async def _test_get_server_info() -> ToolResult:
 async def _test_get_metrics_summary() -> ToolResult:
     try:
         result = get_metrics_summary.fn()
-        msg = f"Tracked {result.get('metrics', {}).get('total_requests', 0)} requests"
+        msg = f"Tracked {result.get('total_requests', 0)} requests"
         return ToolResult("get_metrics_summary", Status.PASS, msg)
     except Exception as exc:
         return ToolResult("get_metrics_summary", Status.FAIL, str(exc))
 
 
-async def run_suite(sample_tag: str, search_pattern: str, tag_description: str) -> list[ToolResult]:
+async def _test_get_metrics() -> ToolResult:
+    try:
+        result = get_metrics.fn()
+        msg = f"Metrics data length: {len(result)}"
+        return ToolResult("get_metrics", Status.PASS, msg)
+    except Exception as exc:
+        return ToolResult("get_metrics", Status.FAIL, str(exc))
+
+
+async def _test_get_cache_stats() -> ToolResult:
+    try:
+        result = get_cache_stats.fn()
+        if not result.get("success"):
+            raise RuntimeError(result.get("error", "Unknown error"))
+        msg = f"Cache entries: {result.get('stats', {}).get('entry_count', 0)}"
+        return ToolResult("get_cache_stats", Status.PASS, msg)
+    except Exception as exc:
+        return ToolResult("get_cache_stats", Status.FAIL, str(exc))
+
+
+async def _test_cleanup_expired_cache() -> ToolResult:
+    try:
+        result = cleanup_expired_cache.fn()
+        if not result.get("success"):
+            raise RuntimeError(result.get("error", "Unknown error"))
+        msg = f"Removed {result.get('count', 0)} expired entries"
+        return ToolResult("cleanup_expired_cache", Status.PASS, msg)
+    except Exception as exc:
+        return ToolResult("cleanup_expired_cache", Status.FAIL, str(exc))
+
+
+async def _test_get_health() -> ToolResult:
+    try:
+        result = get_health.fn()
+        if not result.get("success"):
+            raise RuntimeError(result.get("error", "Unknown error"))
+        msg = f"Status: {result.get('status', 'unknown')}"
+        return ToolResult("get_health", Status.PASS, msg)
+    except Exception as exc:
+        return ToolResult("get_health", Status.FAIL, str(exc))
+
+
+async def _test_get_aggregates() -> ToolResult:
+    try:
+        result = await get_aggregates.fn()
+        if not result.get("success"):
+            raise RuntimeError(result.get("error", "Unknown error"))
+        msg = f"Returned {len(result.get('aggregates', []))} aggregates"
+        return ToolResult("get_aggregates", Status.PASS, msg)
+    except Exception as exc:
+        status = Status.WARN if _config_missing(str(exc)) else Status.FAIL
+        return ToolResult("get_aggregates", status, str(exc))
+
+
+async def _test_get_events() -> ToolResult:
+    try:
+        end = datetime.now()
+        start = end - timedelta(hours=1)
+        result = await get_events.fn(
+            start_time=start.isoformat(),
+            end_time=end.isoformat(),
+            limit=1,
+        )
+        if not result.get("success"):
+            raise RuntimeError(result.get("error", "Unknown error"))
+        msg = f"Returned {result.get('count', 0)} events"
+        return ToolResult("get_events", Status.PASS, msg)
+    except Exception as exc:
+        status = Status.WARN if _config_missing(str(exc)) else Status.FAIL
+        return ToolResult("get_events", status, str(exc))
+
+
+async def _test_get_asset_types() -> ToolResult:
+    try:
+        result = await get_asset_types.fn()
+        if not result.get("success"):
+            raise RuntimeError(result.get("error", "Unknown error"))
+        msg = f"Returned {len(result.get('asset_types', []))} asset types"
+        return ToolResult("get_asset_types", Status.PASS, msg)
+    except Exception as exc:
+        status = Status.WARN if _config_missing(str(exc)) else Status.FAIL
+        return ToolResult("get_asset_types", status, str(exc))
+
+
+async def _test_get_asset_instances() -> ToolResult:
+    try:
+        # Assuming a default asset type "Asset" or similar exists for testing
+        result = await get_asset_instances.fn(asset_type="Asset")
+        if not result.get("success"):
+            raise RuntimeError(result.get("error", "Unknown error"))
+        msg = f"Returned {result.get('count', 0)} asset instances"
+        return ToolResult("get_asset_instances", Status.PASS, msg)
+    except Exception as exc:
+        status = Status.WARN if _config_missing(str(exc)) else Status.FAIL
+        return ToolResult("get_asset_instances", status, str(exc))
+
+
+async def run_suite(
+    sample_tag: str, search_pattern: str, tag_description: str
+) -> list[ToolResult]:
     tests: list[ToolHandler] = [
         _test_ping,
         _test_get_asset_catalog,
@@ -201,6 +311,14 @@ async def run_suite(sample_tag: str, search_pattern: str, tag_description: str) 
         _test_list_namespaces,
         _test_get_server_info,
         _test_get_metrics_summary,
+        _test_get_metrics,
+        _test_get_cache_stats,
+        _test_cleanup_expired_cache,
+        _test_get_health,
+        _test_get_aggregates,
+        _test_get_events,
+        _test_get_asset_types,
+        _test_get_asset_instances,
     ]
     results: list[ToolResult] = []
     for handler in tests:
@@ -238,7 +356,9 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--tag-description",
-        default=os.getenv("MCP_SAMPLE_DESCRIPTION", "kiln 6 shell temperature section 15"),
+        default=os.getenv(
+            "MCP_SAMPLE_DESCRIPTION", "kiln 6 shell temperature section 15"
+        ),
         help="Description passed to get_tag_path (default: %(default)s)",
     )
     return parser.parse_args()
@@ -246,7 +366,9 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    results = asyncio.run(run_suite(args.sample_tag, args.search_pattern, args.tag_description))
+    results = asyncio.run(
+        run_suite(args.sample_tag, args.search_pattern, args.tag_description)
+    )
     return _print_summary(results)
 
 

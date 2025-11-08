@@ -37,5 +37,40 @@ def test_local_tag_index_respects_result_limits():
     """Metadata-only searches should honor the provided limit to keep responses bounded."""
     index = LocalTagIndex()
     limit = 7
-    results = index.search(["temperature"], description="any temperature tag", limit=limit)
+    results = index.search(
+        ["temperature"], description="any temperature tag", limit=limit
+    )
     assert len(results) <= limit
+
+
+@pytest.mark.unit
+def test_get_local_tag_candidates_merges_vector_results(monkeypatch):
+    """Vector retriever results should be appended when keyword search is empty."""
+    from canary_mcp import tag_index
+
+    class DummyRetriever:
+        def search(self, text, *, limit):
+            return [
+                {
+                    "path": "Test.Vector.Tag",
+                    "description": text,
+                    "unit": "degC",
+                    "plant": "Secil",
+                    "equipment": "Vector",
+                    "score": 0.99,
+                }
+            ]
+
+    monkeypatch.setattr(tag_index, "_get_vector_retriever", lambda: DummyRetriever())
+    monkeypatch.setattr(tag_index, "_vector_search_enabled", lambda: True)
+    monkeypatch.setattr(tag_index._LOCAL_TAG_INDEX, "search", lambda *a, **k: [])
+
+    results = tag_index.get_local_tag_candidates(
+        ["unlikelykeyword"],
+        description="semantic kiln vibration query",
+        limit=1,
+    )
+
+    assert results
+    assert results[0]["path"] == "Test.Vector.Tag"
+    assert results[0]["metadata"]["source"] == "vector-index"
