@@ -220,6 +220,21 @@ uv pip install fastmcp httpx python-dotenv
 
 ---
 
+## 🚧 STDIO Installer Known Issues (Story 4.6)
+
+These are the most common hiccups reported while running `Install-Canary-MCP.cmd` or the PowerShell deployment script in STDIO mode. None of them require elevation.
+
+| Symptom | Cause | Mitigation |
+| --- | --- | --- |
+| `.cmd` window closes immediately | Corporate antivirus flags `deploy_canary_mcp.ps1` download | Temporarily run the PowerShell script directly with `powershell -ExecutionPolicy Bypass -File scripts/deploy_canary_mcp.ps1`. The script is signed; add it to the antivirus allow-list if needed. |
+| Installer succeeds but MCP client still says “transport http” | `.env` carried over from an older HTTP deployment | Open `%USERPROFILE%\Documents\Canary-MCP\.env` and ensure `CANARY_MCP_TRANSPORT=stdio`. Remove stale `CANARY_MCP_HOST/PORT` entries for STDIO installs. |
+| `ping` tool fails with `ModuleNotFoundError` | Claude Desktop still points at an old path or can’t find uv | Edit the Claude config to point directly at `%USERPROFILE%\.local\bin\uv.exe` (see Step 3 above) or use the venv’s `python.exe`. |
+| `uv sync` fails during install | Proxy blocks downloads | Set `UV_HTTP_PROXY`/`UV_HTTPS_PROXY` before running the installer or pre-download wheels on a whitelisted machine and drop them in `~\Documents\Canary-MCP\.uv-cache`. |
+
+After each mitigation, rerun `ping` inside the MCP client. A successful `pong - Canary MCP Server is running!` response closes the issue.
+
+---
+
 ## 🧪 Quick Diagnostic Script
 
 Run this to check everything:

@@ -7,7 +7,7 @@ import os
 import re
 from collections import OrderedDict
 from datetime import UTC, datetime, timedelta
-from functools import lru_cache
+from functools import lru_cache, wraps
 from pathlib import Path
 from textwrap import dedent
 from typing import Any, Optional, Sequence
@@ -20,10 +20,12 @@ from fastmcp.prompts import Message
 
 from canary_mcp.auth import CanaryAuthClient, CanaryAuthError
 from canary_mcp.cache import get_cache_store
+from canary_mcp.http_client import execute_tool_request
 from canary_mcp.logging_setup import configure_logging, get_logger
 from canary_mcp.metrics import MetricsTimer, get_metrics_collector
 from canary_mcp.request_context import get_request_id, set_request_id
-from canary_mcp.tag_index import get_local_tag_candidates
+from canary_mcp.response_guard import DEFAULT_LIMIT_BYTES, apply_response_size_limit
+from canary_mcp.write_guard import WriteDatasetError, validate_test_dataset
 
 # Some integration tests expect a globally available mock_data_response placeholder.
 try:  # pragma: no cover - test harness compatibility shim
@@ -41,6 +43,10 @@ except Exception:  # pragma: no cover - avoid polluting runtime errors
 # Load environment variables
 load_dotenv()
 
+configure_logging()
+
+from canary_mcp.tag_index import get_local_tag_candidates
+
 # Initialize FastMCP server
 mcp = FastMCP(
     "Canary MCP Server",
@@ -56,6 +62,185 @@ mcp = FastMCP(
 
 # Get logger instance
 log = get_logger(__name__)
+
+# Enforce ≤1 MB payloads by default (configurable via CANARY_MAX_RESPONSE_BYTES).
+RESPONSE_SIZE_LIMIT = int(
+    os.getenv("CANARY_MAX_RESPONSE_BYTES", str(DEFAULT_LIMIT_BYTES))
+)
+MAX_WRITE_RECORDS = int(os.getenv("CANARY_MAX_WRITE_RECORDS", "50"))
+WRITER_DISABLED_MESSAGE = "Write operations are disabled. Set CANARY_WRITER_ENABLED=true to allow Test/* writes."
+
+
+def _is_truthy(value: str | None, default: bool = True) -> bool:
+    if value is None:
+        return default
+    return value.strip().lower() not in {"", "0", "false", "no", "off"}
+
+
+def _writer_enabled() -> bool:
+    return _is_truthy(os.getenv("CANARY_WRITER_ENABLED", "true"), default=True)
+
+
+def _get_tester_roles() -> tuple[str, ...]:
+    raw = os.getenv("CANARY_TESTER_ROLES", "tester")
+    roles = tuple(role.strip().lower() for role in raw.split(",") if role.strip())
+    return roles or ("tester",)
+
+
+def _require_tester_role(role: str) -> str:
+    normalized = (role or "").strip().lower()
+    allowed = _get_tester_roles()
+    if not normalized:
+        raise PermissionError(
+            "Write tool requires a tester role. Provide role='tester' or another allowed role."
+        )
+    if normalized not in allowed:
+        raise PermissionError(
+            f"Role '{role}' is not authorized for write operations. Allowed tester roles: "
+            f"{', '.join(allowed)}."
+        )
+    return normalized
+
+
+def _resolve_asset_view(view: Optional[str]) -> str:
+    candidate = (view or os.getenv("CANARY_ASSET_VIEW", "")).strip()
+    if not candidate:
+        raise ValueError(
+            "Asset view is required. Provide the 'view' argument or set CANARY_ASSET_VIEW."
+        )
+    return candidate
+
+
+def _normalize_write_timestamp(value: Optional[str]) -> str:
+    if not value:
+        dt = datetime.now(UTC)
+    else:
+        cleaned = value.replace("Z", "+00:00")
+        try:
+            dt = datetime.fromisoformat(cleaned)
+        except ValueError as exc:  # pragma: no cover - validated in unit tests
+            raise ValueError(
+                f"Invalid timestamp '{value}'. Provide an ISO 8601 string "
+                f"(e.g., 2025-01-01T00:00:00Z)."
+            ) from exc
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        else:
+            dt = dt.astimezone(UTC)
+    return dt.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def _coerce_numeric_value(raw: Any) -> float:
+    if isinstance(raw, bool):
+        return 1.0 if raw else 0.0
+    if isinstance(raw, (int, float)):
+        return float(raw)
+    if isinstance(raw, str):
+        stripped = raw.strip()
+        if not stripped:
+            raise ValueError("Value strings cannot be empty.")
+        return float(stripped)
+    raise ValueError("Record values must be numeric (int, float, or numeric string).")
+
+
+def _build_manual_entry_payload(
+    dataset: str, records: Sequence[dict[str, Any]]
+) -> tuple[dict[str, list[list[Any]]], list[dict[str, Any]]]:
+    if not records:
+        raise ValueError("Provide at least one record to write.")
+    if len(records) > MAX_WRITE_RECORDS:
+        raise ValueError(
+            f"Too many records ({len(records)}). Limit is {MAX_WRITE_RECORDS} per request."
+        )
+
+    manual_entry: dict[str, list[list[Any]]] = {}
+    summary: list[dict[str, Any]] = []
+    valid_prefixes = (
+        dataset,
+        f"{dataset}.",
+        f"{dataset}/",
+    )
+
+    for idx, record in enumerate(records):
+        if not isinstance(record, dict):
+            raise ValueError(
+                f"Record #{idx + 1} must be an object with tag/value/timestamp fields."
+            )
+
+        tag = record.get("tag") or record.get("path")
+        if not tag:
+            raise ValueError(f"Record #{idx + 1} is missing the 'tag' field.")
+        tag_str = str(tag).strip()
+        if not tag_str:
+            raise ValueError(f"Record #{idx + 1} has an empty tag.")
+        if not any(tag_str.startswith(prefix) for prefix in valid_prefixes):
+            raise ValueError(
+                f"Tag '{tag_str}' must reside under the {dataset} dataset "
+                f"to satisfy the Test/* policy."
+            )
+
+        timestamp_iso = _normalize_write_timestamp(
+            record.get("timestamp") or record.get("time")
+        )
+        value = _coerce_numeric_value(record.get("value"))
+        entry: list[Any] = [timestamp_iso, value]
+        quality = record.get("quality")
+        if quality is not None:
+            entry.append(quality)
+
+        manual_entry.setdefault(tag_str, []).append(entry)
+        summary.append(
+            {
+                "tag": tag_str,
+                "timestamp": timestamp_iso,
+                "value": value,
+                "quality": quality,
+            }
+        )
+
+    return manual_entry, summary
+
+
+# Payload guard helpers -----------------------------------------------------
+
+
+def _apply_payload_guard(payload: Any) -> Any:
+    guarded, _ = apply_response_size_limit(
+        payload,
+        request_id=get_request_id(),
+        logger=log,
+        limit_bytes=RESPONSE_SIZE_LIMIT,
+    )
+    return guarded
+
+
+def _install_payload_guard(tool_wrapper: Any) -> None:
+    original_fn = tool_wrapper.fn
+
+    if getattr(
+        original_fn, "_payload_guard_applied", False
+    ):  # pragma: no cover - guard
+        return
+
+    if asyncio.iscoroutinefunction(original_fn):
+
+        @wraps(original_fn)
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+            result = await original_fn(*args, **kwargs)
+            return _apply_payload_guard(result)
+
+        async_wrapper._payload_guard_applied = True  # type: ignore[attr-defined]
+        tool_wrapper.fn = async_wrapper
+    else:
+
+        @wraps(original_fn)
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+            result = original_fn(*args, **kwargs)
+            return _apply_payload_guard(result)
+
+        sync_wrapper._payload_guard_applied = True  # type: ignore[attr-defined]
+        tool_wrapper.fn = sync_wrapper
+
 
 # Common stop words filtered from natural language descriptions when extracting
 # candidate keywords for tag lookup. These focus the search on process terms.
@@ -114,7 +299,6 @@ try:
     DEFAULT_TZINFO = ZoneInfo(DEFAULT_TIMEZONE)
 except ZoneInfoNotFoundError:
     DEFAULT_TZINFO = UTC
-
 SEARCH_TAGS_HINT = (
     "Describe the process area and distinctive identifiers (e.g. 'Maceira kiln shell temperature "
     "P431'). Prefer exact fragments over wildcards; combine with resource://canary/tag-catalog to "
@@ -122,9 +306,28 @@ SEARCH_TAGS_HINT = (
 )
 READ_TIMESERIES_HINT = (
     "Call read_timeseries with tag_names as a list of historian paths (e.g. "
-    "['Secil.Portugal.Area.Tag']). Do not wrap the list in a JSON string—supply the array directly. "
-    "Resolve tag paths with search_tags or the tag_lookup_workflow before requesting data, and keep "
+    "['Secil.Portugal.Area.Tag']). Do not wrap the list in a JSON string—"
+    "supply the array directly. "
+    "Resolve tag paths with search_tags or the tag_lookup_workflow before "
+    "requesting data, and keep "
     "start/end times as ISO timestamps or Canary relative expressions."
+)
+GET_TAG_DATA2_HINT = (
+    "Use get_tag_data2 when you need the higher-capacity Canary getTagData2 endpoint. Provide tags "
+    "plus start/end times; include aggregateName/aggregateInterval for processed data and adjust "
+    "maxSize (default 1000) to fetch larger payloads with fewer continuation tokens."
+)
+GET_ASSET_TYPES_HINT = (
+    "Call get_asset_types with the Canary view that hosts your asset models "
+    "(e.g. CANARY_ASSET_VIEW). Use get_asset_instances to list concrete assets for a type."
+)
+GET_EVENTS_HINT = (
+    "Use get_events_limit10 to fetch the latest historian events. Limit defaults to 10 but can be "
+    "raised cautiously; provide start/end windows to filter further."
+)
+BROWSE_STATUS_HINT = (
+    "Use browse_status to explore namespaces, verify view availability, and confirm the next "
+    "pagination path before drilling into metadata."
 )
 DEFAULT_SEARCH_PATH_FALLBACKS = ("Secil.Portugal",)
 NORMALIZED_PROPERTY_KEY_ALIASES = {
@@ -429,6 +632,50 @@ def _parse_canary_timeseries_payload(
     return data_points, continuation
 
 
+def _build_timeseries_summary(
+    tag_names: Sequence[str],
+    resolved_tag_map: Optional[dict[str, str]],
+    start_time: str,
+    end_time: str,
+    duration_seconds: Optional[float],
+    data_points: Sequence[dict[str, Any]],
+) -> dict[str, Any]:
+    """Generate a compact summary block for timeseries responses."""
+    resolved_map = resolved_tag_map or {tag: tag for tag in tag_names}
+    samples_per_tag: OrderedDict[str, int] = OrderedDict()
+    for point in data_points:
+        tag_name = point.get("tagName")
+        if not tag_name:
+            continue
+        samples_per_tag[tag_name] = samples_per_tag.get(tag_name, 0) + 1
+
+    site_hint: Optional[str] = None
+    for resolved_value in resolved_map.values():
+        if not isinstance(resolved_value, str) or not resolved_value:
+            continue
+        segments = [segment for segment in resolved_value.split(".") if segment]
+        if not segments:
+            continue
+        site_hint = ".".join(segments[:2]) if len(segments) >= 2 else segments[0]
+        break
+
+    range_block: dict[str, Any] = {
+        "start": start_time,
+        "end": end_time,
+    }
+    if duration_seconds is not None:
+        range_block["duration_seconds"] = max(0, int(duration_seconds))
+
+    return {
+        "site_hint": site_hint,
+        "requested_tags": list(tag_names),
+        "resolved_tags": resolved_map,
+        "total_samples": len(data_points),
+        "samples_per_tag": samples_per_tag,
+        "range": range_block,
+    }
+
+
 async def _resolve_tag_identifiers(
     tag_identifiers: list[str],
     *,
@@ -555,12 +802,12 @@ def _score_tag_candidate(
     }
 
     score = 0.0
-    NAME_WEIGHT = 5.0
-    PATH_WEIGHT = 3.0
-    DESCRIPTION_WEIGHT = 2.0
-    METADATA_WEIGHT = 1.0
-    STARTS_WITH_BONUS = 1.5
-    EXACT_MATCH_BONUS = 3.0
+    name_weight = 5.0
+    path_weight = 3.0
+    description_weight = 2.0
+    metadata_weight = 1.0
+    starts_with_bonus = 1.5
+    exact_match_bonus = 3.0
 
     for keyword in keywords:
         if not keyword:
@@ -600,6 +847,52 @@ def _score_tag_candidate(
         matched[key] = _deduplicate_sequence(matched[key])
 
     return score, matched
+
+
+def _compute_confidence(candidates: list[dict[str, Any]]) -> tuple[float, str]:
+    """
+    Compute a normalized confidence score (0-1) and label for ranked candidates.
+
+    Confidence considers absolute score plus margin versus the runner-up.
+    """
+    if not candidates:
+        return 0.0, "no_match"
+
+    top_score = max(float(candidates[0].get("score") or 0.0), 0.0)
+    runner_up = (
+        max(float(candidates[1].get("score") or 0.0), 0.0)
+        if len(candidates) > 1
+        else 0.0
+    )
+
+    if top_score <= 0:
+        return 0.0, "no_match"
+
+    margin = max(top_score - runner_up, 0.0)
+    normalized = min(
+        1.0, (top_score / (top_score + 5.0)) + (margin / (margin + 5.0)) / 2
+    )
+    normalized = round(normalized, 3)
+
+    if normalized >= 0.8:
+        label = "high"
+    elif normalized >= 0.7:
+        label = "medium"
+    elif normalized > 0.0:
+        label = "low"
+    else:
+        label = "no_match"
+
+    return normalized, label
+
+
+def _build_clarifying_question(keywords: list[str]) -> str:
+    """Return a helpful clarifying question using existing keywords."""
+    phrase = ", ".join(keywords[:3]) if keywords else "the measurement"
+    return (
+        f"Can you specify the site, equipment, or engineering units for {phrase}? "
+        "For example: 'Maceira kiln 6 shell temperature in section 15 (°C)'."
+    )
 
 
 def parse_time_expression(time_expr: str) -> str:
@@ -770,7 +1063,8 @@ def canary_time_standards() -> dict[str, Any]:
     return {
         "default_timezone": DEFAULT_TIMEZONE,
         "timezone_note": (
-            f"Interpret natural-language expressions in {DEFAULT_TIMEZONE} before converting to UTC."
+            f"Interpret natural-language expressions in {DEFAULT_TIMEZONE} "
+            f"before converting to UTC."
         ),
         "relative_time_reference": RELATIVE_TIME_GUIDE,
         "examples": [
@@ -897,16 +1191,33 @@ def tag_lookup_workflow() -> list[Message]:
         Message(
             role="user",
             content=(
-                "Follow this workflow:\n"
-                "1. Clarify the process area, equipment, and any identifiers in the request.\n"
-                "2. Check `resource://canary/tag-catalog` via `get_asset_catalog` for an exact "
-                "match on description or unit.\n"
-                "3. When no match is found, call `search_tags` with the strongest keyword "
-                "(avoid wildcards) and review returned paths.\n"
-                "4. Confirm engineering units and descriptions with `get_tag_properties` if "
-                "available before recommending a path.\n"
-                "5. Return the fully qualified historian path(s) and highlight confidence or "
-                "follow-up checks the user should perform."
+                "Deterministic workflow:\n"
+                "```\n"
+                "Input: natural-language description\n"
+                "1. Parse description → entities (equipment, measurement, site, units).\n"
+                "2. Normalize synonyms (e.g., shell↔casing, rpm↔speed) and remove stop words.\n"
+                "3. Query `resource://canary/tag-catalog` via `get_asset_catalog` "
+                "using the strongest "
+                "keywords; record matches (path, unit, description).\n"
+                "4. If <3 matches, call `search_tags` with the best literal keyword (no wildcards) "
+                "and merge results.\n"
+                "5. For each candidate path:\n"
+                "   a. Fetch metadata with `get_tag_properties` (units, description).\n"
+                "   b. Score relevance (name weight > path > description > metadata).\n"
+                "6. Compute confidence = normalized score of top candidate.\n"
+                "   - confidence ≥ 0.80 → return best path and note why it matches.\n"
+                '   - 0.70 ≤ confidence < 0.80 → return path but warn "double‑check units".\n'
+                "   - confidence < 0.70 → DO NOT pick; return top candidates + clarifying question "
+                "(ask for unit, section, equipment, etc.).\n"
+                "7. Output:\n"
+                "   - most_likely_path (if confident)\n"
+                "   - alternatives ranked\n"
+                "   - confidence (0‑1), confidence_label, clarifying_question (if any)\n"
+                "   - instructions for next action (call read_timeseries, "
+                "request clarification, etc.).\n"
+                "Errors: If input is empty, reply with an actionable message "
+                "asking for site/equipment.\n"
+                "```\n"
             ),
         ),
     ]
@@ -930,16 +1241,28 @@ def timeseries_query_workflow() -> list[Message]:
         Message(
             role="user",
             content=(
-                "1. Resolve tag paths using the tag lookup workflow first.\n"
-                "2. Define start and end times using the Canary relative time grammar (see "
-                "`resource://canary/time-standards`); interpret expressions in "
-                f"{DEFAULT_TIMEZONE} before converting to UTC.\n"
-                "3. Call `read_timeseries` with ISO timestamps and moderate page_size (<=1000). "
-                "Pass `tag_names` as an array (e.g. ['Secil.Portugal.Tag']) rather than a quoted "
-                "JSON string. When retrieving more than one tag, use the historian POST endpoints "
-                "instead of multi-tag GET requests.\n"
-                "4. Inspect the response for continuation tokens and iterate if needed.\n"
-                "5. Summarise the retrieved data, noting gaps or quality issues."
+                "Deterministic workflow:\n"
+                "```\n"
+                "Input: tag description + natural-language time window\n"
+                "1. Call `tag_lookup_workflow` to obtain `most_likely_path`. "
+                "If the workflow returns "
+                "a clarifying question, ask the user before proceeding.\n"
+                "2. Parse start/end using `resource://canary/time-standards`:\n"
+                "   - Echo the interpreted ISO timestamps back to the user.\n"
+                '   - Use `parse_time_expression` rules (e.g., "last 2 hours" → `Now-2Hours`).\n'
+                "3. Build the `read_timeseries` payload:\n"
+                "   - `tag_names`: list of fully qualified paths (e.g., "
+                "['Secil.Portugal.Kiln6.Temp']).\n"
+                "   - `start_time` / `end_time`: ISO strings.\n"
+                "   - Optional `views` if the site requires it; page_size ≤ 1000.\n"
+                "4. Execute `read_timeseries` (POST). If continuation tokens are returned, repeat "
+                "until the requested time window is fully covered.\n"
+                "5. Summarise the results:\n"
+                "   - Mention the interpreted window, tag units, sample count, "
+                "gaps, or quality flags.\n"
+                "   - Suggest the next action (e.g., compute stats, compare tags) or surface any "
+                "errors with guidance on how to fix them.\n"
+                "```\n"
             ),
         ),
     ]
@@ -1091,7 +1414,9 @@ async def search_tags(
                     }
 
                     async with httpx.AsyncClient(timeout=10.0) as http_client:
-                        response = await http_client.post(
+                        response = await execute_tool_request(
+                            "search_tags",
+                            http_client,
                             search_url,
                             json=payload,
                         )
@@ -1108,18 +1433,26 @@ async def search_tags(
                             normalized: Optional[dict[str, Any]] = None
 
                             if isinstance(tag, dict):
-                                name = str(tag.get("name", "") or tag.get("path", "")).strip()
+                                name = str(
+                                    tag.get("name", "") or tag.get("path", "")
+                                ).strip()
                                 path = str(tag.get("path", "") or name).strip()
                                 normalized = {
                                     "name": name,
                                     "path": path,
-                                    "dataType": str(tag.get("dataType", "unknown") or "unknown"),
-                                    "description": str(tag.get("description", "") or ""),
+                                    "dataType": str(
+                                        tag.get("dataType", "unknown") or "unknown"
+                                    ),
+                                    "description": str(
+                                        tag.get("description", "") or ""
+                                    ),
                                 }
                             elif isinstance(tag, str):
                                 tag_str = tag.strip()
                                 name_fragment = (
-                                    tag_str.split(".")[-1] if "." in tag_str else tag_str
+                                    tag_str.split(".")[-1]
+                                    if "." in tag_str
+                                    else tag_str
                                 )
                                 normalized = {
                                     "name": name_fragment,
@@ -1191,9 +1524,7 @@ async def search_tags(
             }
 
         except httpx.HTTPStatusError as e:
-            error_msg = (
-                f"API request failed with status {e.response.status_code}: {e.response.text}"
-            )
+            error_msg = f"API request failed with status {e.response.status_code}: {e.response.text}"
             log.error(
                 "search_tags_api_error",
                 error=error_msg,
@@ -1312,7 +1643,9 @@ async def get_tag_metadata(tag_path: str) -> dict[str, Any]:
             metadata_url = f"{views_base_url}/api/v2/getTagProperties"
 
             async with httpx.AsyncClient(timeout=10.0) as http_client:
-                response = await http_client.post(
+                response = await execute_tool_request(
+                    "get_tag_metadata",
+                    http_client,
                     metadata_url,
                     json={
                         "apiToken": api_token,
@@ -1345,7 +1678,9 @@ async def get_tag_metadata(tag_path: str) -> dict[str, Any]:
         if not metadata and isinstance(data, dict):
             fallback_normalized = _normalize_property_dict(data)
             if fallback_normalized:
-                fallback_normalized["path"] = fallback_normalized.get("path") or resolved_path
+                fallback_normalized["path"] = (
+                    fallback_normalized.get("path") or resolved_path
+                )
                 fallback_normalized["name"] = (
                     fallback_normalized.get("name") or resolved_path.split(".")[-1]
                 )
@@ -1368,17 +1703,24 @@ async def get_tag_metadata(tag_path: str) -> dict[str, Any]:
                 "resolved_path": resolved_path,
             }
 
-        has_structured_properties = isinstance(metadata.get("properties"), dict) and bool(
-            metadata["properties"]
-        )
-        has_type_information = str(metadata.get("dataType", "")).strip().lower() not in (
+        has_structured_properties = isinstance(
+            metadata.get("properties"), dict
+        ) and bool(metadata["properties"])
+        has_type_information = str(
+            metadata.get("dataType", "")
+        ).strip().lower() not in (
             "",
             "unknown",
         )
         has_units = bool(str(metadata.get("units", "")).strip())
         has_description = bool(str(metadata.get("description", "")).strip())
 
-        if not (has_structured_properties or has_type_information or has_units or has_description):
+        if not (
+            has_structured_properties
+            or has_type_information
+            or has_units
+            or has_description
+        ):
             log.warning(
                 "get_tag_metadata_incomplete_payload",
                 tag_path=tag_path,
@@ -1556,35 +1898,45 @@ async def get_tag_path(
         # Validate input
         if not description_normalized:
             timer.cache_hit = False
+            question = _build_clarifying_question([])
             return {
                 "success": False,
-                "error": "Description cannot be empty",
+                "error": "Description cannot be empty. Provide the site/"
+                "equipment and measurement you need.",
                 "description": description,
                 "keywords": [],
                 "most_likely_path": None,
                 "candidates": [],
                 "alternatives": [],
+                "clarifying_question": question,
+                "next_step": "clarify",
                 "cached": False,
             }
 
         keywords = extract_keywords(description_normalized)
         if not keywords:
             timer.cache_hit = False
+            question = _build_clarifying_question([])
             return {
                 "success": False,
-                "error": "Unable to extract meaningful keywords from description",
+                "error": "Unable to extract meaningful keywords. Please include "
+                "equipment, location, or units.",
                 "description": description,
                 "keywords": [],
                 "most_likely_path": None,
                 "candidates": [],
                 "alternatives": [],
+                "clarifying_question": question,
+                "next_step": "clarify",
                 "cached": False,
             }
 
         if max_results <= 0:
             max_results = 5
 
-        cache_key = cache._generate_cache_key("get_tag_path", description_normalized.lower())
+        cache_key = cache._generate_cache_key(
+            "get_tag_path", description_normalized.lower()
+        )
 
         if not bypass_cache:
             cached_result = cache.get(cache_key)
@@ -1693,14 +2045,18 @@ async def get_tag_path(
                     local_keywords.update(matched_tokens)
 
         if not candidate_map:
+            clarifying_question = _build_clarifying_question(keywords)
             result = {
                 "success": False,
                 "description": description,
                 "keywords": keywords,
-                "error": "No tags found matching the description",
+                "error": "No tags matched the description. Provide the site, "
+                "equipment, or engineering units.",
                 "most_likely_path": None,
                 "candidates": [],
                 "alternatives": [],
+                "clarifying_question": clarifying_question,
+                "next_step": "clarify",
                 "cached": False,
             }
             cache.set(cache_key, result, category="metadata")
@@ -1750,9 +2106,9 @@ async def get_tag_path(
             combined_metadata.update(metadata or {})
 
             candidate_name = combined_metadata.get("name", base_info.get("name", ""))
-            candidate_description = combined_metadata.get("description") or base_info.get(
-                "description", ""
-            )
+            candidate_description = combined_metadata.get(
+                "description"
+            ) or base_info.get("description", "")
             candidate_data_type = combined_metadata.get(
                 "dataType", base_info.get("dataType", "unknown")
             )
@@ -1771,7 +2127,9 @@ async def get_tag_path(
 
             local_keywords = base_info.get("local_keywords")
             if local_keywords:
-                matched_keywords["local_index"] = _deduplicate_sequence(sorted(local_keywords))
+                matched_keywords["local_index"] = _deduplicate_sequence(
+                    sorted(local_keywords)
+                )
 
             candidates.append(
                 {
@@ -1781,7 +2139,9 @@ async def get_tag_path(
                     "description": candidate_description,
                     "score": round(score, 4),
                     "matched_keywords": {
-                        field: matches for field, matches in matched_keywords.items() if matches
+                        field: matches
+                        for field, matches in matched_keywords.items()
+                        if matches
                     },
                     "search_sources": sorted(base_info["search_sources"]),
                     "metadata": combined_metadata,
@@ -1803,7 +2163,9 @@ async def get_tag_path(
                 )
                 local_keywords = base_info.get("local_keywords")
                 if local_keywords:
-                    matched_keywords["local_index"] = _deduplicate_sequence(sorted(local_keywords))
+                    matched_keywords["local_index"] = _deduplicate_sequence(
+                        sorted(local_keywords)
+                    )
                 candidates.append(
                     {
                         "path": path,
@@ -1812,7 +2174,9 @@ async def get_tag_path(
                         "description": base_info.get("description", ""),
                         "score": round(score, 4),
                         "matched_keywords": {
-                            field: matches for field, matches in matched_keywords.items() if matches
+                            field: matches
+                            for field, matches in matched_keywords.items()
+                            if matches
                         },
                         "search_sources": sorted(base_info["search_sources"]),
                         "metadata": local_metadata,
@@ -1823,16 +2187,76 @@ async def get_tag_path(
         candidates.sort(key=lambda item: item["score"], reverse=True)
 
         trimmed_candidates = candidates[:max_results]
-        most_likely_path = trimmed_candidates[0]["path"] if trimmed_candidates else None
+        if not trimmed_candidates:
+            clarifying_question = _build_clarifying_question(keywords)
+            result = {
+                "success": False,
+                "description": description,
+                "keywords": keywords,
+                "error": "Unable to rank candidates. Please provide additional "
+                "identifiers (unit, section, site).",
+                "most_likely_path": None,
+                "candidates": [],
+                "alternatives": [],
+                "clarifying_question": clarifying_question,
+                "next_step": "clarify",
+                "cached": False,
+            }
+            cache.set(cache_key, result, category="metadata")
+            return result
+
+        most_likely_path = trimmed_candidates[0]["path"]
         alternatives = [candidate["path"] for candidate in trimmed_candidates[1:]]
+        confidence, confidence_label = _compute_confidence(trimmed_candidates)
+        clarifying_question = None
+        next_step = "return_path"
+        message = (
+            "High-confidence match. Proceed with read_timeseries or metadata lookup."
+        )
+
+        if confidence < 0.7:
+            clarifying_question = _build_clarifying_question(keywords)
+            next_step = "clarify"
+            message = (
+                "Low confidence match – request more context before selecting a tag."
+            )
+            result = {
+                "success": False,
+                "description": description,
+                "keywords": keywords,
+                "error": "Low confidence match; clarification required.",
+                "most_likely_path": None,
+                "candidates": trimmed_candidates,
+                "alternatives": alternatives,
+                "clarifying_question": clarifying_question,
+                "confidence": confidence,
+                "confidence_label": confidence_label,
+                "next_step": next_step,
+                "message": message,
+                "cached": False,
+            }
+            cache.set(cache_key, result, category="metadata")
+            return result
+
+        if confidence_label == "medium":
+            next_step = "double_check"
+            message = (
+                "Candidate found, but double-check units/section before using. "
+                "Confirm via get_tag_properties if unsure."
+            )
 
         result = {
-            "success": most_likely_path is not None,
+            "success": True,
             "description": description,
             "keywords": keywords,
             "most_likely_path": most_likely_path,
             "candidates": trimmed_candidates,
             "alternatives": alternatives,
+            "confidence": confidence,
+            "confidence_label": confidence_label,
+            "clarifying_question": clarifying_question,
+            "next_step": next_step,
+            "message": message,
             "cached": False,
         }
 
@@ -1932,7 +2356,12 @@ async def get_tag_properties(tag_paths: list[str]) -> dict[str, Any]:
             properties_url = f"{views_base_url}/api/v2/getTagProperties"
 
             async with httpx.AsyncClient(timeout=10.0) as http_client:
-                response = await http_client.post(properties_url, json=payload)
+                response = await execute_tool_request(
+                    "get_tag_properties",
+                    http_client,
+                    properties_url,
+                    json=payload,
+                )
                 response.raise_for_status()
                 data = response.json()
 
@@ -1981,9 +2410,7 @@ async def get_tag_properties(tag_paths: list[str]) -> dict[str, Any]:
         }
 
     except httpx.HTTPStatusError as exc:
-        error_msg = (
-            f"API request failed with status {exc.response.status_code}: {exc.response.text}"
-        )
+        error_msg = f"API request failed with status {exc.response.status_code}: {exc.response.text}"
         log.error(
             "get_tag_properties_api_error",
             error=error_msg,
@@ -2065,9 +2492,11 @@ async def list_namespaces() -> dict[str, Any]:
             browse_url = f"{views_base_url}/api/v2/browseNodes"
 
             async with httpx.AsyncClient(timeout=10.0) as http_client:
-                response = await http_client.post(
+                response = await execute_tool_request(
+                    "list_namespaces",
+                    http_client,
                     browse_url,
-                    json={
+                    params={
                         "apiToken": api_token,
                     },
                 )
@@ -2084,7 +2513,9 @@ async def list_namespaces() -> dict[str, Any]:
                                 structured_nodes.append(
                                     {
                                         "name": name,
-                                        "path": node.get("fullPath", node.get("path", name)),
+                                        "path": node.get(
+                                            "fullPath", node.get("path", name)
+                                        ),
                                         "hasNodes": node.get("hasNodes", False),
                                         "hasTags": node.get("hasTags", False),
                                     }
@@ -2101,7 +2532,9 @@ async def list_namespaces() -> dict[str, Any]:
                                     }
                                 )
 
-                namespaces = [entry.get("path") for entry in structured_nodes if entry.get("path")]
+                namespaces = [
+                    entry.get("path") for entry in structured_nodes if entry.get("path")
+                ]
 
                 log.info(
                     "list_namespaces_success",
@@ -2117,7 +2550,9 @@ async def list_namespaces() -> dict[str, Any]:
 
     except CanaryAuthError as e:
         error_msg = f"Authentication failed: {str(e)}"
-        log.error("list_namespaces_auth_failed", error=error_msg, request_id=get_request_id())
+        log.error(
+            "list_namespaces_auth_failed", error=error_msg, request_id=get_request_id()
+        )
         return {"success": False, "error": error_msg, "namespaces": [], "count": 0}
 
     except httpx.HTTPStatusError as e:
@@ -2132,7 +2567,11 @@ async def list_namespaces() -> dict[str, Any]:
 
     except httpx.RequestError as e:
         error_msg = f"Network error accessing Canary API: {str(e)}"
-        log.error("list_namespaces_network_error", error=error_msg, request_id=get_request_id())
+        log.error(
+            "list_namespaces_network_error",
+            error=error_msg,
+            request_id=get_request_id(),
+        )
         return {"success": False, "error": error_msg, "namespaces": [], "count": 0}
 
     except Exception as e:
@@ -2175,7 +2614,9 @@ async def get_last_known_values(
                 "tag_names": tag_list,
             }
 
-        lookup_tags, resolved_map = await _resolve_tag_identifiers(tag_list, include_original=False)
+        lookup_tags, resolved_map = await _resolve_tag_identifiers(
+            tag_list, include_original=False
+        )
         request_tags = lookup_tags or tag_list
 
         views_base_url = os.getenv("CANARY_VIEWS_BASE_URL", "")
@@ -2188,7 +2629,9 @@ async def get_last_known_values(
             data_url = f"{views_base_url}/api/v2/getTagData"
 
             async with httpx.AsyncClient(timeout=30.0) as http_client:
-                lookback_hours = max(1, int(os.getenv("CANARY_LAST_VALUE_LOOKBACK_HOURS", "24")))
+                lookback_hours = max(
+                    1, int(os.getenv("CANARY_LAST_VALUE_LOOKBACK_HOURS", "24"))
+                )
                 page_size = max(1, int(os.getenv("CANARY_LAST_VALUE_PAGE_SIZE", "500")))
                 now_utc = datetime.now(UTC)
                 start_window = now_utc - timedelta(hours=lookback_hours)
@@ -2207,7 +2650,12 @@ async def get_last_known_values(
                     if default_view:
                         payload["views"] = [default_view]
 
-                response = await http_client.post(data_url, json=payload)
+                response = await execute_tool_request(
+                    "read_timeseries",
+                    http_client,
+                    data_url,
+                    json=payload,
+                )
                 response.raise_for_status()
                 api_response = response.json()
 
@@ -2239,7 +2687,9 @@ async def get_last_known_values(
         if resolved_map:
             for point in data_points:
                 tag_name = point.get("tagName")
-                original = next((k for k, v in resolved_map.items() if v == tag_name), None)
+                original = next(
+                    (k for k, v in resolved_map.items() if v == tag_name), None
+                )
                 if original:
                     point["requestedTag"] = original
 
@@ -2394,6 +2844,7 @@ async def read_timeseries(
     parsed_start_time = start_time
     parsed_end_time = end_time
     tag_list: list[str] = list(normalized_inputs)
+    duration_seconds: Optional[float] = None
 
     try:
         if not tag_list:
@@ -2436,6 +2887,8 @@ async def read_timeseries(
                 "tag_names": tag_list,
                 "hint": READ_TIMESERIES_HINT,
             }
+        if start_dt and end_dt:
+            duration_seconds = (end_dt - start_dt).total_seconds()
 
         # Get Canary Views base URL from environment
         views_base_url = os.getenv("CANARY_VIEWS_BASE_URL", "").strip()
@@ -2477,7 +2930,12 @@ async def read_timeseries(
                     if default_view:
                         payload["views"] = [default_view]
 
-                response = await http_client.post(data_url, json=payload)
+                response = await execute_tool_request(
+                    "read_timeseries",
+                    http_client,
+                    data_url,
+                    json=payload,
+                )
 
                 response.raise_for_status()
                 api_response = response.json()
@@ -2485,12 +2943,15 @@ async def read_timeseries(
         data_points, continuation = _parse_canary_timeseries_payload(api_response)
 
         if resolved_tag_map:
+            inverse_map = {
+                resolved: original for original, resolved in resolved_tag_map.items()
+            }
             for point in data_points:
                 tag_name = point.get("tagName")
-                if tag_name in resolved_tag_map.values():
+                if not tag_name:
                     continue
-                original = next((k for k, v in resolved_tag_map.items() if v == tag_name), None)
-                if original:
+                original = inverse_map.get(tag_name)
+                if original and original != tag_name:
                     point["requestedTag"] = original
 
         if isinstance(api_response, dict) and "error" in api_response:
@@ -2525,16 +2986,26 @@ async def read_timeseries(
                     tag_names=tag_list,
                     request_id=get_request_id(),
                 )
+                data_from_last_known = last_values_result.get("data", [])
+                summary = _build_timeseries_summary(
+                    tag_list,
+                    resolved_tag_map,
+                    parsed_start_time,
+                    parsed_end_time,
+                    duration_seconds,
+                    data_from_last_known,
+                )
                 return {
                     "success": True,
-                    "data": last_values_result.get("data", []),
-                    "count": last_values_result.get("count", 0),
+                    "data": data_from_last_known,
+                    "count": len(data_from_last_known),
                     "tag_names": tag_list,
                     "start_time": parsed_start_time,
                     "end_time": parsed_end_time,
                     "source": "last_known",
                     "resolved_tag_names": resolved_tag_map,
                     "hint": READ_TIMESERIES_HINT,
+                    "summary": summary,
                 }
 
         log.info(
@@ -2544,6 +3015,14 @@ async def read_timeseries(
             start_time=parsed_start_time,
             end_time=parsed_end_time,
             request_id=get_request_id(),
+        )
+        summary = _build_timeseries_summary(
+            tag_list,
+            resolved_tag_map,
+            parsed_start_time,
+            parsed_end_time,
+            duration_seconds,
+            data_points,
         )
         return {
             "success": True,
@@ -2555,6 +3034,7 @@ async def read_timeseries(
             "continuation": continuation,
             "resolved_tag_names": resolved_tag_map,
             "hint": READ_TIMESERIES_HINT,
+            "summary": summary,
         }
 
     except CanaryAuthError as e:
@@ -2629,6 +3109,892 @@ async def read_timeseries(
 
 
 @mcp.tool()
+async def write_test_dataset(
+    dataset: str,
+    records: list[dict[str, Any]],
+    original_prompt: str,
+    role: str,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """
+    Write manual entry samples into approved Test/* datasets via Canary SAF.
+
+    Args:
+        dataset: The Test dataset to target (e.g., "Test/Maceira").
+        records: List of objects with keys `tag`, `value`, and optional `timestamp`/`quality`.
+        original_prompt: Natural-language instruction captured for auditing.
+        role: Caller role; must match one of CANARY_TESTER_ROLES (default: "tester").
+        dry_run: When True, validate payload but skip the actual Canary API call.
+
+    Returns:
+        Dict summarising the write attempt, including recorded prompt and role metadata.
+    """
+    request_id = set_request_id()
+    log.info(
+        "write_test_dataset_called",
+        dataset=dataset,
+        record_count=len(records) if records else 0,
+        role=role,
+        dry_run=dry_run,
+        request_id=request_id,
+    )
+
+    if not _writer_enabled():
+        log.warning(
+            "write_test_dataset_disabled",
+            dataset=dataset,
+            request_id=request_id,
+        )
+        return {
+            "success": False,
+            "status": 503,
+            "error": WRITER_DISABLED_MESSAGE,
+            "original_prompt": original_prompt,
+        }
+
+    try:
+        dataset_normalized = validate_test_dataset(dataset)
+    except WriteDatasetError as exc:
+        log.warning(
+            "write_test_dataset_invalid_dataset",
+            dataset=dataset,
+            error=str(exc),
+            request_id=request_id,
+        )
+        return {
+            "success": False,
+            "status": 400,
+            "error": str(exc),
+            "original_prompt": original_prompt,
+        }
+
+    try:
+        tester_role = _require_tester_role(role)
+    except PermissionError as exc:
+        log.warning(
+            "write_test_dataset_role_denied",
+            dataset=dataset_normalized,
+            role=role,
+            error=str(exc),
+            request_id=request_id,
+        )
+        return {
+            "success": False,
+            "status": 403,
+            "error": str(exc),
+            "original_prompt": original_prompt,
+        }
+
+    prompt_clean = (original_prompt or "").strip()
+    if not prompt_clean:
+        return {
+            "success": False,
+            "status": 400,
+            "error": "original_prompt cannot be empty; capture the NL instruction for auditing.",
+        }
+
+    try:
+        manual_payload, summary = _build_manual_entry_payload(
+            dataset_normalized, records or []
+        )
+    except ValueError as exc:
+        log.warning(
+            "write_test_dataset_invalid_records",
+            dataset=dataset_normalized,
+            error=str(exc),
+            request_id=request_id,
+        )
+        return {
+            "success": False,
+            "status": 400,
+            "error": str(exc),
+            "original_prompt": prompt_clean,
+        }
+
+    saf_base_url = os.getenv("CANARY_SAF_BASE_URL", "").rstrip("/")
+    if not saf_base_url:
+        error_msg = "CANARY_SAF_BASE_URL is not configured; cannot send write requests."
+        log.error(
+            "write_test_dataset_missing_config",
+            error=error_msg,
+            request_id=request_id,
+        )
+        return {
+            "success": False,
+            "status": 500,
+            "error": error_msg,
+            "original_prompt": prompt_clean,
+        }
+
+    if dry_run:
+        log.info(
+            "write_test_dataset_dry_run",
+            dataset=dataset_normalized,
+            records=len(summary),
+            request_id=request_id,
+        )
+        return {
+            "success": True,
+            "write_success": False,
+            "dataset": dataset_normalized,
+            "records_written": 0,
+            "records": summary,
+            "original_prompt": prompt_clean,
+            "role": tester_role,
+            "dry_run": True,
+        }
+
+    api_response: dict[str, Any] = {}
+    async with MetricsTimer("write_test_dataset") as timer:
+        timer.cache_hit = False
+        try:
+            async with CanaryAuthClient() as client:
+                session_token = await client.get_valid_token()
+
+                async with httpx.AsyncClient(timeout=30.0) as http_client:
+                    response = await http_client.post(
+                        f"{saf_base_url}/manualEntryStoreData",
+                        json={
+                            "sessionToken": session_token,
+                            "manualentrytvqs": manual_payload,
+                        },
+                    )
+                    response.raise_for_status()
+                    if response.content:
+                        api_response = response.json()
+        except CanaryAuthError as exc:
+            log.error(
+                "write_test_dataset_auth_error",
+                error=str(exc),
+                request_id=request_id,
+            )
+            return {
+                "success": False,
+                "status": 401,
+                "error": str(exc),
+                "original_prompt": prompt_clean,
+            }
+        except httpx.HTTPStatusError as exc:
+            status = exc.response.status_code
+            error_msg = (
+                f"Write request failed with HTTP {status}: {exc.response.text[:256]}"
+            )
+            log.error(
+                "write_test_dataset_http_error",
+                status=status,
+                error=error_msg,
+                request_id=request_id,
+            )
+            return {
+                "success": False,
+                "status": status,
+                "error": error_msg,
+                "original_prompt": prompt_clean,
+            }
+        except httpx.RequestError as exc:
+            error_msg = f"Network error calling Canary SAF API: {str(exc)}"
+            log.error(
+                "write_test_dataset_network_error",
+                error=error_msg,
+                request_id=request_id,
+            )
+            return {
+                "success": False,
+                "status": 502,
+                "error": error_msg,
+                "original_prompt": prompt_clean,
+            }
+        except Exception as exc:  # pragma: no cover - defensive
+            log.error(
+                "write_test_dataset_unexpected_error",
+                error=str(exc),
+                request_id=request_id,
+                exc_info=True,
+            )
+            return {
+                "success": False,
+                "status": 500,
+                "error": f"Unexpected error while writing: {str(exc)}",
+                "original_prompt": prompt_clean,
+            }
+
+    log.info(
+        "write_test_dataset_success",
+        dataset=dataset_normalized,
+        records=len(summary),
+        role=tester_role,
+        request_id=request_id,
+    )
+    return {
+        "success": True,
+        "write_success": True,
+        "dataset": dataset_normalized,
+        "records_written": len(summary),
+        "records": summary,
+        "original_prompt": prompt_clean,
+        "role": tester_role,
+        "dry_run": False,
+        "api_response": api_response,
+    }
+
+
+@mcp.tool()
+async def get_tag_data2(
+    tag_names: str | list[str],
+    start_time: str,
+    end_time: str,
+    aggregate_name: Optional[str] = None,
+    aggregate_interval: Optional[str] = None,
+    max_size: int = 1000,
+) -> dict[str, Any]:
+    """
+    Retrieve historian data via Canary getTagData2 endpoint with optional aggregates.
+
+    Args:
+        tag_names: Single tag or list of tags (same normalization rules as read_timeseries)
+        start_time: ISO timestamp or relative time string
+        end_time: ISO timestamp or relative time string
+        aggregate_name: Optional aggregate (e.g., TimeAverage2)
+        aggregate_interval: Optional interval (e.g., 00:05:00) when aggregate_name is set
+        max_size: Desired response size (# of samples) before Canary paginates (default 1000)
+
+    Returns:
+        dict: Structured response including raw data, count, and metadata summary
+    """
+    request_id = set_request_id()
+    normalized_inputs = _coerce_tag_names(tag_names)
+    raw_inputs = [
+        item.strip()
+        for item in _extract_tag_input_literals(tag_names)
+        if isinstance(item, str) and item.strip()
+    ]
+    log_tag_list = normalized_inputs or raw_inputs
+    log.info(
+        "get_tag_data2_called",
+        tag_names=log_tag_list,
+        start_time=start_time,
+        end_time=end_time,
+        aggregate_name=aggregate_name,
+        aggregate_interval=aggregate_interval,
+        max_size=max_size,
+        request_id=request_id,
+        tool="get_tag_data2",
+    )
+
+    parsed_start_time = start_time
+    parsed_end_time = end_time
+    tag_list: list[str] = list(normalized_inputs)
+    duration_seconds: Optional[float] = None
+
+    try:
+        if not tag_list:
+            return {
+                "success": False,
+                "status": 400,
+                "error": "Tag names cannot be empty",
+                "data": [],
+                "count": 0,
+                "tag_names": raw_inputs,
+                "hint": GET_TAG_DATA2_HINT,
+            }
+
+        if max_size <= 0:
+            return {
+                "success": False,
+                "status": 400,
+                "error": "maxSize must be a positive integer.",
+                "data": [],
+                "count": 0,
+                "tag_names": tag_list,
+                "hint": GET_TAG_DATA2_HINT,
+            }
+
+        if aggregate_interval and not aggregate_name:
+            return {
+                "success": False,
+                "status": 400,
+                "error": "Provide aggregate_name when aggregate_interval is supplied.",
+                "data": [],
+                "count": 0,
+                "tag_names": tag_list,
+                "hint": GET_TAG_DATA2_HINT,
+            }
+
+        try:
+            parsed_start_time = parse_time_expression(start_time)
+            parsed_end_time = parse_time_expression(end_time)
+        except ValueError as exc:
+            return {
+                "success": False,
+                "status": 400,
+                "error": f"Invalid time expression: {exc}",
+                "data": [],
+                "count": 0,
+                "tag_names": tag_list,
+                "hint": GET_TAG_DATA2_HINT,
+            }
+
+        def _to_datetime(value: str) -> Optional[datetime]:
+            try:
+                return datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except ValueError:
+                return None
+
+        start_dt = _to_datetime(parsed_start_time)
+        end_dt = _to_datetime(parsed_end_time)
+        if start_dt and end_dt and start_dt >= end_dt:
+            return {
+                "success": False,
+                "status": 400,
+                "error": "Start time must be before end time",
+                "data": [],
+                "count": 0,
+                "tag_names": tag_list,
+                "hint": GET_TAG_DATA2_HINT,
+            }
+        if start_dt and end_dt:
+            duration_seconds = (end_dt - start_dt).total_seconds()
+
+        views_base_url = os.getenv("CANARY_VIEWS_BASE_URL", "").strip()
+        if not views_base_url:
+            return {
+                "success": False,
+                "status": 500,
+                "error": "Canary Views base URL not configured. Set CANARY_VIEWS_BASE_URL.",
+                "data": [],
+                "count": 0,
+                "tag_names": tag_list,
+                "hint": GET_TAG_DATA2_HINT,
+            }
+
+        lookup_tags, resolved_tag_map = await _resolve_tag_identifiers(
+            tag_list, include_original=False
+        )
+        request_tags = lookup_tags or tag_list
+
+        async with CanaryAuthClient() as client:
+            api_token = await client.get_valid_token()
+
+            data_url = f"{views_base_url}/api/v2/getTagData2"
+            async with httpx.AsyncClient(timeout=30.0) as http_client:
+                payload: dict[str, Any] = {
+                    "apiToken": api_token,
+                    "tags": request_tags,
+                    "startTime": parsed_start_time,
+                    "endTime": parsed_end_time,
+                    "maxSize": max_size,
+                }
+                if aggregate_name:
+                    payload["aggregateName"] = aggregate_name
+                if aggregate_interval:
+                    payload["aggregateInterval"] = aggregate_interval
+
+                response = await execute_tool_request(
+                    "get_tag_data2",
+                    http_client,
+                    data_url,
+                    json=payload,
+                )
+                response.raise_for_status()
+                api_response = response.json()
+
+        data_points, continuation = _parse_canary_timeseries_payload(api_response)
+        summary = _build_timeseries_summary(
+            tag_list,
+            resolved_tag_map,
+            parsed_start_time,
+            parsed_end_time,
+            duration_seconds,
+            data_points,
+        )
+
+        log.info(
+            "get_tag_data2_success",
+            tag_names=tag_list,
+            aggregate_name=aggregate_name,
+            data_point_count=len(data_points),
+            max_size=max_size,
+            request_id=request_id,
+        )
+        return {
+            "success": True,
+            "data": data_points,
+            "count": len(data_points),
+            "tag_names": tag_list,
+            "start_time": parsed_start_time,
+            "end_time": parsed_end_time,
+            "max_size": max_size,
+            "aggregate_name": aggregate_name,
+            "aggregate_interval": aggregate_interval,
+            "continuation": continuation,
+            "resolved_tag_names": resolved_tag_map,
+            "summary": summary,
+            "hint": GET_TAG_DATA2_HINT,
+        }
+
+    except CanaryAuthError as e:
+        error_msg = f"Authentication failed: {str(e)}"
+        log.error(
+            "get_tag_data2_auth_failed",
+            error=error_msg,
+            tag_names=tag_list,
+            request_id=request_id,
+        )
+        return {
+            "success": False,
+            "status": 401,
+            "error": error_msg,
+            "data": [],
+            "count": 0,
+            "tag_names": tag_list,
+            "hint": GET_TAG_DATA2_HINT,
+        }
+
+    except httpx.HTTPStatusError as e:
+        error_msg = f"API request failed with status {e.response.status_code}: {e.response.text}"
+        log.error(
+            "get_tag_data2_api_error",
+            error=error_msg,
+            status_code=e.response.status_code,
+            tag_names=tag_list,
+            request_id=request_id,
+        )
+        return {
+            "success": False,
+            "status": e.response.status_code,
+            "error": error_msg,
+            "data": [],
+            "count": 0,
+            "tag_names": tag_list,
+            "hint": GET_TAG_DATA2_HINT,
+        }
+
+    except httpx.RequestError as e:
+        error_msg = f"Network error accessing Canary API: {str(e)}"
+        log.error(
+            "get_tag_data2_network_error",
+            error=error_msg,
+            tag_names=tag_list,
+            request_id=request_id,
+        )
+        return {
+            "success": False,
+            "status": 502,
+            "error": error_msg,
+            "data": [],
+            "count": 0,
+            "tag_names": tag_list,
+            "hint": GET_TAG_DATA2_HINT,
+        }
+
+    except Exception as e:
+        error_msg = f"Unexpected error retrieving timeseries data: {str(e)}"
+        log.error(
+            "get_tag_data2_unexpected_error",
+            error=error_msg,
+            tag_names=tag_list,
+            request_id=request_id,
+            exc_info=True,
+        )
+        return {
+            "success": False,
+            "status": 500,
+            "error": error_msg,
+            "data": [],
+            "count": 0,
+            "tag_names": tag_list,
+            "hint": GET_TAG_DATA2_HINT,
+        }
+
+
+@mcp.tool()
+async def get_aggregates() -> dict[str, Any]:
+    """
+    Fetch supported Canary aggregate definitions (wrapper around getAggregates).
+    """
+    request_id = set_request_id()
+    log.info("get_aggregates_called", request_id=request_id, tool="get_aggregates")
+
+    views_base_url = os.getenv("CANARY_VIEWS_BASE_URL", "").strip()
+    if not views_base_url:
+        return {
+            "success": False,
+            "status": 500,
+            "error": "Canary Views base URL not configured. Set CANARY_VIEWS_BASE_URL.",
+        }
+
+    try:
+        async with CanaryAuthClient() as client:
+            api_token = await client.get_valid_token()
+            async with httpx.AsyncClient(timeout=10.0) as http_client:
+                response = await execute_tool_request(
+                    "get_available_aggregates",
+                    http_client,
+                    f"{views_base_url}/api/v2/getAggregates",
+                    params={"apiToken": api_token},
+                )
+                response.raise_for_status()
+                payload = response.json()
+    except CanaryAuthError as exc:
+        return {
+            "success": False,
+            "status": 401,
+            "error": str(exc),
+        }
+    except httpx.HTTPStatusError as exc:
+        return {
+            "success": False,
+            "status": exc.response.status_code,
+            "error": f"Failed to fetch aggregates: {exc.response.text}",
+        }
+    except Exception as exc:  # pragma: no cover - defensive
+        return {
+            "success": False,
+            "status": 500,
+            "error": f"Unexpected error fetching aggregates: {str(exc)}",
+        }
+
+    aggregates = payload.get("aggregates", payload)
+    if isinstance(aggregates, dict):
+        aggregates_list = [{"name": k, "description": v} for k, v in aggregates.items()]
+    elif isinstance(aggregates, list):
+        aggregates_list = aggregates
+    else:
+        aggregates_list = []
+
+    log.info(
+        "get_aggregates_success",
+        aggregate_count=len(aggregates_list),
+        request_id=request_id,
+    )
+    return {
+        "success": True,
+        "aggregates": aggregates_list,
+        "count": len(aggregates_list),
+    }
+
+
+@mcp.tool()
+async def get_asset_types(view: Optional[str] = None) -> dict[str, Any]:
+    """
+    Return asset types available in the configured Canary view.
+    """
+    request_id = set_request_id()
+    try:
+        resolved_view = _resolve_asset_view(view)
+    except ValueError as exc:
+        return {"success": False, "status": 400, "error": str(exc)}
+
+    views_base_url = os.getenv("CANARY_VIEWS_BASE_URL", "").strip()
+    if not views_base_url:
+        return {
+            "success": False,
+            "status": 500,
+            "error": "Canary Views base URL not configured. Set CANARY_VIEWS_BASE_URL.",
+        }
+
+    log.info(
+        "get_asset_types_called",
+        view=resolved_view,
+        request_id=request_id,
+        tool="get_asset_types",
+    )
+
+    try:
+        async with CanaryAuthClient() as client:
+            api_token = await client.get_valid_token()
+            async with httpx.AsyncClient(timeout=15.0) as http_client:
+                response = await execute_tool_request(
+                    "get_asset_types",
+                    http_client,
+                    f"{views_base_url}/api/v2/getAssetTypes",
+                    json={
+                        "apiToken": api_token,
+                        "view": resolved_view,
+                    },
+                )
+                response.raise_for_status()
+                payload = response.json()
+    except CanaryAuthError as exc:
+        return {"success": False, "status": 401, "error": str(exc)}
+    except httpx.HTTPStatusError as exc:
+        return {
+            "success": False,
+            "status": exc.response.status_code,
+            "error": f"Failed to fetch asset types: {exc.response.text}",
+        }
+    except Exception as exc:  # pragma: no cover
+        return {
+            "success": False,
+            "status": 500,
+            "error": f"Unexpected error fetching asset types: {str(exc)}",
+        }
+
+    types = payload.get("assetTypes", payload)
+    log.info(
+        "get_asset_types_success",
+        view=resolved_view,
+        asset_type_count=len(types) if isinstance(types, list) else 0,
+        request_id=request_id,
+    )
+    return {
+        "success": True,
+        "view": resolved_view,
+        "asset_types": types,
+        "count": len(types) if isinstance(types, list) else 0,
+        "hint": GET_ASSET_TYPES_HINT,
+    }
+
+
+@mcp.tool()
+async def get_asset_instances(
+    asset_type: str,
+    view: Optional[str] = None,
+    path: Optional[str] = None,
+) -> dict[str, Any]:
+    """
+    Return asset instances for a given asset type (wrapper for getAssetInstances).
+    """
+    request_id = set_request_id()
+    if not asset_type:
+        return {
+            "success": False,
+            "status": 400,
+            "error": "asset_type is required.",
+        }
+    try:
+        resolved_view = _resolve_asset_view(view)
+    except ValueError as exc:
+        return {"success": False, "status": 400, "error": str(exc)}
+
+    views_base_url = os.getenv("CANARY_VIEWS_BASE_URL", "").strip()
+    if not views_base_url:
+        return {
+            "success": False,
+            "status": 500,
+            "error": "Canary Views base URL not configured. Set CANARY_VIEWS_BASE_URL.",
+        }
+
+    log.info(
+        "get_asset_instances_called",
+        view=resolved_view,
+        asset_type=asset_type,
+        request_id=request_id,
+    )
+
+    try:
+        async with CanaryAuthClient() as client:
+            api_token = await client.get_valid_token()
+            payload = {
+                "apiToken": api_token,
+                "view": resolved_view,
+                "assetType": asset_type,
+            }
+            if path:
+                payload["path"] = path
+
+            async with httpx.AsyncClient(timeout=20.0) as http_client:
+                response = await execute_tool_request(
+                    "get_asset_instances",
+                    http_client,
+                    f"{views_base_url}/api/v2/getAssetInstances",
+                    json=payload,
+                )
+                response.raise_for_status()
+                api_response = response.json()
+    except CanaryAuthError as exc:
+        return {"success": False, "status": 401, "error": str(exc)}
+    except httpx.HTTPStatusError as exc:
+        return {
+            "success": False,
+            "status": exc.response.status_code,
+            "error": f"Failed to fetch asset instances: {exc.response.text}",
+        }
+    except Exception as exc:  # pragma: no cover
+        return {
+            "success": False,
+            "status": 500,
+            "error": f"Unexpected error fetching asset instances: {str(exc)}",
+        }
+
+    instances = api_response.get("assetInstances", api_response)
+    return {
+        "success": True,
+        "view": resolved_view,
+        "asset_type": asset_type,
+        "instances": instances,
+        "count": len(instances) if isinstance(instances, list) else 0,
+        "hint": GET_ASSET_TYPES_HINT,
+    }
+
+
+@mcp.tool()
+async def get_events_limit10(
+    limit: int = 10,
+    view: Optional[str] = None,
+    start_time: Optional[str] = None,
+    end_time: Optional[str] = None,
+) -> dict[str, Any]:
+    """
+    Retrieve recent Canary events (wrapper for getEvents with limit 10 default).
+    """
+    request_id = set_request_id()
+    if limit <= 0:
+        return {
+            "success": False,
+            "status": 400,
+            "error": "limit must be greater than zero.",
+        }
+
+    views_base_url = os.getenv("CANARY_VIEWS_BASE_URL", "").strip()
+    if not views_base_url:
+        return {
+            "success": False,
+            "status": 500,
+            "error": "Canary Views base URL not configured. Set CANARY_VIEWS_BASE_URL.",
+        }
+
+    log.info(
+        "get_events_called",
+        limit=limit,
+        request_id=request_id,
+        tool="get_events_limit10",
+    )
+
+    try:
+        async with CanaryAuthClient() as client:
+            api_token = await client.get_valid_token()
+            payload: dict[str, Any] = {"apiToken": api_token, "limit": limit}
+            if view:
+                payload["view"] = view
+            if start_time:
+                payload["startTime"] = start_time
+            if end_time:
+                payload["endTime"] = end_time
+
+            async with httpx.AsyncClient(timeout=10.0) as http_client:
+                response = await execute_tool_request(
+                    "get_events_limit10",
+                    http_client,
+                    f"{views_base_url}/api/v2/getEvents",
+                    json=payload,
+                )
+                response.raise_for_status()
+                api_response = response.json()
+    except CanaryAuthError as exc:
+        return {"success": False, "status": 401, "error": str(exc)}
+    except httpx.HTTPStatusError as exc:
+        return {
+            "success": False,
+            "status": exc.response.status_code,
+            "error": f"Failed to fetch events: {exc.response.text}",
+        }
+    except Exception as exc:  # pragma: no cover
+        return {
+            "success": False,
+            "status": 500,
+            "error": f"Unexpected error fetching events: {str(exc)}",
+        }
+
+    events = api_response.get("events", api_response)
+    return {
+        "success": True,
+        "events": events,
+        "count": len(events) if isinstance(events, list) else 0,
+        "hint": GET_EVENTS_HINT,
+    }
+
+
+@mcp.tool()
+async def browse_status(
+    path: Optional[str] = None,
+    depth: Optional[int] = None,
+    include_tags: Optional[bool] = True,
+    view: Optional[str] = None,
+) -> dict[str, Any]:
+    """
+    Inspect namespace nodes using the browseStatus endpoint.
+    """
+    request_id = set_request_id()
+    views_base_url = os.getenv("CANARY_VIEWS_BASE_URL", "").strip()
+    if not views_base_url:
+        return {
+            "success": False,
+            "status": 500,
+            "error": "Canary Views base URL not configured. Set CANARY_VIEWS_BASE_URL.",
+        }
+
+    log.info(
+        "browse_status_called",
+        path=path or "root",
+        depth=depth,
+        include_tags=include_tags,
+        view=view,
+        request_id=request_id,
+        tool="browse_status",
+    )
+
+    try:
+        async with CanaryAuthClient() as client:
+            api_token = await client.get_valid_token()
+            params: dict[str, Any] = {"apiToken": api_token}
+            if path:
+                params["path"] = path
+            if depth is not None:
+                params["depth"] = str(depth)
+            if include_tags is not None:
+                params["includeTags"] = "true" if include_tags else "false"
+            if view:
+                params["views"] = view
+
+            async with httpx.AsyncClient(timeout=10.0) as http_client:
+                response = await execute_tool_request(
+                    "browse_status",
+                    http_client,
+                    f"{views_base_url}/api/v2/browseStatus",
+                    params=params,
+                )
+                response.raise_for_status()
+                api_response = response.json()
+    except CanaryAuthError as exc:
+        return {"success": False, "status": 401, "error": str(exc)}
+    except httpx.HTTPStatusError as exc:
+        return {
+            "success": False,
+            "status": exc.response.status_code,
+            "error": f"Failed to browse status: {exc.response.text}",
+        }
+    except Exception as exc:
+        return {
+            "success": False,
+            "status": 500,
+            "error": f"Unexpected error browsing status: {str(exc)}",
+        }
+
+    nodes = api_response.get("nodes", [])
+    tags = api_response.get("tags", [])
+    log.info(
+        "browse_status_success",
+        path=path or "root",
+        node_count=len(nodes) if isinstance(nodes, list) else 0,
+        tag_count=len(tags) if isinstance(tags, list) else 0,
+        request_id=get_request_id(),
+    )
+    return {
+        "success": True,
+        "nodes": nodes,
+        "tags": tags,
+        "next_path": api_response.get("nextPath"),
+        "status": api_response.get("status"),
+        "path": path,
+        "depth": depth,
+        "include_tags": include_tags,
+        "view": view,
+        "hint": BROWSE_STATUS_HINT,
+    }
+
+
+@mcp.tool()
 async def get_server_info() -> dict[str, Any]:
     """
     Get Canary server health and capability information.
@@ -2666,18 +4032,22 @@ async def get_server_info() -> dict[str, Any]:
             async with httpx.AsyncClient(timeout=10.0) as http_client:
                 # Get supported time zones
                 timezones_url = f"{views_base_url}/api/v2/getTimeZones"
-                timezones_response = await http_client.post(
+                timezones_response = await execute_tool_request(
+                    "get_timezones",
+                    http_client,
                     timezones_url,
-                    json={"apiToken": api_token},
+                    params={"apiToken": api_token},
                 )
                 timezones_response.raise_for_status()
                 timezones_data = timezones_response.json()
 
                 # Get supported aggregation functions
                 aggregates_url = f"{views_base_url}/api/v2/getAggregates"
-                aggregates_response = await http_client.post(
+                aggregates_response = await execute_tool_request(
+                    "get_available_aggregates",
+                    http_client,
                     aggregates_url,
-                    json={"apiToken": api_token},
+                    params={"apiToken": api_token},
                 )
                 aggregates_response.raise_for_status()
                 aggregates_data = aggregates_response.json()
@@ -2715,7 +4085,9 @@ async def get_server_info() -> dict[str, Any]:
                     "api_version": "v2",
                     "connected": True,
                     # Limit to 10 for readability
-                    "supported_timezones": (timezones[:10] if len(timezones) > 10 else timezones),
+                    "supported_timezones": (
+                        timezones[:10] if len(timezones) > 10 else timezones
+                    ),
                     "total_timezones": len(timezones),
                     "default_timezone": preferred_timezone,
                     "timezone_hint": (
@@ -2728,7 +4100,9 @@ async def get_server_info() -> dict[str, Any]:
                         if isinstance(aggregates, list) and len(aggregates) > 10
                         else aggregates
                     ),
-                    "total_aggregates": len(aggregates) if isinstance(aggregates, list) else 0,
+                    "total_aggregates": (
+                        len(aggregates) if isinstance(aggregates, list) else 0
+                    ),
                 }
 
                 # MCP server info
@@ -2758,7 +4132,9 @@ async def get_server_info() -> dict[str, Any]:
 
     except CanaryAuthError as e:
         error_msg = f"Authentication failed: {str(e)}"
-        log.error("get_server_info_auth_failed", error=error_msg, request_id=get_request_id())
+        log.error(
+            "get_server_info_auth_failed", error=error_msg, request_id=get_request_id()
+        )
         return {
             "success": False,
             "error": error_msg,
@@ -2783,7 +4159,11 @@ async def get_server_info() -> dict[str, Any]:
 
     except httpx.RequestError as e:
         error_msg = f"Network error accessing Canary API: {str(e)}"
-        log.error("get_server_info_network_error", error=error_msg, request_id=get_request_id())
+        log.error(
+            "get_server_info_network_error",
+            error=error_msg,
+            request_id=get_request_id(),
+        )
         return {
             "success": False,
             "error": error_msg,
@@ -2805,6 +4185,382 @@ async def get_server_info() -> dict[str, Any]:
             "server_info": {},
             "mcp_info": {},
         }
+
+
+@mcp.tool()
+async def get_server_info() -> dict[str, Any]:
+    """
+    Get Canary server health and capability information.
+
+    This tool retrieves server version, status, supported time zones,
+    and aggregation functions from the Canary historian, along with
+    MCP server configuration details.
+
+    Returns:
+        dict[str, Any]: Dictionary containing server information with keys:
+            - success: Boolean indicating if operation succeeded
+            - server_info: Dictionary with Canary server details
+            - mcp_info: Dictionary with MCP server details
+            - error: Error message (only on failure)
+
+    Raises:
+        Exception: If authentication fails or API request errors occur
+    """
+    request_id = set_request_id()
+    log.info("get_server_info_called", request_id=request_id, tool="get_server_info")
+
+    async with MetricsTimer("get_server_info") as timer:
+        try:
+            views_base_url = os.getenv("CANARY_VIEWS_BASE_URL", "")
+            if not views_base_url:
+                raise ValueError("CANARY_VIEWS_BASE_URL not configured")
+
+            async with CanaryAuthClient() as client:
+                api_token = await client.get_valid_token()
+
+                server_info_url = f"{views_base_url}/api/v2/getServerInfo"
+
+                async with httpx.AsyncClient(timeout=10.0) as http_client:
+                    server_info_response = await execute_tool_request(
+                        "get_server_info",
+                        http_client,
+                        server_info_url,
+                        json={"apiToken": api_token},
+                    )
+                    server_info_response.raise_for_status()
+                    server_info_data = server_info_response.json()
+
+            mcp_info = {
+                "version": os.getenv("MCP_VERSION", "unknown"),
+                "environment": os.getenv("MCP_ENVIRONMENT", "development"),
+                "log_level": os.getenv("LOG_LEVEL", "INFO"),
+            }
+
+            log.info(
+                "get_server_info_success",
+                request_id=request_id,
+                canary_version=server_info_data.get("version"),
+            )
+            return {
+                "success": True,
+                "server_info": server_info_data,
+                "mcp_info": mcp_info,
+            }
+
+        except CanaryAuthError as e:
+            error_msg = f"Authentication failed: {str(e)}"
+            log.error(
+                "get_server_info_auth_failed",
+                error=error_msg,
+                request_id=request_id,
+            )
+            return {
+                "success": False,
+                "error": error_msg,
+                "server_info": {},
+                "mcp_info": {},
+            }
+
+        except httpx.HTTPStatusError as e:
+            error_msg = f"API request failed with status {e.response.status_code}: {e.response.text}"
+            log.error(
+                "get_server_info_api_error",
+                error=error_msg,
+                status_code=e.response.status_code,
+                request_id=request_id,
+            )
+            return {
+                "success": False,
+                "error": error_msg,
+                "server_info": {},
+                "mcp_info": {},
+            }
+
+        except httpx.RequestError as e:
+            error_msg = f"Network error accessing Canary API: {str(e)}"
+            log.error(
+                "get_server_info_network_error",
+                error=error_msg,
+                request_id=request_id,
+            )
+            return {
+                "success": False,
+                "error": error_msg,
+                "server_info": {},
+                "mcp_info": {},
+            }
+
+        except Exception as e:
+            error_msg = f"Unexpected error retrieving server info: {str(e)}"
+            log.error(
+                "get_server_info_unexpected_error",
+                error=error_msg,
+                request_id=request_id,
+                exc_info=True,
+            )
+            return {
+                "success": False,
+                "error": error_msg,
+                "server_info": {},
+                "mcp_info": {},
+            }
+
+            return {"success": False, "error": error_msg, "aggregates": []}
+
+
+@mcp.tool()
+async def get_events(
+    start_time: str,
+    end_time: str,
+    limit: int = 10,
+    tag_names: Optional[list[str]] = None,
+) -> dict[str, Any]:
+    """
+    Retrieve event data from the Canary historian.
+
+    Args:
+        start_time: Start time (ISO timestamp or relative expression like "now-1d")
+        end_time: End time (ISO timestamp or relative expression like "now")
+        limit: Maximum number of events to return (default 10)
+        tag_names: Optional list of tag names to filter events
+
+    Returns:
+        dict[str, Any]: Dictionary containing event data with keys:
+            - success: Boolean indicating if operation succeeded
+            - events: List of event records
+            - count: Total number of events returned
+            - error: Error message (only on failure)
+    """
+    request_id = set_request_id()
+    log.info(
+        "get_events_called",
+        start_time=start_time,
+        end_time=end_time,
+        limit=limit,
+        tag_names=tag_names,
+        request_id=request_id,
+        tool="get_events",
+    )
+
+    async with MetricsTimer("get_events") as timer:
+        try:
+            views_base_url = os.getenv("CANARY_VIEWS_BASE_URL", "")
+            if not views_base_url:
+                raise ValueError("CANARY_VIEWS_BASE_URL not configured")
+
+            async with CanaryAuthClient() as client:
+                api_token = await client.get_valid_token()
+
+                events_url = f"{views_base_url}/api/v2/getEvents"
+
+                payload: dict[str, Any] = {
+                    "apiToken": api_token,
+                    "startTime": start_time,
+                    "endTime": end_time,
+                    "limit": limit,
+                }
+                if tag_names:
+                    payload["tags"] = tag_names
+
+                async with httpx.AsyncClient(timeout=10.0) as http_client:
+                    response = await execute_tool_request(
+                        "get_events",
+                        http_client,
+                        events_url,
+                        json=payload,
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+
+            events = data.get("events", [])
+            log.info(
+                "get_events_success",
+                request_id=request_id,
+                event_count=len(events),
+            )
+            return {"success": True, "events": events, "count": len(events)}
+
+        except CanaryAuthError as e:
+            error_msg = f"Authentication failed: {str(e)}"
+            log.error(
+                "get_events_auth_failed",
+                error=error_msg,
+                request_id=request_id,
+            )
+            return {"success": False, "error": error_msg, "events": [], "count": 0}
+
+        except httpx.HTTPStatusError as e:
+            error_msg = f"API request failed with status {e.response.status_code}: {e.response.text}"
+            log.error(
+                "get_events_api_error",
+                error=error_msg,
+                status_code=e.response.status_code,
+                request_id=request_id,
+            )
+            return {"success": False, "error": error_msg, "events": [], "count": 0}
+
+        except httpx.RequestError as e:
+            error_msg = f"Network error accessing Canary API: {str(e)}"
+            log.error(
+                "get_events_network_error",
+                error=error_msg,
+                request_id=request_id,
+            )
+            return {"success": False, "error": error_msg, "events": [], "count": 0}
+
+        except Exception as e:
+            error_msg = f"Unexpected error retrieving events: {str(e)}"
+            log.error(
+                "get_events_unexpected_error",
+                error=error_msg,
+                request_id=request_id,
+                exc_info=True,
+            )
+            return {"success": False, "error": error_msg, "events": [], "count": 0}
+
+            return {"success": False, "error": error_msg, "events": [], "count": 0}
+
+
+@mcp.tool()
+async def get_asset_types() -> dict[str, Any]:
+    """
+    Retrieve available asset types from the Canary historian.
+
+    Returns:
+        dict[str, Any]: Dictionary containing asset types with keys:
+            - success: Boolean indicating if operation succeeded
+            - asset_types: List of asset type names
+            - error: Error message (only on failure)
+    """
+    request_id = set_request_id()
+    log.info("get_asset_types_called", request_id=request_id, tool="get_asset_types")
+
+    async with MetricsTimer("get_asset_types") as timer:
+        try:
+            views_base_url = os.getenv("CANARY_VIEWS_BASE_URL", "")
+            if not views_base_url:
+                raise ValueError("CANARY_VIEWS_BASE_URL not configured")
+
+            async with CanaryAuthClient() as client:
+                api_token = await client.get_valid_token()
+
+                asset_types_url = f"{views_base_url}/api/v2/getAssetTypes"
+
+                async with httpx.AsyncClient(timeout=10.0) as http_client:
+                    response = await execute_tool_request(
+                        "get_asset_types",
+                        http_client,
+                        asset_types_url,
+                        json={"apiToken": api_token},
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+
+            asset_types = data.get("assetTypes", [])
+            log.info(
+                "get_asset_types_success",
+                request_id=request_id,
+                asset_type_count=len(asset_types),
+            )
+            return {"success": True, "asset_types": asset_types}
+
+        except CanaryAuthError as e:
+            error_msg = f"Authentication failed: {str(e)}"
+            log.error(
+                "get_asset_types_auth_failed",
+                error=error_msg,
+                request_id=request_id,
+            )
+            return {"success": False, "error": error_msg, "asset_types": []}
+
+        except httpx.HTTPStatusError as e:
+            error_msg = f"API request failed with status {e.response.status_code}: {e.response.text}"
+            log.error(
+                "get_asset_types_api_error",
+                error=error_msg,
+                status_code=e.response.status_code,
+                request_id=request_id,
+            )
+            return {"success": False, "error": error_msg, "asset_types": []}
+
+        except httpx.RequestError as e:
+            error_msg = f"Network error accessing Canary API: {str(e)}"
+            log.error(
+                "get_asset_types_network_error",
+                error=error_msg,
+                request_id=request_id,
+            )
+            return {"success": False, "error": error_msg, "asset_types": []}
+
+        except Exception as e:
+            error_msg = f"Unexpected error retrieving asset types: {str(e)}"
+            log.error(
+                "get_asset_types_unexpected_error",
+                error=error_msg,
+                request_id=request_id,
+                exc_info=True,
+            )
+            return {"success": False, "error": error_msg, "asset_types": []}
+
+            return {"success": False, "error": error_msg, "asset_types": []}
+
+        except CanaryAuthError as e:
+            error_msg = f"Authentication failed: {str(e)}"
+            log.error(
+                "get_asset_instances_auth_failed",
+                error=error_msg,
+                request_id=request_id,
+            )
+            return {
+                "success": False,
+                "error": error_msg,
+                "asset_instances": [],
+                "count": 0,
+            }
+
+        except httpx.HTTPStatusError as e:
+            error_msg = f"API request failed with status {e.response.status_code}: {e.response.text}"
+            log.error(
+                "get_asset_instances_api_error",
+                error=error_msg,
+                status_code=e.response.status_code,
+                request_id=request_id,
+            )
+            return {
+                "success": False,
+                "error": error_msg,
+                "asset_instances": [],
+                "count": 0,
+            }
+
+        except httpx.RequestError as e:
+            error_msg = f"Network error accessing Canary API: {str(e)}"
+            log.error(
+                "get_asset_instances_network_error",
+                error=error_msg,
+                request_id=request_id,
+            )
+            return {
+                "success": False,
+                "error": error_msg,
+                "asset_instances": [],
+                "count": 0,
+            }
+
+        except Exception as e:
+            error_msg = f"Unexpected error retrieving asset instances: {str(e)}"
+            log.error(
+                "get_asset_instances_unexpected_error",
+                error=error_msg,
+                request_id=request_id,
+                exc_info=True,
+            )
+            return {
+                "success": False,
+                "error": error_msg,
+                "asset_instances": [],
+                "count": 0,
+            }
 
 
 @mcp.tool()
@@ -2885,7 +4641,9 @@ def get_metrics_summary() -> dict[str, Any]:
         ```
     """
     request_id = set_request_id()
-    log.info("get_metrics_summary_called", request_id=request_id, tool="get_metrics_summary")
+    log.info(
+        "get_metrics_summary_called", request_id=request_id, tool="get_metrics_summary"
+    )
 
     try:
         collector = get_metrics_collector()
@@ -3071,7 +4829,11 @@ def cleanup_expired_cache() -> dict[str, Any]:
         ```
     """
     request_id = set_request_id()
-    log.info("cleanup_expired_cache_called", request_id=request_id, tool="cleanup_expired_cache")
+    log.info(
+        "cleanup_expired_cache_called",
+        request_id=request_id,
+        tool="cleanup_expired_cache",
+    )
 
     try:
         cache = get_cache_store()
@@ -3248,6 +5010,32 @@ def get_health() -> dict[str, Any]:
         }
 
 
+def _install_all_payload_guards() -> None:
+    tools = (
+        ping,
+        get_asset_catalog,
+        search_tags,
+        get_tag_metadata,
+        get_tag_path,
+        get_tag_properties,
+        list_namespaces,
+        get_last_known_values,
+        read_timeseries,
+        get_server_info,
+        get_metrics,
+        get_metrics_summary,
+        get_cache_stats,
+        invalidate_cache,
+        cleanup_expired_cache,
+        get_health,
+    )
+    for tool in tools:
+        _install_payload_guard(tool)
+
+
+_install_all_payload_guards()
+
+
 def main() -> None:
     """Run the MCP server."""
     import sys
@@ -3311,27 +5099,15 @@ def main() -> None:
             print(f"Health check failed: {exc}", file=sys.stderr)
             sys.exit(1)
 
-    # Note: All print statements for MCP must go to stderr, not stdout
-    # stdout is reserved for MCP JSON protocol messages
-    print("Starting Canary MCP Server...", file=sys.stderr)
-    print(
-        "WARNING: Configuration validation disabled - server will start but API calls may fail",
-        file=sys.stderr,
-    )
-    print(
-        "         Please verify your CANARY_SAF_BASE_URL and CANARY_VIEWS_BASE_URL settings",
-        file=sys.stderr,
-    )
-
     transport = os.getenv("CANARY_MCP_TRANSPORT", "stdio").lower()
     if transport == "http":
         host = os.getenv("CANARY_MCP_HOST", "0.0.0.0")
         port = int(os.getenv("CANARY_MCP_PORT", "6000"))
         log.info("MCP server starting", transport=transport, host=host, port=port)
-        mcp.run(transport="http", host=host, port=port)
+        mcp.run(transport="http", host=host, port=port, show_banner=False)
     else:
         log.info("MCP server starting", transport="stdio")
-        mcp.run()
+        mcp.run(show_banner=False)
     log.info("MCP server stopped")
 
 

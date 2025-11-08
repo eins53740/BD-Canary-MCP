@@ -17,7 +17,13 @@ class MemoryCache:
     def __init__(self) -> None:
         self.store: Dict[str, Any] = {}
 
-    def _generate_cache_key(self, namespace: str, tag: str, start_time: str | None = None, end_time: str | None = None) -> str:
+    def _generate_cache_key(
+        self,
+        namespace: str,
+        tag: str,
+        start_time: str | None = None,
+        end_time: str | None = None,
+    ) -> str:
         key_parts = [namespace, tag]
         if start_time:
             key_parts.append(start_time)
@@ -28,7 +34,9 @@ class MemoryCache:
     def get(self, key: str) -> Any:
         return self.store.get(key)
 
-    def set(self, key: str, value: Any, category: str = "metadata", ttl: int | None = None) -> None:
+    def set(
+        self, key: str, value: Any, category: str = "metadata", ttl: int | None = None
+    ) -> None:
         self.store[key] = value
 
 
@@ -61,7 +69,9 @@ async def test_metadata_description_influences_ranking(monkeypatch):
             "cached": False,
         }
     )
-    monkeypatch.setattr("canary_mcp.server.search_tags", SimpleNamespace(fn=mock_search))
+    monkeypatch.setattr(
+        "canary_mcp.server.search_tags", SimpleNamespace(fn=mock_search)
+    )
 
     metadata_side_effect = [
         (
@@ -95,3 +105,5 @@ async def test_metadata_description_influences_ranking(monkeypatch):
     assert result["success"] is True
     assert result["most_likely_path"] == "Plant.Kiln.Section15.Vibration"
     assert result["candidates"][0]["matched_keywords"]["description"]
+    assert result["confidence"] >= 0.8
+    assert result["next_step"] == "return_path"

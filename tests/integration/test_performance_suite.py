@@ -51,6 +51,7 @@ async def test_concurrent_query_performance(reset_metrics):
 
     NFR001: Handle 25 concurrent users without degradation
     """
+
     async def mock_query():
         async with MetricsTimer("concurrent_test"):
             await asyncio.sleep(0.1)
@@ -88,7 +89,9 @@ def test_metrics_collection_overhead(reset_metrics):
 
     # Overhead should be reasonable (< 50ms total for 1000 iterations)
     # This means each metric collection adds < 50μs overhead
-    assert with_metrics < 0.05, f"Metrics collection took {with_metrics}s for 1000 iterations"
+    assert (
+        with_metrics < 0.05
+    ), f"Metrics collection took {with_metrics}s for 1000 iterations"
 
     # Also verify the baseline is not zero
     assert baseline > 0, "Baseline measurement invalid"
@@ -104,6 +107,7 @@ def test_performance_metrics_accuracy(reset_metrics):
 
     for latency in test_latencies:
         from canary_mcp.metrics import RequestMetrics
+
         metrics = RequestMetrics(
             tool_name="accuracy_test",
             start_time=0.0,
@@ -124,9 +128,10 @@ def test_performance_metrics_accuracy(reset_metrics):
 @pytest.mark.integration
 def test_cache_performance_impact(reset_metrics):
     """Test that caching improves performance."""
-    from canary_mcp.cache import CacheStore, CacheConfig
     import tempfile
     from pathlib import Path
+
+    from canary_mcp.cache import CacheConfig, CacheStore
 
     with tempfile.TemporaryDirectory() as tmpdir:
         config = CacheConfig()
@@ -175,7 +180,7 @@ async def test_error_rate_under_load(reset_metrics):
     # Run 100 queries with 5% failure rate
     tasks = []
     for i in range(100):
-        should_fail = (i % 20 == 0)  # 5% failure
+        should_fail = i % 20 == 0  # 5% failure
         tasks.append(mock_query_with_errors(should_fail))
 
     await asyncio.gather(*tasks, return_exceptions=True)
@@ -194,6 +199,7 @@ def test_performance_summary_generation(reset_metrics):
     # Simulate some requests
     for i in range(10):
         from canary_mcp.metrics import RequestMetrics
+
         metrics = RequestMetrics(
             tool_name="summary_test",
             start_time=0.0,

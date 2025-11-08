@@ -35,7 +35,9 @@ class InMemoryCache:
     def get(self, key: str) -> Any:
         return self.store.get(key)
 
-    def set(self, key: str, value: Any, category: str = "metadata", ttl: int | None = None) -> None:
+    def set(
+        self, key: str, value: Any, category: str = "metadata", ttl: int | None = None
+    ) -> None:
         self.store[key] = value
 
 
@@ -52,7 +54,9 @@ async def test_get_tag_path_returns_candidates(monkeypatch):
     """The tool should return a ranked candidate list when search yields matches."""
     memory_cache = InMemoryCache()
     monkeypatch.setattr("canary_mcp.server.get_cache_store", lambda: memory_cache)
-    monkeypatch.setattr("canary_mcp.server.get_local_tag_candidates", lambda *args, **kwargs: [])
+    monkeypatch.setattr(
+        "canary_mcp.server.get_local_tag_candidates", lambda *args, **kwargs: []
+    )
 
     mock_search = AsyncMock(
         return_value={
@@ -70,7 +74,9 @@ async def test_get_tag_path_returns_candidates(monkeypatch):
             "cached": False,
         }
     )
-    monkeypatch.setattr("canary_mcp.server.search_tags", SimpleNamespace(fn=mock_search))
+    monkeypatch.setattr(
+        "canary_mcp.server.search_tags", SimpleNamespace(fn=mock_search)
+    )
 
     metadata_payload = (
         {
@@ -93,6 +99,8 @@ async def test_get_tag_path_returns_candidates(monkeypatch):
     assert result["keywords"] == ["kiln", "shell", "temperature", "section", "15"]
     assert len(result["candidates"]) == 1
     assert result["candidates"][0]["score"] > 0
+    assert result["confidence"] >= 0.8
+    assert result["next_step"] == "return_path"
     assert memory_cache.store  # Final result should be cached
 
 
@@ -102,11 +110,15 @@ async def test_get_tag_path_validates_description(monkeypatch):
     """Empty descriptions should return an error without invoking downstream calls."""
     memory_cache = InMemoryCache()
     monkeypatch.setattr("canary_mcp.server.get_cache_store", lambda: memory_cache)
-    monkeypatch.setattr("canary_mcp.server.get_local_tag_candidates", lambda *args, **kwargs: [])
+    monkeypatch.setattr(
+        "canary_mcp.server.get_local_tag_candidates", lambda *args, **kwargs: []
+    )
 
     # Ensure search_tags is not called
     mock_search = AsyncMock()
-    monkeypatch.setattr("canary_mcp.server.search_tags", SimpleNamespace(fn=mock_search))
+    monkeypatch.setattr(
+        "canary_mcp.server.search_tags", SimpleNamespace(fn=mock_search)
+    )
     monkeypatch.setattr(
         "canary_mcp.server._get_tag_metadata_cached",
         AsyncMock(),
@@ -116,6 +128,8 @@ async def test_get_tag_path_validates_description(monkeypatch):
 
     assert result["success"] is False
     assert "empty" in result["error"].lower()
+    assert result["next_step"] == "clarify"
+    assert "clarifying_question" in result
     mock_search.assert_not_called()
 
 
@@ -125,7 +139,9 @@ async def test_get_tag_path_handles_no_matches(monkeypatch):
     """When no matches are found the response should indicate failure."""
     memory_cache = InMemoryCache()
     monkeypatch.setattr("canary_mcp.server.get_cache_store", lambda: memory_cache)
-    monkeypatch.setattr("canary_mcp.server.get_local_tag_candidates", lambda *args, **kwargs: [])
+    monkeypatch.setattr(
+        "canary_mcp.server.get_local_tag_candidates", lambda *args, **kwargs: []
+    )
 
     search_mock = AsyncMock(
         return_value={
@@ -136,7 +152,9 @@ async def test_get_tag_path_handles_no_matches(monkeypatch):
             "cached": False,
         }
     )
-    monkeypatch.setattr("canary_mcp.server.search_tags", SimpleNamespace(fn=search_mock))
+    monkeypatch.setattr(
+        "canary_mcp.server.search_tags", SimpleNamespace(fn=search_mock)
+    )
     monkeypatch.setattr(
         "canary_mcp.server._get_tag_metadata_cached",
         AsyncMock(),
@@ -148,6 +166,7 @@ async def test_get_tag_path_handles_no_matches(monkeypatch):
     assert result["most_likely_path"] is None
     assert result["candidates"] == []
     assert "no tags" in result["error"].lower()
+    assert result["next_step"] == "clarify"
 
 
 @pytest.mark.unit
@@ -166,7 +185,9 @@ async def test_get_tag_path_uses_local_index_when_api_returns_nothing(monkeypatc
             "cached": False,
         }
     )
-    monkeypatch.setattr("canary_mcp.server.search_tags", SimpleNamespace(fn=search_mock))
+    monkeypatch.setattr(
+        "canary_mcp.server.search_tags", SimpleNamespace(fn=search_mock)
+    )
 
     local_candidate = {
         "path": "Plant.Kiln.Line5.ShellSpeed",
@@ -203,4 +224,9 @@ async def test_get_tag_path_uses_local_index_when_api_returns_nothing(monkeypatc
 
     assert result["success"] is True
     assert result["most_likely_path"] == local_candidate["path"]
-    assert result["candidates"][0]["matched_keywords"]["local_index"] == ["kiln", "shell", "speed"]
+    assert result["candidates"][0]["matched_keywords"]["local_index"] == [
+        "kiln",
+        "shell",
+        "speed",
+    ]
+    assert result["confidence"] >= 0.8

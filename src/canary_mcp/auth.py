@@ -10,7 +10,6 @@ from typing import Any, Callable, Optional, TypeVar, cast
 import httpx
 from dotenv import load_dotenv
 
-from canary_mcp.circuit_breaker import CircuitBreakerError, get_circuit_breaker
 from canary_mcp.exceptions import CanaryAuthError, ConfigurationError
 from canary_mcp.logging_setup import get_logger
 
@@ -70,7 +69,9 @@ def retry_with_backoff(
                         raise
 
                     # Calculate delay with exponential backoff
-                    delay = min(base_delay * (exponential_base ** (attempt - 1)), max_delay)
+                    delay = min(
+                        base_delay * (exponential_base ** (attempt - 1)), max_delay
+                    )
 
                     # Add jitter to prevent thundering herd (Story 2.3)
                     if jitter:
@@ -132,11 +133,20 @@ class CanaryAuthClient:
         self.saf_base_url = os.getenv("CANARY_SAF_BASE_URL", "")
         self.views_base_url = os.getenv("CANARY_VIEWS_BASE_URL", "")
         self.user_token = os.getenv("CANARY_API_TOKEN", "")
+        self.client_id = os.getenv("CANARY_CLIENT_ID", "canary-mcp")
+        self.historians = tuple(
+            item.strip()
+            for item in os.getenv("CANARY_HISTORIANS", "").split(",")
+            if item.strip()
+        )
+        auto_create_raw = (
+            os.getenv("CANARY_SAF_AUTO_CREATE_DATASETS", "true").strip().lower()
+        )
+        self.auto_create_datasets = auto_create_raw not in {"", "0", "false", "no"}
+        self.saf_file_size_mb = int(os.getenv("CANARY_SAF_FILE_SIZE_MB", "8"))
 
         # Session configuration
-        self.session_timeout_ms = int(
-            os.getenv("CANARY_SESSION_TIMEOUT_MS", "120000")
-        )
+        self.session_timeout_ms = int(os.getenv("CANARY_SESSION_TIMEOUT_MS", "120000"))
         self.request_timeout = int(os.getenv("CANARY_REQUEST_TIMEOUT_SECONDS", "10"))
 
         # Connection pool configuration (Story 2.1)
@@ -239,10 +249,25 @@ class CanaryAuthClient:
         # Construct authentication endpoint
         auth_url = f"{self.saf_base_url}/getSessionToken"
 
+        payload: dict[str, Any] = {"userToken": self.user_token}
+        if self.client_id:
+            payload["clientId"] = self.client_id
+        if self.historians:
+            payload["historians"] = list(self.historians)
+
+        settings: dict[str, Any] = {}
+        if self.session_timeout_ms:
+            settings["clientTimeout"] = self.session_timeout_ms
+        if self.saf_file_size_mb:
+            settings["fileSize"] = self.saf_file_size_mb
+        settings["autoCreateDatasets"] = self.auto_create_datasets
+        if settings:
+            payload["settings"] = settings
+
         try:
             response = await self._client.post(
                 auth_url,
-                json={"userToken": self.user_token},
+                json=payload,
             )
 
             response.raise_for_status()
@@ -255,7 +280,9 @@ class CanaryAuthClient:
                 if self.user_token:
                     log.warning(
                         "auth_missing_session_token_fallback",
-                        message="Authentication response lacked sessionToken; using API token directly",
+                        message=(
+                            "Authentication response lacked sessionToken; using API token directly"
+                        ),
                     )
                     self._session_token = self.user_token
                     # Treat direct API tokens as long-lived
@@ -396,7 +423,9 @@ async def validate_config() -> bool:
         try:
             # Validate credentials (will raise if missing)
             client._validate_credentials()
-            log.info("credentials_validated", message="All required credentials present")
+            log.info(
+                "credentials_validated", message="All required credentials present"
+            )
 
             # Test authentication
             await client.authenticate()

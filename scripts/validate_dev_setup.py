@@ -12,7 +12,6 @@ Exit codes:
     1 - One or more validations failed
 """
 
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -47,7 +46,9 @@ class DevEnvironmentValidator:
     def print_header(self):
         """Print validation header."""
         print(f"\n{BOLD}{BLUE}{'=' * 70}{RESET}")
-        print(f"{BOLD}{BLUE}Canary MCP Server - Development Environment Validation{RESET}")
+        print(
+            f"{BOLD}{BLUE}Canary MCP Server - Development Environment Validation{RESET}"
+        )
         print(f"{BOLD}{BLUE}{'=' * 70}{RESET}\n")
 
     def print_section(self, title: str):
@@ -128,7 +129,7 @@ class DevEnvironmentValidator:
             self.check_failed(
                 "uv_installation",
                 "uv not found in PATH",
-                "Install uv: powershell -c \"irm https://astral.sh/uv/install.ps1 | iex\"",
+                'Install uv: powershell -c "irm https://astral.sh/uv/install.ps1 | iex"',
             )
             return False
         except Exception as e:
@@ -184,7 +185,7 @@ class DevEnvironmentValidator:
                 self.check_failed(
                     f"dependency_{package}",
                     f"Missing: {description} ({package})",
-                    f"Install: uv sync --all-extras",
+                    "Install: uv sync --all-extras",
                 )
                 all_installed = False
 
@@ -374,15 +375,17 @@ class DevEnvironmentValidator:
         if failed_count == 0:
             print(f"{GREEN}{BOLD}✓ Development environment is ready!{RESET}")
             print(f"{GREEN}You can start developing and testing.{RESET}\n")
-            print(f"Quick start:")
+            print("Quick start:")
             print(f"  {BLUE}uv run python -m canary_mcp.server{RESET}  # Run server")
             print(f"  {BLUE}uv run pytest tests/ -v{RESET}            # Run tests")
-            print(f"  {BLUE}uv run ruff check .{RESET}                # Check code quality\n")
+            print(
+                f"  {BLUE}uv run ruff check .{RESET}                # Check code quality\n"
+            )
             return True
         else:
             print(f"{RED}{BOLD}✗ Some validations failed.{RESET}")
             print(f"{RED}Please fix the issues listed above.{RESET}\n")
-            print(f"For help, see:")
+            print("For help, see:")
             print(f"  {BLUE}docs/development/quick-start.md{RESET}\n")
             return False
 

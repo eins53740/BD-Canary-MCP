@@ -47,7 +47,7 @@ Highlights:
 - API Contracts (local): `docs/aux_files/Canary API` (Views v25.4, SaF v25.3)
 - Write tool gated to `Test/*` only with tester role; optional `autoCreateDatasets=true` during session token creation in test
 - Canonical `tag_lookup_workflow` with confidence thresholds and clarifying questions
-- DoD & Acceptance: unit/integration in CI; p95 < 10000 ms; batch mapping ≥90%
+- DoD & Acceptance: unit/integration in CI; p95 < 10000 ms; batch mapping ≥90%; Security review passed
 
 References:
 - Epic: docs/epic4.md
@@ -656,6 +656,46 @@ So that LLMs produce deterministic, explainable results.
 1. Canonical `tag_lookup_workflow` added: parse → normalise → search → rank → return or clarify.
 2. ≥90% accuracy on 200 test queries; confidence <0.7 triggers clarifying question.
 3. Error handling for malformed inputs.
+
+**Concrete `tag_lookup_workflow` (practical pseudocode):**
+
+```pseudocode
+FUNCTION tag_lookup_workflow(natural_language_description, site_hint=None):
+    // 1. Parse NL → entities (object, measurement, location, asset names)
+    entities = parse_natural_language(natural_language_description)
+
+    // 2. Normalize tokens (synonyms, units, abbreviations)
+    normalized_entities = normalize_tokens(entities)
+
+    // 3. Search metadata index (RAG index of tag descriptions & properties)
+    //    using embedding similarity + BM25. Return candidates.
+    candidate_tags = search_metadata_index(normalized_entities)
+
+    // 4. Pattern match / prefix boost — prioritise tags under Secil.Portugal and the provided site_hint.
+    candidate_tags = apply_prefix_boost(candidate_tags, site_hint)
+
+    // 5. Rank candidates by combined score (semantic similarity + metadata match + prefix boost).
+    ranked_candidates = rank_candidates(candidate_tags)
+
+    // 6. If top confidence ≥ threshold (e.g. 0.8) → return selected.
+    IF ranked_candidates[0].confidence >= 0.8 THEN
+        log_telemetry(query=natural_language_description, chosen=ranked_candidates[0], confidence=ranked_candidates[0].confidence)
+        RETURN ranked_candidates[0].path
+    // 7. If confidence low → return top N candidates and generate a clarifying question.
+    ELSE IF ranked_candidates[0].confidence < 0.7 THEN
+        clarifying_question = generate_clarifying_question(ranked_candidates)
+        log_telemetry(query=natural_language_description, candidates=ranked_candidates, clarifying_question=clarifying_question)
+        RETURN { "candidates": ranked_candidates[:N], "clarifying_question": clarifying_question }
+    // 8. If medium confidence, return top candidate but advise user to double check
+    ELSE // 0.7 <= confidence < 0.8
+        log_telemetry(query=natural_language_description, chosen=ranked_candidates[0], confidence=ranked_candidates[0].confidence, advice="double_check")
+        RETURN { "most_likely_path": ranked_candidates[0].path, "advice": "Consider double-checking units or section." }
+    END IF
+
+    // 9. Log query, user, chosen candidate, and confidence for telemetry.
+    //    (Implicitly handled within the IF/ELSE blocks)
+END FUNCTION
+```
 
 ---
 

@@ -10,6 +10,8 @@ This index replaces the inlined Story list. Each Story now has its own file:
 - docs/stories/4-6-installers-and-configuration.md
 - docs/stories/4-7-coding-standards-and-coverage.md
 - docs/stories/4-8-write-api-implementation.md
+- docs/stories/4-9-add-gettagdata2-tool.md
+- docs/stories/4-10-vector-database-rag.md
 
 Notes:
 - Stories are scoped for a brownfield environment (no breaking changes to existing Canary deployments).

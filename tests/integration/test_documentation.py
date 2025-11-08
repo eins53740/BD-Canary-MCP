@@ -5,12 +5,10 @@ Story 2.6: API Documentation Generation
 Validates that all MCP tools are documented with complete information.
 """
 
-import os
 import re
 from pathlib import Path
 
 import pytest
-
 
 # Expected MCP tools that should be documented
 EXPECTED_TOOLS = [
@@ -84,7 +82,9 @@ class TestAPIDocumentationStructure:
     def test_api_doc_has_title(self, api_doc_path):
         """Verify API.md has a title."""
         content = api_doc_path.read_text(encoding="utf-8")
-        assert "# Canary MCP Server API Documentation" in content, "API.md missing title"
+        assert (
+            "# Canary MCP Server API Documentation" in content
+        ), "API.md missing title"
 
     def test_api_doc_has_table_of_contents(self, api_doc_path):
         """Verify API.md has table of contents."""
@@ -105,7 +105,9 @@ class TestAPIDocumentationStructure:
         """Verify API.md includes version information."""
         content = api_doc_path.read_text(encoding="utf-8")
         # Check for version pattern like "v1.0.0" or "1.0.0"
-        assert re.search(r"v?\d+\.\d+\.\d+", content), "API.md missing version information"
+        assert re.search(
+            r"v?\d+\.\d+\.\d+", content
+        ), "API.md missing version information"
 
 
 class TestToolDocumentation:
@@ -154,8 +156,12 @@ class TestToolDocumentation:
             assert tool_match, f"Tool {tool} section not found"
 
             tool_section = tool_match.group(0)
-            has_params = "**Parameters:**" in tool_section or "**Parameters**" in tool_section
-            has_returns = "**Returns:**" in tool_section or "**Returns**" in tool_section
+            has_params = (
+                "**Parameters:**" in tool_section or "**Parameters**" in tool_section
+            )
+            has_returns = (
+                "**Returns:**" in tool_section or "**Returns**" in tool_section
+            )
 
             assert (
                 has_params or has_returns
@@ -206,9 +212,7 @@ class TestExamplesDocumentation:
         ]
 
         for category in use_case_categories:
-            assert (
-                category in content
-            ), f"examples.md missing category: {category}"
+            assert category in content, f"examples.md missing category: {category}"
 
     def test_examples_reference_tools(self, examples_doc_path):
         """Verify examples reference actual MCP tools."""
@@ -265,17 +269,27 @@ class TestMarkdownValidity:
         content = api_doc_path.read_text(encoding="utf-8")
 
         # Check for heading hierarchy (should have #, ##, ###)
-        assert re.search(r"^# ", content, re.MULTILINE), "API.md missing level 1 heading"
-        assert re.search(r"^## ", content, re.MULTILINE), "API.md missing level 2 headings"
-        assert re.search(r"^### ", content, re.MULTILINE), "API.md missing level 3 headings"
+        assert re.search(
+            r"^# ", content, re.MULTILINE
+        ), "API.md missing level 1 heading"
+        assert re.search(
+            r"^## ", content, re.MULTILINE
+        ), "API.md missing level 2 headings"
+        assert re.search(
+            r"^### ", content, re.MULTILINE
+        ), "API.md missing level 3 headings"
 
     def test_examples_has_valid_headings(self, examples_doc_path):
         """Verify examples.md has properly formatted headings."""
         content = examples_doc_path.read_text(encoding="utf-8")
 
         # Check for heading hierarchy
-        assert re.search(r"^# ", content, re.MULTILINE), "examples.md missing level 1 heading"
-        assert re.search(r"^## ", content, re.MULTILINE), "examples.md missing level 2 headings"
+        assert re.search(
+            r"^# ", content, re.MULTILINE
+        ), "examples.md missing level 1 heading"
+        assert re.search(
+            r"^## ", content, re.MULTILINE
+        ), "examples.md missing level 2 headings"
 
     def test_api_doc_code_blocks_closed(self, api_doc_path):
         """Verify all code blocks in API.md are properly closed."""
@@ -308,7 +322,9 @@ class TestErrorDocumentation:
         content = api_doc_path.read_text(encoding="utf-8")
 
         # Should document error response structure
-        assert '"success": false' in content, "API.md does not document error response format"
+        assert (
+            '"success": false' in content
+        ), "API.md does not document error response format"
         assert '"error"' in content, "API.md does not show error field"
 
     def test_api_doc_lists_error_types(self, api_doc_path):
@@ -355,7 +371,9 @@ class TestCachingDocumentation:
         """Verify bypass_cache parameter is documented."""
         content = api_doc_path.read_text(encoding="utf-8")
 
-        assert "bypass_cache" in content, "API.md does not document bypass_cache parameter"
+        assert (
+            "bypass_cache" in content
+        ), "API.md does not document bypass_cache parameter"
 
 
 class TestPerformanceDocumentation:
@@ -433,9 +451,10 @@ class TestDocumentationCompleteness:
             if entity in content:
                 found_entities.append(entity)
 
-        assert (
-            len(found_entities) >= 2
-        ), f"examples.md does not reference enough real Canary entities (found: {', '.join(found_entities)})"
+        assert len(found_entities) >= 2, (
+            f"examples.md does not reference enough real Canary entities "
+            f"(found: {', '.join(found_entities)})"
+        )
 
     def test_documentation_cross_references(self, api_doc_path, examples_doc_path):
         """Verify documentation files cross-reference each other."""

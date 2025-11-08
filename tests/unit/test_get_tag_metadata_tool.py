@@ -67,11 +67,16 @@ async def test_get_tag_metadata_data_parsing_valid_response(monkeypatch):
         ]
 
         search_mock = AsyncMock(
-            return_value={"success": True, "tags": [{"path": "Plant.Area1.Temperature"}]}
+            return_value={
+                "success": True,
+                "tags": [{"path": "Plant.Area1.Temperature"}],
+            }
         )
 
         monkeypatch.setattr("httpx.AsyncClient.post", post_mock)
-        monkeypatch.setattr("canary_mcp.server.search_tags", SimpleNamespace(fn=search_mock))
+        monkeypatch.setattr(
+            "canary_mcp.server.search_tags", SimpleNamespace(fn=search_mock)
+        )
 
         result = await get_tag_metadata.fn("Plant.Area1.Temperature")
 
@@ -117,7 +122,9 @@ async def test_get_tag_metadata_resolves_short_identifier(monkeypatch):
         )
 
         monkeypatch.setattr("httpx.AsyncClient.post", post_mock)
-        monkeypatch.setattr("canary_mcp.server.search_tags", SimpleNamespace(fn=search_mock))
+        monkeypatch.setattr(
+            "canary_mcp.server.search_tags", SimpleNamespace(fn=search_mock)
+        )
 
         result = await get_tag_metadata.fn("ShortTag")
 
@@ -150,11 +157,16 @@ async def test_get_tag_metadata_handles_http_error(monkeypatch):
         ]
 
         search_mock = AsyncMock(
-            return_value={"success": True, "tags": [{"path": "Plant.Area1.Temperature"}]}
+            return_value={
+                "success": True,
+                "tags": [{"path": "Plant.Area1.Temperature"}],
+            }
         )
 
         monkeypatch.setattr("httpx.AsyncClient.post", post_mock)
-        monkeypatch.setattr("canary_mcp.server.search_tags", SimpleNamespace(fn=search_mock))
+        monkeypatch.setattr(
+            "canary_mcp.server.search_tags", SimpleNamespace(fn=search_mock)
+        )
 
         result = await get_tag_metadata.fn("Plant.Area1.Temperature")
 

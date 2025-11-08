@@ -39,7 +39,8 @@ def test_get_server_info_response_structure():
             "supported_timezones": ["UTC"],
             "total_timezones": 1,
             "default_timezone": "Europe/Lisbon",
-            "timezone_hint": "Natural-language time ranges are interpreted in Europe/Lisbon before converting to UTC.",
+            "timezone_hint": "Natural-language time ranges are interpreted "
+            "in Europe/Lisbon before converting to UTC.",
             "supported_aggregates": ["Min"],
             "total_aggregates": 1,
         },
@@ -79,7 +80,8 @@ def test_server_info_keys():
         "supported_timezones": ["UTC", "PST"],
         "total_timezones": 2,
         "default_timezone": "Europe/Lisbon",
-        "timezone_hint": "Natural-language time ranges are interpreted in Europe/Lisbon before converting to UTC.",
+        "timezone_hint": "Natural-language time ranges are interpreted "
+        "in Europe/Lisbon before converting to UTC.",
         "supported_aggregates": ["Min", "Max"],
         "total_aggregates": 2,
     }
@@ -136,12 +138,16 @@ def test_timezone_list_limiting():
     timezones_large = [f"TZ{i}" for i in range(50)]
 
     # Small list - should return all
-    result_small = timezones_small[:10] if len(timezones_small) > 10 else timezones_small
+    result_small = (
+        timezones_small[:10] if len(timezones_small) > 10 else timezones_small
+    )
     assert len(result_small) == 3
     assert result_small == timezones_small
 
     # Large list - should limit to 10
-    result_large = timezones_large[:10] if len(timezones_large) > 10 else timezones_large
+    result_large = (
+        timezones_large[:10] if len(timezones_large) > 10 else timezones_large
+    )
     assert len(result_large) == 10
     assert result_large == timezones_large[:10]
 

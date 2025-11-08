@@ -136,7 +136,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--raw-string",
         action="store_true",
-        help="Send the first positional tag argument as a raw string (useful for testing JSON arrays).",
+        help=(
+            "Send the first positional tag argument as a raw string (useful for testing JSON arrays)."
+        ),
     )
 
     return parser.parse_args()

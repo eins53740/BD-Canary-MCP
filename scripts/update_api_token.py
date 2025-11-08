@@ -3,8 +3,10 @@
 Helper script to update the CANARY_API_TOKEN in .env file.
 Usage: python update_api_token.py <your-token-here>
 """
+
 import sys
 from pathlib import Path
+
 
 def update_api_token(token: str) -> bool:
     """Update CANARY_API_TOKEN in .env file."""
@@ -18,7 +20,7 @@ def update_api_token(token: str) -> bool:
     content = env_file.read_text(encoding="utf-8")
 
     # Replace the token line
-    lines = content.split('\n')
+    lines = content.split("\n")
     updated = False
 
     for i, line in enumerate(lines):
@@ -26,7 +28,7 @@ def update_api_token(token: str) -> bool:
             old_value = line
             lines[i] = f"CANARY_API_TOKEN={token}"
             updated = True
-            print(f"Updated token:")
+            print("Updated token:")
             print(f"  Old: {old_value}")
             print(f"  New: CANARY_API_TOKEN={token[:10]}...{token[-5:]}")
             break
@@ -36,14 +38,15 @@ def update_api_token(token: str) -> bool:
         return False
 
     # Write updated content
-    env_file.write_text('\n'.join(lines), encoding="utf-8")
-    print(f"\n[OK] .env file updated successfully!")
-    print(f"\nNext steps:")
-    print(f"  1. Restart Claude Desktop (close completely and reopen)")
-    print(f"  2. The MCP server should now connect successfully")
-    print(f"  3. Try asking Claude to 'Use get_server_info to check Canary connection'")
+    env_file.write_text("\n".join(lines), encoding="utf-8")
+    print("\n[OK] .env file updated successfully!")
+    print("\nNext steps:")
+    print("  1. Restart Claude Desktop (close completely and reopen)")
+    print("  2. The MCP server should now connect successfully")
+    print("  3. Try asking Claude to 'Use get_server_info to check Canary connection'")
 
     return True
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
@@ -62,7 +65,7 @@ if __name__ == "__main__":
     if len(token) < 10:
         print("Warning: Token seems very short. Are you sure this is correct?")
         response = input("Continue anyway? (y/N): ")
-        if response.lower() != 'y':
+        if response.lower() != "y":
             print("Aborted.")
             sys.exit(0)
 

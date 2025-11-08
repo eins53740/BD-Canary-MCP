@@ -5,7 +5,6 @@ Story 2.2: Caching Layer Implementation
 Tests cache hit/miss behavior, TTL, LRU eviction, and cache management.
 """
 
-import os
 import tempfile
 import time
 from pathlib import Path
@@ -86,14 +85,20 @@ def test_cache_expiration(cache_store):
 @pytest.mark.integration
 def test_cache_key_generation(cache_store):
     """Test cache key generation is consistent."""
-    key1 = cache_store._generate_cache_key("namespace", "tag1", "2024-01-01", "2024-01-02")
-    key2 = cache_store._generate_cache_key("namespace", "tag1", "2024-01-01", "2024-01-02")
+    key1 = cache_store._generate_cache_key(
+        "namespace", "tag1", "2024-01-01", "2024-01-02"
+    )
+    key2 = cache_store._generate_cache_key(
+        "namespace", "tag1", "2024-01-01", "2024-01-02"
+    )
 
     # Same parameters should generate same key
     assert key1 == key2
 
     # Different parameters should generate different keys
-    key3 = cache_store._generate_cache_key("namespace", "tag2", "2024-01-01", "2024-01-02")
+    key3 = cache_store._generate_cache_key(
+        "namespace", "tag2", "2024-01-01", "2024-01-02"
+    )
     assert key1 != key3
 
 

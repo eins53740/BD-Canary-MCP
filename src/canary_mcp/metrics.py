@@ -6,7 +6,7 @@ Collects metrics for request latency, API response times, cache hit/miss rates.
 
 import time
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from threading import Lock
 from typing import Any, DefaultDict
 
@@ -102,9 +102,9 @@ class MetricsCollector:
             }
 
             # Calculate per-tool statistics
-            all_tools = set(
-                tool for tool, _ in self._request_counts.keys()
-            ) | set(self._latency_buckets.keys())
+            all_tools = set(tool for tool, _ in self._request_counts.keys()) | set(
+                self._latency_buckets.keys()
+            )
 
             for tool in all_tools:
                 tool_stats: dict[str, Any] = {
@@ -157,11 +157,14 @@ class MetricsCollector:
             lines: list[str] = []
 
             # Request count metric
-            lines.append("# HELP canary_requests_total Total number of requests by tool")
+            lines.append(
+                "# HELP canary_requests_total Total number of requests by tool"
+            )
             lines.append("# TYPE canary_requests_total counter")
             for (tool, status_code), count in self._request_counts.items():
                 lines.append(
-                    f'canary_requests_total{{tool_name="{tool}",status_code="{status_code}"}} {count}'
+                    f'canary_requests_total{{tool_name="{tool}",'
+                    f'status_code="{status_code}"}} {count}'
                 )
 
             # Request duration histogram
@@ -186,7 +189,8 @@ class MetricsCollector:
                     cumulative += count
                     bucket_str = "+Inf" if bucket == float("inf") else str(bucket)
                     lines.append(
-                        f'canary_request_duration_seconds_bucket{{tool_name="{tool}",le="{bucket_str}"}} {cumulative}'
+                        f'canary_request_duration_seconds_bucket{{tool_name="{tool}",'
+                        f'le="{bucket_str}"}} {cumulative}'
                     )
 
                 # Summary statistics
@@ -204,10 +208,14 @@ class MetricsCollector:
             for tool, hits in self._cache_hits.items():
                 lines.append(f'canary_cache_hits_total{{tool_name="{tool}"}} {hits}')
 
-            lines.append("# HELP canary_cache_misses_total Total number of cache misses")
+            lines.append(
+                "# HELP canary_cache_misses_total Total number of cache misses"
+            )
             lines.append("# TYPE canary_cache_misses_total counter")
             for tool, misses in self._cache_misses.items():
-                lines.append(f'canary_cache_misses_total{{tool_name="{tool}"}} {misses}')
+                lines.append(
+                    f'canary_cache_misses_total{{tool_name="{tool}"}} {misses}'
+                )
 
             # Active connections gauge
             lines.append(

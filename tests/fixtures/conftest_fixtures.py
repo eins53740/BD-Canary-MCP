@@ -93,9 +93,7 @@ def sample_tag_metadata():
     Returns:
         dict: Tag metadata dictionary
     """
-    return SAMPLE_TAG_METADATA[
-        "Maceira.Cement.Kiln6.Temperature.Outlet"
-    ].copy()
+    return SAMPLE_TAG_METADATA["Maceira.Cement.Kiln6.Temperature.Outlet"].copy()
 
 
 @pytest.fixture

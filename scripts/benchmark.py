@@ -63,7 +63,9 @@ class BenchmarkRunner:
         print(f"\n{BOLD}{title}{RESET}")
         print(f"{'-' * len(title)}")
 
-    def benchmark_passed(self, name: str, message: str, value: float, target: float) -> None:
+    def benchmark_passed(
+        self, name: str, message: str, value: float, target: float
+    ) -> None:
         """Report a passed benchmark."""
         self.passed += 1
         print(
@@ -120,11 +122,15 @@ class BenchmarkRunner:
             }
 
         median = statistics.median(latencies)
-        p95 = statistics.quantiles(latencies, n=20)[18] if len(latencies) >= 20 else max(
-            latencies
+        p95 = (
+            statistics.quantiles(latencies, n=20)[18]
+            if len(latencies) >= 20
+            else max(latencies)
         )
-        p99 = statistics.quantiles(latencies, n=100)[98] if len(latencies) >= 100 else max(
-            latencies
+        p99 = (
+            statistics.quantiles(latencies, n=100)[98]
+            if len(latencies) >= 100
+            else max(latencies)
         )
         min_lat = min(latencies)
         max_lat = max(latencies)
@@ -185,7 +191,9 @@ class BenchmarkRunner:
             "pass": median < target_median and p95 < target_p95,
         }
 
-    async def run_concurrent_queries_benchmark(self, concurrency: int) -> dict[str, Any]:
+    async def run_concurrent_queries_benchmark(
+        self, concurrency: int
+    ) -> dict[str, Any]:
         """
         Benchmark: Concurrent queries performance.
 
@@ -209,7 +217,7 @@ class BenchmarkRunner:
                 # Simulate MCP tool call
                 await asyncio.sleep(0.1)  # Mock latency
                 return time.time() - start
-            except Exception as e:
+            except Exception:
                 nonlocal errors
                 errors += 1
                 raise
@@ -231,11 +239,15 @@ class BenchmarkRunner:
             }
 
         median = statistics.median(latencies)
-        p95 = statistics.quantiles(latencies, n=20)[18] if len(latencies) >= 20 else max(
-            latencies
+        p95 = (
+            statistics.quantiles(latencies, n=20)[18]
+            if len(latencies) >= 20
+            else max(latencies)
         )
-        p99 = statistics.quantiles(latencies, n=100)[98] if len(latencies) >= 100 else max(
-            latencies
+        p99 = (
+            statistics.quantiles(latencies, n=100)[98]
+            if len(latencies) >= 100
+            else max(latencies)
         )
         throughput = len(latencies) / total_time
         error_rate = errors / concurrency * 100
@@ -313,7 +325,9 @@ class BenchmarkRunner:
                 "p95": p95,
                 "p99": p99,
             },
-            "pass": median < target_median and p95 < target_p95 and error_rate < target_error_rate,
+            "pass": median < target_median
+            and p95 < target_p95
+            and error_rate < target_error_rate,
         }
 
     def print_summary(self) -> None:

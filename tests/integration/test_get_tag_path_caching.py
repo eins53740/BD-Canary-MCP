@@ -17,7 +17,13 @@ class MemoryCache:
     def __init__(self) -> None:
         self.store: Dict[str, Any] = {}
 
-    def _generate_cache_key(self, namespace: str, tag: str, start_time: str | None = None, end_time: str | None = None) -> str:
+    def _generate_cache_key(
+        self,
+        namespace: str,
+        tag: str,
+        start_time: str | None = None,
+        end_time: str | None = None,
+    ) -> str:
         parts = [namespace, tag]
         if start_time:
             parts.append(start_time)
@@ -28,7 +34,9 @@ class MemoryCache:
     def get(self, key: str) -> Any:
         return self.store.get(key)
 
-    def set(self, key: str, value: Any, category: str = "metadata", ttl: int | None = None) -> None:
+    def set(
+        self, key: str, value: Any, category: str = "metadata", ttl: int | None = None
+    ) -> None:
         self.store[key] = value
 
 
@@ -55,7 +63,9 @@ async def test_get_tag_path_caching_and_bypass(monkeypatch):
             "cached": False,
         }
     )
-    monkeypatch.setattr("canary_mcp.server.search_tags", SimpleNamespace(fn=search_mock))
+    monkeypatch.setattr(
+        "canary_mcp.server.search_tags", SimpleNamespace(fn=search_mock)
+    )
 
     metadata_response = {
         "success": True,
@@ -70,7 +80,9 @@ async def test_get_tag_path_caching_and_bypass(monkeypatch):
     }
 
     metadata_mock = AsyncMock(return_value=metadata_response)
-    monkeypatch.setattr("canary_mcp.server.get_tag_metadata", SimpleNamespace(fn=metadata_mock))
+    monkeypatch.setattr(
+        "canary_mcp.server.get_tag_metadata", SimpleNamespace(fn=metadata_mock)
+    )
 
     # First invocation populates cache
     result1 = await get_tag_path.fn("Kiln shell temperature in section 15")
@@ -91,7 +103,9 @@ async def test_get_tag_path_caching_and_bypass(monkeypatch):
     assert metadata_mock.await_count == initial_metadata_calls
 
     # Third invocation bypasses cache and triggers fresh lookups
-    result3 = await get_tag_path.fn("Kiln shell temperature in section 15", bypass_cache=True)
+    result3 = await get_tag_path.fn(
+        "Kiln shell temperature in section 15", bypass_cache=True
+    )
 
     assert result3["cached"] is False
     assert search_mock.await_count > initial_search_calls

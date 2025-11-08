@@ -17,7 +17,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import List, Tuple
+from typing import List
 
 # ANSI color codes for terminal output
 GREEN = "\033[92m"
@@ -136,7 +136,7 @@ class InstallationValidator:
             self.check_failed(
                 "uv_installation",
                 "uv not found in PATH",
-                "Install uv: powershell -c \"irm https://astral.sh/uv/install.ps1 | iex\"",
+                'Install uv: powershell -c "irm https://astral.sh/uv/install.ps1 | iex"',
             )
             return False
         except Exception as e:
@@ -226,7 +226,7 @@ class InstallationValidator:
                 self.check_failed(
                     "config_file",
                     ".env file not found",
-                    f"Create .env file in project root with Canary API credentials",
+                    "Create .env file in project root with Canary API credentials",
                 )
             return False
 
@@ -252,7 +252,9 @@ class InstallationValidator:
             if value:
                 # Mask token for security
                 if "TOKEN" in var:
-                    masked_value = f"{value[:4]}...{value[-4:]}" if len(value) > 8 else "***"
+                    masked_value = (
+                        f"{value[:4]}...{value[-4:]}" if len(value) > 8 else "***"
+                    )
                     self.check_passed(
                         f"config_{var}",
                         f"{var} is set (value: {masked_value})",
@@ -368,14 +370,18 @@ class InstallationValidator:
 
         if failed_count == 0:
             print(f"{GREEN}{BOLD}✓ All validations passed!{RESET}")
-            print(f"{GREEN}Your Canary MCP Server installation is ready to use.{RESET}\n")
-            print(f"To start the server, run:")
+            print(
+                f"{GREEN}Your Canary MCP Server installation is ready to use.{RESET}\n"
+            )
+            print("To start the server, run:")
             print(f"  {BLUE}python -m canary_mcp.server{RESET}\n")
             return True
         else:
             print(f"{RED}{BOLD}✗ Some validations failed.{RESET}")
-            print(f"{RED}Please fix the issues listed above before running the server.{RESET}\n")
-            print(f"For detailed troubleshooting, see:")
+            print(
+                f"{RED}Please fix the issues listed above before running the server.{RESET}\n"
+            )
+            print("For detailed troubleshooting, see:")
             print(f"  {BLUE}docs/installation/troubleshooting.md{RESET}\n")
             return False
 

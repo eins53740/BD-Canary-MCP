@@ -24,7 +24,7 @@ Define the **Quality‑Assurance & Testing Strategy** ensuring the product meets
 * Use Gherkin for acceptance tests and BDD examples.
 * Embed code samples (e.g., pytest, robot) in fenced blocks with correct language tags.
 * UK English, metric/24 h formats.
-* On approval, output:  
+* On approval, output:
   `<<QA_STRAT:approved>>`
 
 (End of instructions)

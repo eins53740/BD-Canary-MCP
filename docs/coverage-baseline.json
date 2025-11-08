@@ -1,0 +1,5 @@
+{
+  "overall_percent": 75.0,
+  "updated": "2025-11-07T23:30:00Z",
+  "notes": "Update after running uv run pytest --cov=canary_mcp --cov-report=term --cov-report=html --cov-report=json:coverage.json"
+}

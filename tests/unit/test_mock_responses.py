@@ -28,15 +28,11 @@ from tests.fixtures.mock_responses import (
     MOCK_SEARCH_TAGS_SUCCESS,
 )
 from tests.fixtures.test_data import (
-    SAMPLE_AGGREGATES_LIST,
-    SAMPLE_MCP_INFO,
     SAMPLE_NAMESPACES,
     SAMPLE_SERVER_INFO,
     SAMPLE_TAG_METADATA,
     SAMPLE_TAGS,
     SAMPLE_TIMESERIES_DATA,
-    SAMPLE_TIMESERIES_WITH_QUALITY_ISSUES,
-    SAMPLE_TIMEZONES_LIST,
 )
 
 

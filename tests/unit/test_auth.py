@@ -7,7 +7,7 @@ from unittest.mock import patch
 import pytest
 
 from canary_mcp.auth import CanaryAuthClient
-from canary_mcp.exceptions import CanaryAuthError, ConfigurationError
+from canary_mcp.exceptions import ConfigurationError
 
 
 @pytest.mark.unit
