@@ -1,4 +1,4 @@
-# Canary MCP - UNS-OT Preview (Windows Only)
+# Canary MCP - UNS-OT Preview
 
 Audience: IT developers on Windows evaluating the first release of this MCP server for local (stdio) use.
 
@@ -7,6 +7,9 @@ Project: `Canary-MCP-Server`
 Goal: Get up and running quickly in Claude Desktop (local MCP over stdio) and VS Code on Windows, with Python deps managed via `uv`.
 
 Repository (Enterprise GitHub): https://secil.ghe.com/secil-uns-ot/CanaryMCP
+Alternative: https://github.com/eins53740/BD-Canary-MCP
+
+Repo Guide: https://deepwiki.com/eins53740/BD-Canary-MCP
 
 ---
 
@@ -141,7 +144,7 @@ Claude Desktop discovers MCP servers via a JSON manifest. Create the config file
       "command": "uv",
       "args": [
         "--directory",
-        "C:\\Users\\bfsd\\Documents\\GitHub\\BD-hackaton-2025-10",
+        "C:\\Users\\<username>\\Documents\\GitHub\\CanaryMCP",
         "run",
         "python",
         "-m",
@@ -236,7 +239,7 @@ Create `.env` in the repo root if the server reads config from environment. Exam
 
 ```
 LOG_LEVEL=INFO
-CANARY_ENDPOINT=http://localhost:8080
+CANARY_ENDPOINT=https://scunscanary.secil.pt:55236
 API_KEY=changeme
 ```
 
