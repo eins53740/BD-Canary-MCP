@@ -20,6 +20,7 @@ def test_ping():
 @freeze_time("2025-11-10 12:00:00")
 async def test_mcp_status_success(monkeypatch):
     """Should return a detailed status message on success."""
+    monkeypatch.setenv("CANARY_WEATHER_ENABLED", "true")
     # Mock weather API call
     mock_weather_response = MagicMock()
     mock_weather_response.json.return_value = {
@@ -64,6 +65,7 @@ async def test_mcp_status_success(monkeypatch):
 @pytest.mark.asyncio
 async def test_mcp_status_weather_fails(monkeypatch):
     """Should handle weather API failure gracefully."""
+    monkeypatch.setenv("CANARY_WEATHER_ENABLED", "true")
     # Mock weather API to raise an exception
     mock_async_client = MagicMock()
     mock_async_client.__aenter__.return_value.get.side_effect = Exception(
@@ -98,6 +100,7 @@ async def test_mcp_status_weather_fails(monkeypatch):
 @pytest.mark.asyncio
 async def test_mcp_status_git_fails(monkeypatch):
     """Should handle git command failure gracefully."""
+    monkeypatch.setenv("CANARY_WEATHER_ENABLED", "true")
     # Mock weather API call
     mock_weather_response = MagicMock()
     mock_weather_response.json.return_value = {

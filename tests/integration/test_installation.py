@@ -478,6 +478,8 @@ def test_server_health_check_logic():
     try:
         import canary_mcp.server
 
+        _ = canary_mcp.server
+
         # If import succeeds, health check would pass
         assert True
     except ImportError as e:

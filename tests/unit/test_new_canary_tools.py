@@ -51,6 +51,7 @@ async def test_get_aggregates_success(monkeypatch):
 @pytest.mark.asyncio
 async def test_get_asset_types_requires_views_base(monkeypatch):
     """Tool should fail when CANARY_VIEWS_BASE_URL is missing."""
+    monkeypatch.setenv("CANARY_ASSET_VIEW", "Views/MyAssets")
     monkeypatch.delenv("CANARY_VIEWS_BASE_URL", raising=False)
     result = await get_asset_types.fn()
     assert result["success"] is False
