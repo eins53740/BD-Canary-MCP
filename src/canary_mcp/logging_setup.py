@@ -9,6 +9,7 @@ import logging.handlers
 import os
 import sys
 from pathlib import Path
+from typing import Any, Callable, MutableMapping
 
 import structlog
 
@@ -56,7 +57,7 @@ def configure_logging() -> None:
     root_logger.addHandler(console_handler)
 
     # Configure structlog processors
-    processors = [
+    processors: list[Callable[[Any, str, MutableMapping[str, Any]], Any]] = [
         # Add log level
         structlog.stdlib.add_log_level,
         # Add logger name
@@ -90,8 +91,10 @@ def configure_logging() -> None:
 
 
 def _mask_sensitive_data(
-    logger: logging.Logger, method_name: str, event_dict: dict
-) -> dict:
+    logger: logging.Logger,
+    method_name: str,
+    event_dict: MutableMapping[str, Any],
+) -> MutableMapping[str, Any]:
     """Mask sensitive data in log entries (API tokens, passwords).
 
     Args:
@@ -114,9 +117,9 @@ def _mask_sensitive_data(
     ]
 
     # Recursively mask sensitive data
-    def mask_dict(d: dict) -> dict:
+    def mask_dict(d: MutableMapping[str, Any]) -> MutableMapping[str, Any]:
         """Recursively mask sensitive fields in a dictionary."""
-        masked = {}
+        masked: MutableMapping[str, Any] = {}
         for key, value in d.items():
             key_lower = key.lower()
             if any(sensitive in key_lower for sensitive in sensitive_fields):
