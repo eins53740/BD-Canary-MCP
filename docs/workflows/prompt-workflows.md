@@ -2,6 +2,12 @@
 
 This document captures the canonical steps for the two MCP prompts: `tag_lookup_workflow` and `timeseries_query_workflow`. Both workflows assume the Secil Maceira/Outão datasets and the auxiliary resource `docs/aux_files/Canary Resources/Canary_Path_description_maceira.json`.
 
+### Language & domain guidance
+
+All MCP clients should search using bilingual keywords—English plus the site's native Portuguese terms—so that the tag catalog is queried with every plausible synonym. For the Portuguese sites (Maceira, Outão, Pataias, Montijo, Rio Maior, and Martingança) make sure Portuguese keywords are included alongside the English ones. Translating the user's natural-language prompt is acceptable if it helps surface the right tags, variables, and ancestor paths within the Canary historian datasets.
+
+Keep in mind this database documents industrial-process telemetry: PLCs, temperature sensors, pressure transmitters, and other control systems feed raw operational data that is normalized, processed, filtered, or aggregated into derived metrics. It also stores KPIs aggregated over weekly, monthly, and other intervals. That context—plant performance, maintenance, product quality, and environmental compliance—should steer interpretations so the MCP clients can surface actionable insights for engineers and operators.
+
 ---
 
 ## `tag_lookup_workflow`

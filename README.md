@@ -104,6 +104,8 @@ To effectively interact with the Canary Historian, MCP clients and LLMs should f
 
 2.  **Data Retrieval**: Once a tag path is identified, the client should use the **`timeseries_query_workflow`**. This prompt ensures that time ranges are correctly specified (referencing `canary_time_standards`) and that the `read_timeseries` tool is called with valid parameters to fetch the historical data.
 
+3.  **Bilingual keyword searches & domain context**: When searching, pair English keywords with Portuguese synonyms, especially for the Portuguese sites (Maceira, Outão, Pataias, Montijo, Rio Maior, and Martingança), and translate the user's natural-language prompt to extract the key tags, variables, and historian locations that matter. Keep in mind the database stores industrial process data (PLCs, temperature sensors, pressure transmitters, etc.) that is normalized, processed, filtered, or aggregated into meaningful metrics and KPIs across intervals such as weekly or monthly; that context guides better engineering, performance, maintenance, quality, and compliance decisions.
+
 By following these workflows, the client can reliably navigate the Canary Historian, resolve ambiguity, and retrieve data efficiently, abstracting away the complexity of the underlying API.
 
 ## Quick setup (uv)

@@ -1,0 +1,22 @@
+// .vscode/tasks.json
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "type-check",
+      "type": "shell",
+      "command": "uv run mypy",
+      "problemMatcher": "$mypy"
+    },
+    {
+      "label": "lint",
+      "type": "shell",
+      "command": "uvx ruff check ."
+    },
+    {
+      "label": "format",
+      "type": "shell",
+      "command": "uvx ruff format ."
+    }
+  ]
+}
