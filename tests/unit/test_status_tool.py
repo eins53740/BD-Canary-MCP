@@ -35,8 +35,9 @@ async def test_mcp_status_success(monkeypatch):
 
     mock_async_client = MagicMock()
     mock_async_client.__aenter__.return_value.get.return_value = mock_weather_response
-    monkeypatch.setattr("canary_mcp.server.httpx.AsyncClient", lambda timeout: mock_async_client)
-
+    monkeypatch.setattr(
+        "canary_mcp.server.httpx.AsyncClient", lambda timeout: mock_async_client
+    )
 
     # Mock git subprocess call
     mock_process = AsyncMock()
@@ -50,7 +51,6 @@ async def test_mcp_status_success(monkeypatch):
     # Mock logging
     mock_log = MagicMock()
     monkeypatch.setattr("canary_mcp.server.log", mock_log)
-
 
     result = await mcp_status.fn()
 
@@ -66,8 +66,12 @@ async def test_mcp_status_weather_fails(monkeypatch):
     """Should handle weather API failure gracefully."""
     # Mock weather API to raise an exception
     mock_async_client = MagicMock()
-    mock_async_client.__aenter__.return_value.get.side_effect = Exception("Network Error")
-    monkeypatch.setattr("canary_mcp.server.httpx.AsyncClient", lambda timeout: mock_async_client)
+    mock_async_client.__aenter__.return_value.get.side_effect = Exception(
+        "Network Error"
+    )
+    monkeypatch.setattr(
+        "canary_mcp.server.httpx.AsyncClient", lambda timeout: mock_async_client
+    )
 
     # Mock git subprocess call
     mock_process = AsyncMock()
@@ -86,7 +90,9 @@ async def test_mcp_status_weather_fails(monkeypatch):
 
     assert "Weather data currently unavailable" in result
     assert "Last project update: 2025-11-10 11:55:00 +0000" in result
-    mock_log.warning.assert_called_with("mcp_status_weather_error", error="Network Error")
+    mock_log.warning.assert_called_with(
+        "mcp_status_weather_error", error="Network Error"
+    )
 
 
 @pytest.mark.asyncio
@@ -106,7 +112,9 @@ async def test_mcp_status_git_fails(monkeypatch):
     mock_weather_response.raise_for_status = MagicMock()
     mock_async_client = MagicMock()
     mock_async_client.__aenter__.return_value.get.return_value = mock_weather_response
-    monkeypatch.setattr("canary_mcp.server.httpx.AsyncClient", lambda timeout: mock_async_client)
+    monkeypatch.setattr(
+        "canary_mcp.server.httpx.AsyncClient", lambda timeout: mock_async_client
+    )
 
     # Mock git subprocess to fail
     mock_process = AsyncMock()

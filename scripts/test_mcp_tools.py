@@ -111,7 +111,10 @@ async def _test_get_tag_path(description: str) -> ToolResult:
     try:
         result = await get_tag_path.fn(description)
         if result.get("success"):
-            msg = f"Resolved {result.get('most_likely_path')} (confidence={result.get('confidence')})"
+            msg = (
+                f"Resolved {result.get('most_likely_path')} "
+                f"(confidence={result.get('confidence')})"
+            )
             return ToolResult("get_tag_path", Status.PASS, msg)
         clarifier = result.get("clarifying_question") or result.get(
             "error", "Clarification needed"
