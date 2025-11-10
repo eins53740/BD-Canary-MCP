@@ -12,7 +12,9 @@ API_URL = os.environ.get(
 )
 API_TOKEN = os.environ.get("CANARY_API_TOKEN", "63c9a371-2768-4730-9416-28a42d5ac36e")
 VIEW_NAME = os.environ.get("x CANARY_VIEW_NAME", "localhost")
-TAG_NAME = f"{VIEW_NAME}.{{Diagnostics}}.Sys.Memory Physical"  # Note: {{Diagnostics}} is a placeholder
+TAG_NAME = (
+    f"{VIEW_NAME}.{{Diagnostics}}.Sys.Memory Physical"  # Note: {{Diagnostics}} is a placeholder
+)
 API_VERSION = "v2"
 
 # --- Request Parameters ---
