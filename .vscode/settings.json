@@ -18,7 +18,6 @@
   "ruff.lsp.enable": true,
   "ruff.lint.enable": true,
   "ruff.format.enable": true,
-  "ruff.lint.run": "onSave",
   "ruff.organizeImports": true,
 
   // Testing Configuration

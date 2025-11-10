@@ -196,7 +196,7 @@ def test_cache_invalidate_pattern(cache_store):
     cache_store.set("metadata:tag1", {"result": 3})
 
     # Invalidate only search entries
-    count = cache_store.invalidate("search:%")
+    _ = cache_store.invalidate("search:%")
 
     # Check that search entries are gone but metadata remains
     assert cache_store.get("search:query1") is None

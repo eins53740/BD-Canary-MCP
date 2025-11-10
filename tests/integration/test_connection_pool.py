@@ -385,7 +385,7 @@ class TestConcurrentPerformance:
                     results = await asyncio.gather(*tasks, return_exceptions=True)
 
                     # Count successes and failures
-                    successes = sum(1 for r in results if not isinstance(r, Exception))
+                    _ = sum(1 for r in results if not isinstance(r, Exception))
                     failures = sum(1 for r in results if isinstance(r, Exception))
                     error_rate = (failures / len(results)) * 100
 

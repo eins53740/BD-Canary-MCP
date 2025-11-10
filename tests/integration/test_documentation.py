@@ -458,7 +458,7 @@ class TestDocumentationCompleteness:
 
     def test_documentation_cross_references(self, api_doc_path, examples_doc_path):
         """Verify documentation files cross-reference each other."""
-        api_content = api_doc_path.read_text(encoding="utf-8")
+        _ = api_doc_path.read_text(encoding="utf-8")
         examples_content = examples_doc_path.read_text(encoding="utf-8")
 
         # examples.md should reference API.md
