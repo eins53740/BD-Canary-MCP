@@ -6,7 +6,7 @@ mcpServers:
     command: uv
     args:
       - --directory
-      - "D:\\GitHub\\BD-Canary-MCP"
+      - D:\\GitHub\\BD-Canary-MCP
       - run
       - python
       - -m
