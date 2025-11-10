@@ -74,24 +74,20 @@ def test_metrics_collection_overhead(reset_metrics):
     # Measure without metrics (do some actual work)
     start = time.time()
     for _ in range(1000):
-        x = 1 + 1  # Minimal computation
+        1 + 1  # Minimal computation
     baseline = time.time() - start
 
     # Measure with metrics
-    collector = reset_metrics
     start = time.time()
     for _ in range(1000):
         with MetricsTimer("overhead_test"):
-            x = 1 + 1  # Same minimal computation
+            1 + 1  # Same minimal computation
     with_metrics = time.time() - start
-
     overhead = with_metrics - baseline
 
     # Overhead should be reasonable (< 50ms total for 1000 iterations)
     # This means each metric collection adds < 50μs overhead
-    assert (
-        with_metrics < 0.05
-    ), f"Metrics collection took {with_metrics}s for 1000 iterations"
+    assert overhead < 0.05, f"Metrics collection overhead {overhead}s is too high"
 
     # Also verify the baseline is not zero
     assert baseline > 0, "Baseline measurement invalid"

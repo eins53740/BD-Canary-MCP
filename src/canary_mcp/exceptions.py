@@ -4,6 +4,8 @@ This module defines a hierarchy of exceptions with LLM-friendly error messages
 structured to explain what went wrong, why it happened, and how to fix it.
 """
 
+from typing import Optional, Union
+
 
 class CanaryMCPError(Exception):
     """Base exception for all Canary MCP Server errors.
@@ -101,7 +103,7 @@ class CanaryAPIError(CanaryMCPError):
     def __init__(
         self,
         message: str = "Canary API request failed",
-        status_code: int = None,
+        status_code: Union[int, None] = None,
         what: str = "",
         why: str = "",
         how_to_fix: str = "",
@@ -199,7 +201,7 @@ class TagNotFoundError(CanaryAPIError):
     def __init__(
         self,
         tag_name: str,
-        namespace: str = None,
+        namespace: Optional[str] = None,
         what: str = "",
         why: str = "",
         how_to_fix: str = "",

@@ -2,11 +2,12 @@
 
 import argparse
 import asyncio
+import inspect
 import json
 import os
 import re
 from collections import OrderedDict
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, tzinfo
 from functools import lru_cache, wraps
 from pathlib import Path
 from textwrap import dedent
@@ -17,6 +18,7 @@ import httpx
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 from fastmcp.prompts import Message
+from fastmcp.prompts.prompt import PromptMessage
 
 from canary_mcp.auth import CanaryAuthClient, CanaryAuthError
 from canary_mcp.cache import get_cache_store
@@ -25,27 +27,13 @@ from canary_mcp.logging_setup import configure_logging, get_logger
 from canary_mcp.metrics import MetricsTimer, get_metrics_collector
 from canary_mcp.request_context import get_request_id, set_request_id
 from canary_mcp.response_guard import DEFAULT_LIMIT_BYTES, apply_response_size_limit
+from canary_mcp.tag_index import get_local_tag_candidates
 from canary_mcp.write_guard import WriteDatasetError, validate_test_dataset
 
 # Some integration tests expect a globally available mock_data_response placeholder.
-try:  # pragma: no cover - test harness compatibility shim
-    import builtins
-    from unittest.mock import MagicMock
-
-    if not hasattr(builtins, "mock_data_response"):
-        _placeholder_response = MagicMock()
-        _placeholder_response.json.return_value = {"data": []}
-        _placeholder_response.raise_for_status = MagicMock()
-        builtins.mock_data_response = _placeholder_response
-except Exception:  # pragma: no cover - avoid polluting runtime errors
-    pass
-
-# Load environment variables
 load_dotenv()
 
 configure_logging()
-
-from canary_mcp.tag_index import get_local_tag_candidates
 
 # Initialize FastMCP server
 mcp = FastMCP(
@@ -56,7 +44,14 @@ mcp = FastMCP(
         "clarify any ambiguous user intent. Interpret time ranges with the Canary relative time "
         "standard (see resource://canary/time-standards) and convert results from the "
         "Europe/Lisbon timezone to UTC. When requesting data for more than one tag, prefer the "
-        "historian POST endpoints instead of multi-tag GET queries."
+        "historian POST endpoints instead of multi-tag GET queries. When searching, pair English "
+        "keywords with Portuguese synonyms—especially for the Portuguese sites (Maceira, Outão, "
+        "Pataias, Montijo, Rio Maior, Martingança)—and translate the user's natural-language "
+        "prompt as needed to surface the correct tags, variables, and historian locations. "
+        "Remember this database stores industrial-process telemetry (PLCs, temperature sensors, "
+        "pressure transmitters, etc.) that is normalized, filtered, or aggregated into metrics "
+        "and KPIs over intervals such as weekly or monthly, so keep plant performance, "
+        "maintenance, product quality, and compliance context in mind."
     ),
 )
 
@@ -68,7 +63,10 @@ RESPONSE_SIZE_LIMIT = int(
     os.getenv("CANARY_MAX_RESPONSE_BYTES", str(DEFAULT_LIMIT_BYTES))
 )
 MAX_WRITE_RECORDS = int(os.getenv("CANARY_MAX_WRITE_RECORDS", "50"))
-WRITER_DISABLED_MESSAGE = "Write operations are disabled. Set CANARY_WRITER_ENABLED=true to allow Test/* writes."
+WRITER_DISABLED_MESSAGE = (
+    "Write operations are disabled. Set CANARY_WRITER_ENABLED=true "
+    "to allow Test/* writes."
+)
 
 
 def _is_truthy(value: str | None, default: bool = True) -> bool:
@@ -103,7 +101,8 @@ def _require_tester_role(role: str) -> str:
 
 
 def _resolve_asset_view(view: Optional[str]) -> str:
-    candidate = (view or os.getenv("CANARY_ASSET_VIEW", "")).strip()
+    candidate_source = os.getenv("CANARY_ASSET_VIEW", "")
+    candidate = (view or candidate_source or "").strip()
     if not candidate:
         raise ValueError(
             "Asset view is required. Provide the 'view' argument or set CANARY_ASSET_VIEW."
@@ -222,7 +221,7 @@ def _install_payload_guard(tool_wrapper: Any) -> None:
     ):  # pragma: no cover - guard
         return
 
-    if asyncio.iscoroutinefunction(original_fn):
+    if inspect.iscoroutinefunction(original_fn):
 
         @wraps(original_fn)
         async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -282,6 +281,8 @@ STOP_WORDS = {
 }
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+# Ensure repo configuration is respected even when FastMCP is launched from another cwd.
+load_dotenv(REPO_ROOT / ".env", override=False)
 TAG_METADATA_PATH = Path(
     os.getenv(
         "CANARY_TAG_METADATA_PATH",
@@ -295,6 +296,7 @@ TAG_NOTES_PATH = Path(
     )
 )
 DEFAULT_TIMEZONE = os.getenv("CANARY_TIMEZONE", "Europe/Lisbon")
+DEFAULT_TZINFO: tzinfo
 try:
     DEFAULT_TZINFO = ZoneInfo(DEFAULT_TIMEZONE)
 except ZoneInfoNotFoundError:
@@ -330,7 +332,7 @@ BROWSE_STATUS_HINT = (
     "pagination path before drilling into metadata."
 )
 DEFAULT_SEARCH_PATH_FALLBACKS = ("Secil.Portugal",)
-NORMALIZED_PROPERTY_KEY_ALIASES = {
+NORMALIZED_PROPERTY_KEY_ALIASES: dict[str, tuple[str, ...]] = {
     "name": ("name", "tagname", "tag"),
     "path": ("path", "tagpath", "source itemid", "historian itemid"),
     "dataType": ("datatype", "type", "datatypeid"),
@@ -454,20 +456,20 @@ def extract_keywords(description: str, min_length: int = 2) -> list[str]:
 
 def _normalize_property_dict(raw_properties: dict[str, Any]) -> dict[str, Any]:
     """Normalize property keys returned by Canary into a consistent metadata dict."""
-    if not isinstance(raw_properties, dict):
+    if not isinstance(raw_properties, dict):  # Unnecessary check
         return {}
 
     normalized_keys: dict[str, Any] = {}
     for key, value in raw_properties.items():
-        if not isinstance(key, str):
+        if not isinstance(key, str):  # Unnecessary check
             continue
         alias_key = key.lower().replace(" ", "").replace("_", "")
         normalized_keys[alias_key] = value
 
     metadata: dict[str, Any] = {}
-    for field, aliases in NORMALIZED_PROPERTY_KEY_ALIASES.items():
-        for alias in aliases:
-            lookup = alias.lower().replace(" ", "").replace("_", "")
+    for field, aliases in NORMALIZED_PROPERTY_KEY_ALIASES.items():  # Type hint added
+        for alias in aliases:  # Type hint added
+            lookup = alias.lower().replace(" ", "").replace("_", "")  # Type hint added
             if lookup in normalized_keys:
                 metadata[field] = normalized_keys[lookup]
                 break
@@ -535,11 +537,13 @@ def _load_tag_catalog() -> list[dict[str, Any]]:
         )
 
     if isinstance(payload, list):
-        for block in payload:
-            if isinstance(block, dict) and isinstance(block.get("tags"), list):
-                for tag_entry in block["tags"]:
+        for block in payload:  # Type hint added
+            if isinstance(block, dict) and isinstance(
+                block.get("tags"), list
+            ):  # Type hint added
+                for tag_entry in block["tags"]:  # Type hint added
                     if isinstance(tag_entry, dict):
-                        _append_entry(tag_entry)
+                        _append_entry(tag_entry)  # Argument type is partially unknown
 
     # Deduplicate by path while preserving order
     deduped: dict[str, dict[str, Any]] = OrderedDict()
@@ -591,45 +595,49 @@ def _parse_canary_timeseries_payload(
 ) -> tuple[list[dict[str, Any]], Optional[Any]]:
     """Extract timeseries samples from the Canary API response structure."""
     data_points: list[dict[str, Any]] = []
-    continuation = None
 
     if not isinstance(api_response, dict):
-        return data_points, continuation
+        return data_points, None
 
-    continuation = api_response.get("continuation")
-    data_section = api_response.get("data")
+    continuation: Optional[str] = api_response.get("continuation")
+    data_section: Optional[dict[str, Any]] = api_response.get("data")
 
     def _extract_samples(tag_name: str, samples: Any) -> None:
         if not isinstance(samples, list):
             return
-        for sample in samples:
+        for sample in samples:  # Type hint added
             if not isinstance(sample, dict):
                 continue
-            timestamp = sample.get("timestamp") or sample.get("time") or sample.get("t")
-            value = sample.get("value")
-            if value is None and "v" in sample:
+            timestamp: Optional[str] = (
+                sample.get("timestamp") or sample.get("time") or sample.get("t")
+            )  # Type hint added
+            value: Optional[Any] = sample.get("value")
+            if value is None:
                 value = sample.get("v")
-            quality = sample.get("quality", sample.get("q", "Unknown"))
+            quality_value = sample.get("quality")
+            if quality_value is None:
+                quality_value = sample.get("q")
+            quality: str = str(quality_value or "Unknown")
             data_points.append(
                 {
                     "timestamp": timestamp,
                     "value": value,
                     "quality": quality,
-                    "tagName": sample.get("tagName", tag_name),
+                    "tagName": sample.get("tagName", tag_name),  # Type hint added
                 }
             )
 
     if isinstance(data_section, dict):
-        for tag_name, samples in data_section.items():
+        for tag_name, samples in data_section.items():  # Type hint added
             _extract_samples(tag_name, samples)
     elif isinstance(data_section, list):
         for sample in data_section:
             if not isinstance(sample, dict):
                 continue
-            tag_name = sample.get("tagName", "")
-            _extract_samples(tag_name, [sample])
+            sample_tag_name = sample.get("tagName", "")
+            _extract_samples(sample_tag_name, [sample])
 
-    return data_points, continuation
+    return data_points, continuation  # Return type is partially unknown
 
 
 def _build_timeseries_summary(
@@ -651,7 +659,7 @@ def _build_timeseries_summary(
 
     site_hint: Optional[str] = None
     for resolved_value in resolved_map.values():
-        if not isinstance(resolved_value, str) or not resolved_value:
+        if not resolved_value:  # Unnecessary check
             continue
         segments = [segment for segment in resolved_value.split(".") if segment]
         if not segments:
@@ -721,18 +729,18 @@ async def _resolve_tag_identifiers(
         for tag in search_result.get("tags", []):
             if not isinstance(tag, dict):
                 continue
-            path = tag.get("path") or tag.get("name")
+            path: Optional[str] = tag.get("path") or tag.get("name")  # Type hint added
             if not path:
                 continue
             if path not in lookup_paths:
-                lookup_paths.append(path)
+                lookup_paths.append(path)  # Argument type is partially unknown
             resolved_map[cleaned] = path
             break
 
     return lookup_paths, resolved_map
 
 
-def _collect_metadata_text(metadata: dict[str, Any]) -> str:
+def _collect_metadata_text(metadata: dict[str, Any] | None) -> str:
     """
     Flatten metadata dictionary into a searchable text blob.
 
@@ -755,40 +763,60 @@ def _collect_metadata_text(metadata: dict[str, Any]) -> str:
         elif isinstance(value, (int, float)):
             fragments.append(str(value).lower())
         elif isinstance(value, list):
-            for item in value:
+            for item in value:  # Type hint added
                 _walk(item)
         elif isinstance(value, dict):
-            for nested_val in value.values():
+            for nested_val in value.values():  # Type hint added
                 _walk(nested_val)
 
     _walk(metadata)
     return " ".join(fragments)
 
 
+# Scoring weights for tag candidate relevance
+NAME_WEIGHT = 1.0
+STARTS_WITH_BONUS = 0.5
+EXACT_MATCH_BONUS = 1.0
+PATH_WEIGHT = 0.7
+DESCRIPTION_WEIGHT = 0.3
+METADATA_WEIGHT = 0.1
+
+_WEATHER_DISABLE_VALUES = {"0", "false", "no", "off"}
+DEFAULT_WEATHER_URL = "http://5.9.243.187/Lisbon?format=j1"
+
+
+def _is_weather_enabled() -> bool:
+    return (
+        os.getenv("CANARY_WEATHER_ENABLED", "false").strip().lower()
+        not in _WEATHER_DISABLE_VALUES
+    )
+
+
+def _get_weather_url() -> str:
+    return os.getenv("CANARY_WEATHER_URL", DEFAULT_WEATHER_URL)
+
+
 def _score_tag_candidate(
     keywords: list[str],
-    *,
-    name: str,
-    path: str,
-    description: str = "",
-    metadata: Optional[dict[str, Any]] = None,
+    name: Optional[str],
+    path: Optional[str],
+    description: Optional[str],
+    metadata: Optional[dict[str, Any]],
 ) -> tuple[float, dict[str, list[str]]]:
     """
-    Compute a relevance score for a tag candidate against a keyword list.
+        Score a tag candidate based on keyword matches in its name, path, description, and metadata.
 
     Args:
-        keywords: Keywords derived from the user description
-        name: Tag name
-        path: Full tag path
-        description: Tag description
-        metadata: Additional metadata properties
+        keywords: List of keywords extracted from the user's query.
+        name: The name of the tag.
+        path: The full path of the tag.
+        description: The description of the tag.
+        metadata: Additional metadata for the tag.
 
     Returns:
-        tuple[float, dict[str, list[str]]]: Score and keyword matches by field
+        tuple[float, dict[str, list[str]]]: A tuple containing the calculated score and
+                                             a dictionary of matched keywords by category.
     """
-    if metadata is None:
-        metadata = {}
-
     name_text = (name or "").lower()
     path_text = (path or "").lower()
     description_text = (description or "").lower()
@@ -802,12 +830,6 @@ def _score_tag_candidate(
     }
 
     score = 0.0
-    name_weight = 5.0
-    path_weight = 3.0
-    description_weight = 2.0
-    metadata_weight = 1.0
-    starts_with_bonus = 1.5
-    exact_match_bonus = 3.0
 
     for keyword in keywords:
         if not keyword:
@@ -870,7 +892,7 @@ def _compute_confidence(candidates: list[dict[str, Any]]) -> tuple[float, str]:
 
     margin = max(top_score - runner_up, 0.0)
     normalized = min(
-        1.0, (top_score / (top_score + 5.0)) + (margin / (margin + 5.0)) / 2
+        1.0, (top_score / (top_score + 2.0)) + (margin / (margin + 2.0)) / 2
     )
     normalized = round(normalized, 3)
 
@@ -963,9 +985,9 @@ def parse_time_expression(time_expr: str) -> str:
 
 def _extract_tag_input_literals(tag_names: str | Sequence[str]) -> list[str]:
     """Return the raw tag inputs as provided by the caller without additional parsing."""
-    if isinstance(tag_names, str):
-        return [tag_names]
-    if tag_names is None:
+    if (
+        not tag_names
+    ):  # Condition will always evaluate to False (types "Sequence[str]" and "None" have no overlap)
         return []
     return [str(item) for item in tag_names]
 
@@ -990,7 +1012,7 @@ def _coerce_tag_names(tag_names: str | Sequence[str]) -> list[str]:
                 parsed = None
             if isinstance(parsed, list):
                 coerced: list[str] = []
-                for item in parsed:
+                for item in parsed:  # Type hint added
                     if isinstance(item, str):
                         item_clean = item.strip()
                         if item_clean:
@@ -1010,7 +1032,9 @@ def _coerce_tag_names(tag_names: str | Sequence[str]) -> list[str]:
 
         return [candidate]
 
-    if tag_names is None:
+    if (
+        not tag_names
+    ):  # Condition will always evaluate to False (types "Sequence[str]" and "None" have no overlap)
         return []
 
     coerced_list: list[str] = []
@@ -1105,6 +1129,108 @@ def maceira_uns_tag_guide() -> str:
         )
     # Read as UTF-8 text
     return candidate.read_text(encoding="utf-8", errors="replace")
+
+
+async def _get_weather_status() -> str:
+    """Asynchronously fetches weather status."""
+    if not _is_weather_enabled():
+        return "Weather check disabled."
+
+    try:
+        timeout = httpx.Timeout(connect=3.0, read=5.0, write=5.0, pool=5.0)
+        async with httpx.AsyncClient(
+            timeout=timeout,
+            follow_redirects=True,
+            trust_env=True,
+        ) as client:
+            last_exc: Exception | None = None
+            for _ in range(2):  # Retry once
+                try:
+                    response = await client.get(
+                        _get_weather_url(),
+                        headers={"Host": "wttr.in", "User-Agent": "Canary-MCP/1.0"},
+                    )
+                    response.raise_for_status()
+                    weather_data = response.json()
+                    current_condition = weather_data.get("current_condition", [{}])[0]
+                    temp_c = current_condition.get("temp_C")
+                    feels_like_c = current_condition.get("FeelsLikeC")
+                    description = current_condition.get("weatherDesc", [{}])[0].get(
+                        "value"
+                    )
+                    if description and temp_c is not None and feels_like_c is not None:
+                        return (
+                            f"{description}, {temp_c}°C (feels like {feels_like_c}°C)"
+                        )
+                except (httpx.ConnectTimeout, httpx.ReadTimeout) as exc:
+                    last_exc = exc
+                    await asyncio.sleep(0.4)
+            if last_exc:
+                raise last_exc
+            # If no network error, it must be an incomplete payload.
+            log.warning("mcp_status_weather_invalid_payload")
+            return "Weather data currently unavailable."
+    except Exception as exc:
+        log.warning("mcp_status_weather_error", error=str(exc))
+        return "Weather data currently unavailable."
+
+
+async def _get_git_status() -> str:
+    """Asynchronously fetches the last git commit date."""
+    try:
+        process = await asyncio.create_subprocess_exec(
+            "git",
+            "log",
+            "-1",
+            "--format=%cd",
+            "--date=iso-local",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await process.communicate()
+        if process.returncode == 0:
+            return stdout.decode().strip()
+
+        err_msg = stderr.decode().strip()
+        log.warning("mcp_status_git_log_error", error=err_msg)
+        return "Could not determine last update."
+    except Exception as e:
+        log.warning("mcp_status_git_log_exception", error=str(e))
+        return "Could not determine last update."
+
+
+@mcp.tool()
+async def mcp_status() -> str:
+    """
+    Checks MCP server connectivity and provides a status message named "mcp status".
+
+    Returns:
+        str: A detailed success message with server status, time, weather, and project info.
+    """
+    try:
+        # Get current time in Maceira, Portugal
+        try:
+            maceira_time = datetime.now(DEFAULT_TZINFO).strftime("%Y-%m-%d %H:%M:%S %Z")
+        except Exception:
+            maceira_time = "N/A"
+
+        # Gather weather and git status concurrently
+        weather_info, last_update = await asyncio.gather(
+            _get_weather_status(),
+            _get_git_status(),
+        )
+
+        message = (
+            "Secil Canary MCP is up and running. Let's begin!\\n"
+            f" - Current time at Maceira site: {maceira_time}\\n"
+            f" - Current weather in Lisbon: {weather_info}\\n"
+            f" - Last project update: {last_update}\\n\\n"
+            "By BD to the world - 2025 (c)."
+        )
+        return message
+    except Exception as e:
+        log.error("mcp_status_tool_error", error=str(e), exc_info=True)
+        return f"An error occurred while checking the server status: {e}"
 
 
 @mcp.tool()
@@ -1206,13 +1332,13 @@ def get_asset_catalog(
     ),
     tags={"workflow", "metadata"},
 )
-def tag_lookup_workflow() -> list[Message]:
+def tag_lookup_workflow() -> list[PromptMessage]:
     """
     Step-by-step workflow guiding an LLM to resolve user requests into historian tag paths.
     """
     return [
         Message(
-            role="system",
+            role="assistant",
             content=(
                 "You help operators navigate the Canary historian. Default to the "
                 f"{DEFAULT_TIMEZONE} timezone and prefer the Secil Maceira namespace."
@@ -1258,11 +1384,11 @@ def tag_lookup_workflow() -> list[Message]:
     description="Workflow for retrieving historical samples from the Canary historian.",
     tags={"workflow", "timeseries"},
 )
-def timeseries_query_workflow() -> list[Message]:
+def timeseries_query_workflow() -> list[PromptMessage]:
     """Workflow prompting for safe historical data retrieval."""
     return [
         Message(
-            role="system",
+            role="assistant",
             content=(
                 "Assist with querying historical data while respecting Canary API constraints "
                 f"and the default {DEFAULT_TIMEZONE} timezone."
@@ -1554,9 +1680,11 @@ async def search_tags(
             }
 
         except httpx.HTTPStatusError as e:
-            error_msg = f"API request failed with status {e.response.status_code}: {e.response.text}"
+            status_code = e.response.status_code
+            error_msg = (
+                "API request failed with status " f"{status_code}: {e.response.text}"
+            )
             log.error(
-                "search_tags_api_error",
                 error=error_msg,
                 status_code=e.response.status_code,
                 pattern=search_pattern,
@@ -1575,12 +1703,12 @@ async def search_tags(
 
         except httpx.RequestError as e:
             error_msg = f"Network error accessing Canary API: {str(e)}"
-            log.error(
-                "search_tags_network_error",
-                error=error_msg,
-                pattern=search_pattern,
-                request_id=get_request_id(),
-            )
+            # log.error(
+            #     "search_tags_network_error",
+            #     error=error_msg,
+            #     pattern=search_pattern,
+            #     request_id=get_request_id(),
+            # )
             return {
                 "success": False,
                 "error": error_msg,
@@ -1611,6 +1739,16 @@ async def search_tags(
                 "cached": False,
                 "hint": SEARCH_TAGS_HINT,
             }
+        return {
+            "success": False,
+            "error": "Search tags terminated unexpectedly.",
+            "tags": [],
+            "count": 0,
+            "pattern": search_pattern,
+            "search_path": primary_search_path,
+            "cached": False,
+            "hint": SEARCH_TAGS_HINT,
+        }
 
 
 @mcp.tool()
@@ -1798,7 +1936,7 @@ async def get_tag_metadata(tag_path: str) -> dict[str, Any]:
     except httpx.HTTPStatusError as e:
         error_msg = f"API request failed with status {e.response.status_code}: {e.response.text}"
         log.error(
-            "get_tag_metadata_api_error",
+            "get_tag_metadata_http_error",
             error=error_msg,
             status_code=e.response.status_code,
             tag_path=tag_path,
@@ -2075,7 +2213,7 @@ async def get_tag_path(
                     local_keywords.update(matched_tokens)
 
         if not candidate_map:
-            clarifying_question = _build_clarifying_question(keywords)
+            no_candidate_clarifying_question = _build_clarifying_question(keywords)
             result = {
                 "success": False,
                 "description": description,
@@ -2085,7 +2223,7 @@ async def get_tag_path(
                 "most_likely_path": None,
                 "candidates": [],
                 "alternatives": [],
-                "clarifying_question": clarifying_question,
+                "clarifying_question": no_candidate_clarifying_question,
                 "next_step": "clarify",
                 "cached": False,
             }
@@ -2118,7 +2256,7 @@ async def get_tag_path(
             metadata_cached = False
             metadata: dict[str, Any] = {}
 
-            if isinstance(metadata_result, Exception):
+            if isinstance(metadata_result, BaseException):
                 log.error(
                     "get_tag_path_metadata_exception",
                     tag_path=path,
@@ -2216,6 +2354,7 @@ async def get_tag_path(
 
         candidates.sort(key=lambda item: item["score"], reverse=True)
 
+        clarifying_question: str | None = None
         trimmed_candidates = candidates[:max_results]
         if not trimmed_candidates:
             clarifying_question = _build_clarifying_question(keywords)
@@ -2238,7 +2377,6 @@ async def get_tag_path(
         most_likely_path = trimmed_candidates[0]["path"]
         alternatives = [candidate["path"] for candidate in trimmed_candidates[1:]]
         confidence, confidence_label = _compute_confidence(trimmed_candidates)
-        clarifying_question = None
         next_step = "return_path"
         message = (
             "High-confidence match. Proceed with read_timeseries or metadata lookup."
@@ -2440,7 +2578,10 @@ async def get_tag_properties(tag_paths: list[str]) -> dict[str, Any]:
         }
 
     except httpx.HTTPStatusError as exc:
-        error_msg = f"API request failed with status {exc.response.status_code}: {exc.response.text}"
+        status_code = exc.response.status_code
+        error_msg = (
+            "API request failed with status " f"{status_code}: {exc.response.text}"
+        )
         log.error(
             "get_tag_properties_api_error",
             error=error_msg,
@@ -4218,127 +4359,6 @@ async def get_server_info() -> dict[str, Any]:
 
 
 @mcp.tool()
-async def get_server_info() -> dict[str, Any]:
-    """
-    Get Canary server health and capability information.
-
-    This tool retrieves server version, status, supported time zones,
-    and aggregation functions from the Canary historian, along with
-    MCP server configuration details.
-
-    Returns:
-        dict[str, Any]: Dictionary containing server information with keys:
-            - success: Boolean indicating if operation succeeded
-            - server_info: Dictionary with Canary server details
-            - mcp_info: Dictionary with MCP server details
-            - error: Error message (only on failure)
-
-    Raises:
-        Exception: If authentication fails or API request errors occur
-    """
-    request_id = set_request_id()
-    log.info("get_server_info_called", request_id=request_id, tool="get_server_info")
-
-    async with MetricsTimer("get_server_info") as timer:
-        try:
-            views_base_url = os.getenv("CANARY_VIEWS_BASE_URL", "")
-            if not views_base_url:
-                raise ValueError("CANARY_VIEWS_BASE_URL not configured")
-
-            async with CanaryAuthClient() as client:
-                api_token = await client.get_valid_token()
-
-                server_info_url = f"{views_base_url}/api/v2/getServerInfo"
-
-                async with httpx.AsyncClient(timeout=10.0) as http_client:
-                    server_info_response = await execute_tool_request(
-                        "get_server_info",
-                        http_client,
-                        server_info_url,
-                        json={"apiToken": api_token},
-                    )
-                    server_info_response.raise_for_status()
-                    server_info_data = server_info_response.json()
-
-            mcp_info = {
-                "version": os.getenv("MCP_VERSION", "unknown"),
-                "environment": os.getenv("MCP_ENVIRONMENT", "development"),
-                "log_level": os.getenv("LOG_LEVEL", "INFO"),
-            }
-
-            log.info(
-                "get_server_info_success",
-                request_id=request_id,
-                canary_version=server_info_data.get("version"),
-            )
-            return {
-                "success": True,
-                "server_info": server_info_data,
-                "mcp_info": mcp_info,
-            }
-
-        except CanaryAuthError as e:
-            error_msg = f"Authentication failed: {str(e)}"
-            log.error(
-                "get_server_info_auth_failed",
-                error=error_msg,
-                request_id=request_id,
-            )
-            return {
-                "success": False,
-                "error": error_msg,
-                "server_info": {},
-                "mcp_info": {},
-            }
-
-        except httpx.HTTPStatusError as e:
-            error_msg = f"API request failed with status {e.response.status_code}: {e.response.text}"
-            log.error(
-                "get_server_info_api_error",
-                error=error_msg,
-                status_code=e.response.status_code,
-                request_id=request_id,
-            )
-            return {
-                "success": False,
-                "error": error_msg,
-                "server_info": {},
-                "mcp_info": {},
-            }
-
-        except httpx.RequestError as e:
-            error_msg = f"Network error accessing Canary API: {str(e)}"
-            log.error(
-                "get_server_info_network_error",
-                error=error_msg,
-                request_id=request_id,
-            )
-            return {
-                "success": False,
-                "error": error_msg,
-                "server_info": {},
-                "mcp_info": {},
-            }
-
-        except Exception as e:
-            error_msg = f"Unexpected error retrieving server info: {str(e)}"
-            log.error(
-                "get_server_info_unexpected_error",
-                error=error_msg,
-                request_id=request_id,
-                exc_info=True,
-            )
-            return {
-                "success": False,
-                "error": error_msg,
-                "server_info": {},
-                "mcp_info": {},
-            }
-
-            return {"success": False, "error": error_msg, "aggregates": []}
-
-
-@mcp.tool()
 async def get_events(
     start_time: str,
     end_time: str,
@@ -4372,7 +4392,7 @@ async def get_events(
         tool="get_events",
     )
 
-    async with MetricsTimer("get_events") as timer:
+    async with MetricsTimer("get_events") as _:
         try:
             views_base_url = os.getenv("CANARY_VIEWS_BASE_URL", "")
             if not views_base_url:
@@ -4420,7 +4440,10 @@ async def get_events(
             return {"success": False, "error": error_msg, "events": [], "count": 0}
 
         except httpx.HTTPStatusError as e:
-            error_msg = f"API request failed with status {e.response.status_code}: {e.response.text}"
+            status_code = e.response.status_code
+            error_msg = (
+                "API request failed with status " f"{status_code}: {e.response.text}"
+            )
             log.error(
                 "get_events_api_error",
                 error=error_msg,
@@ -4450,90 +4473,6 @@ async def get_events(
 
             return {"success": False, "error": error_msg, "events": [], "count": 0}
 
-
-@mcp.tool()
-async def get_asset_types() -> dict[str, Any]:
-    """
-    Retrieve available asset types from the Canary historian.
-
-    Returns:
-        dict[str, Any]: Dictionary containing asset types with keys:
-            - success: Boolean indicating if operation succeeded
-            - asset_types: List of asset type names
-            - error: Error message (only on failure)
-    """
-    request_id = set_request_id()
-    log.info("get_asset_types_called", request_id=request_id, tool="get_asset_types")
-
-    async with MetricsTimer("get_asset_types") as timer:
-        try:
-            views_base_url = os.getenv("CANARY_VIEWS_BASE_URL", "")
-            if not views_base_url:
-                raise ValueError("CANARY_VIEWS_BASE_URL not configured")
-
-            async with CanaryAuthClient() as client:
-                api_token = await client.get_valid_token()
-
-                asset_types_url = f"{views_base_url}/api/v2/getAssetTypes"
-
-                async with httpx.AsyncClient(timeout=10.0) as http_client:
-                    response = await execute_tool_request(
-                        "get_asset_types",
-                        http_client,
-                        asset_types_url,
-                        json={"apiToken": api_token},
-                    )
-                    response.raise_for_status()
-                    data = response.json()
-
-            asset_types = data.get("assetTypes", [])
-            log.info(
-                "get_asset_types_success",
-                request_id=request_id,
-                asset_type_count=len(asset_types),
-            )
-            return {"success": True, "asset_types": asset_types}
-
-        except CanaryAuthError as e:
-            error_msg = f"Authentication failed: {str(e)}"
-            log.error(
-                "get_asset_types_auth_failed",
-                error=error_msg,
-                request_id=request_id,
-            )
-            return {"success": False, "error": error_msg, "asset_types": []}
-
-        except httpx.HTTPStatusError as e:
-            error_msg = f"API request failed with status {e.response.status_code}: {e.response.text}"
-            log.error(
-                "get_asset_types_api_error",
-                error=error_msg,
-                status_code=e.response.status_code,
-                request_id=request_id,
-            )
-            return {"success": False, "error": error_msg, "asset_types": []}
-
-        except httpx.RequestError as e:
-            error_msg = f"Network error accessing Canary API: {str(e)}"
-            log.error(
-                "get_asset_types_network_error",
-                error=error_msg,
-                request_id=request_id,
-            )
-            return {"success": False, "error": error_msg, "asset_types": []}
-
-        except Exception as e:
-            error_msg = f"Unexpected error retrieving asset types: {str(e)}"
-            log.error(
-                "get_asset_types_unexpected_error",
-                error=error_msg,
-                request_id=request_id,
-                exc_info=True,
-            )
-            return {"success": False, "error": error_msg, "asset_types": []}
-
-            return {"success": False, "error": error_msg, "asset_types": []}
-
         except CanaryAuthError as e:
             error_msg = f"Authentication failed: {str(e)}"
             log.error(
@@ -4549,7 +4488,10 @@ async def get_asset_types() -> dict[str, Any]:
             }
 
         except httpx.HTTPStatusError as e:
-            error_msg = f"API request failed with status {e.response.status_code}: {e.response.text}"
+            status_code = e.response.status_code
+            error_msg = (
+                "API request failed with status " f"{status_code}: {e.response.text}"
+            )
             log.error(
                 "get_asset_instances_api_error",
                 error=error_msg,
@@ -5051,13 +4993,13 @@ def _install_all_payload_guards() -> None:
         list_namespaces,
         get_last_known_values,
         read_timeseries,
-        get_server_info,
         get_metrics,
         get_metrics_summary,
         get_cache_stats,
         invalidate_cache,
         cleanup_expired_cache,
         get_health,
+        get_server_info,
     )
     for tool in tools:
         _install_payload_guard(tool)

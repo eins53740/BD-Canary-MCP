@@ -397,7 +397,7 @@ class TestHealthCheckTool:
         for i in range(2):
             try:
                 cb.call(lambda: 1 / 0)
-            except:
+            except ZeroDivisionError:
                 pass
 
         # Should be open now

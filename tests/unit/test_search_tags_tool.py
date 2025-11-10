@@ -121,7 +121,9 @@ async def test_search_tags_data_parsing_valid_response(env_with_root, auth_ok):
     }
 
     with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
-        mock_post.side_effect = _mk_post_side_effect([auth_ok, search_payload, {"tags": []}])
+        mock_post.side_effect = _mk_post_side_effect(
+            [auth_ok, search_payload, {"tags": []}]
+        )
 
         result = await search_tags.fn("Temp*")
 
@@ -150,7 +152,9 @@ async def test_search_tags_parses_string_entries(env_with_root, auth_ok):
     }
 
     with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
-        mock_post.side_effect = _mk_post_side_effect([auth_ok, search_payload, {"tags": []}])
+        mock_post.side_effect = _mk_post_side_effect(
+            [auth_ok, search_payload, {"tags": []}]
+        )
 
         result = await search_tags.fn("Kiln*")
 
@@ -172,7 +176,9 @@ async def test_search_tags_data_parsing_missing_fields(env_with_root, auth_ok):
     search_payload = {"tags": [{"name": "Tag1"}]}
 
     with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
-        mock_post.side_effect = _mk_post_side_effect([auth_ok, search_payload, {"tags": []}])
+        mock_post.side_effect = _mk_post_side_effect(
+            [auth_ok, search_payload, {"tags": []}]
+        )
 
         result = await search_tags.fn("Tag1")
 
@@ -194,7 +200,9 @@ async def test_search_tags_uses_configured_root_in_browse_call(env_with_root, au
     search_payload = {"tags": [{"name": "P431", "path": "Some.Path.P431.Value"}]}
 
     with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
-        mock_post.side_effect = _mk_post_side_effect([auth_ok, search_payload, {"tags": []}])
+        mock_post.side_effect = _mk_post_side_effect(
+            [auth_ok, search_payload, {"tags": []}]
+        )
 
         result = await search_tags.fn("P431", bypass_cache=True)
 
@@ -210,7 +218,9 @@ async def test_search_tags_uses_configured_root_in_browse_call(env_with_root, au
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_search_tags_falls_back_to_default_when_no_root(env_without_root, auth_ok):
+async def test_search_tags_falls_back_to_default_when_no_root(
+    env_without_root, auth_ok
+):
     """If no CANARY_TAG_SEARCH_ROOT is set, the tool should default to 'Secil.Portugal'."""
     search_payload = {
         "tags": [
@@ -225,7 +235,9 @@ async def test_search_tags_falls_back_to_default_when_no_root(env_without_root, 
     }
 
     with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
-        mock_post.side_effect = _mk_post_side_effect([auth_ok, search_payload, {"tags": []}])
+        mock_post.side_effect = _mk_post_side_effect(
+            [auth_ok, search_payload, {"tags": []}]
+        )
 
         result = await search_tags.fn("P431", bypass_cache=True)
 
@@ -246,7 +258,9 @@ async def test_search_tags_data_parsing_empty_tags(env_with_root, auth_ok):
     search_payload = {"tags": []}
 
     with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
-        mock_post.side_effect = _mk_post_side_effect([auth_ok, search_payload, {"tags": []}])
+        mock_post.side_effect = _mk_post_side_effect(
+            [auth_ok, search_payload, {"tags": []}]
+        )
 
         result = await search_tags.fn("NonExistent", bypass_cache=True)
 
@@ -266,7 +280,9 @@ async def test_search_tags_data_parsing_empty_tags(env_with_root, auth_ok):
 @pytest.mark.asyncio
 async def test_search_tags_response_format_success(env_with_root, auth_ok):
     with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
-        mock_post.side_effect = _mk_post_side_effect([auth_ok, {"tags": []}, {"tags": []}])
+        mock_post.side_effect = _mk_post_side_effect(
+            [auth_ok, {"tags": []}, {"tags": []}]
+        )
 
         result = await search_tags.fn("Pattern", bypass_cache=True)
 

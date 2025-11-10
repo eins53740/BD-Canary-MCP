@@ -62,7 +62,7 @@ services:
 
     # Optional: Expose ports (if MCP server needs network access)
     # ports:
-    #   - "8000:8000"
+    #   - "6000:6000"
 
 # Optional: Define custom network
 # networks:

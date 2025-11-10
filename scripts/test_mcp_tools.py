@@ -10,7 +10,7 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Awaitable, Callable
+from typing import Any, Awaitable, Callable, Dict
 
 # Ensure src/ is importable
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -19,6 +19,7 @@ if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
 
 from canary_mcp.server import (  # noqa: E402  pylint: disable=wrong-import-position
+    browse_status,
     cleanup_expired_cache,
     get_aggregates,
     get_asset_catalog,
@@ -26,7 +27,6 @@ from canary_mcp.server import (  # noqa: E402  pylint: disable=wrong-import-posi
     get_asset_types,
     get_cache_stats,
     get_events,
-    browse_status,
     get_health,
     get_last_known_values,
     get_metrics,
@@ -36,6 +36,7 @@ from canary_mcp.server import (  # noqa: E402  pylint: disable=wrong-import-posi
     get_tag_path,
     get_tag_properties,
     list_namespaces,
+    mcp_status,
     ping,
     read_timeseries,
     search_tags,
@@ -69,13 +70,16 @@ def _config_missing(error: str) -> bool:
     return any(token.lower() in error.lower() for token in needles)
 
 
-def _success_message(payload: dict | str | None) -> str:
+def _success_message(payload: Dict[str, Any] | str | None) -> str:
     if isinstance(payload, dict):
-        if "count" in payload:
-            return f"Returned count={payload['count']}"
-        if payload.get("success") is False:
-            return f"Tool responded with success=False ({payload.get('error', 'no details')})"
-    if isinstance(payload, str):
+        count = payload.get("count", 0)
+        if count is not None:
+            return f"Returned count={count}"
+        success = payload.get("success", False)
+        if success is False:
+            error = payload.get("error", "no details")
+            return f"Tool responded with success=False ({error})"
+    elif isinstance(payload, str):
         return payload
     return "Tool executed"
 
@@ -111,7 +115,10 @@ async def _test_get_tag_path(description: str) -> ToolResult:
     try:
         result = await get_tag_path.fn(description)
         if result.get("success"):
-            msg = f"Resolved {result.get('most_likely_path')} (confidence={result.get('confidence')})"
+            msg = (
+                f"Resolved {result.get('most_likely_path')} "
+                f"(confidence={result.get('confidence')})"
+            )
             return ToolResult("get_tag_path", Status.PASS, msg)
         clarifier = result.get("clarifying_question") or result.get(
             "error", "Clarification needed"
@@ -309,31 +316,45 @@ async def _test_get_asset_instances() -> ToolResult:
         return ToolResult("get_asset_instances", status, str(exc))
 
 
+async def _test_mcp_status() -> ToolResult:
+    try:
+        result = await mcp_status.fn()
+        msg = _success_message(result)
+        return ToolResult("mcp_status", Status.PASS, msg)
+    except Exception as exc:
+        return ToolResult("mcp_status", Status.FAIL, str(exc))
+
+
 async def run_suite(
-    sample_tag: str, search_pattern: str, tag_description: str
+    sample_tag: str, search_pattern: str, tag_description: str, tool: str | None = None
 ) -> list[ToolResult]:
-    tests: list[ToolHandler] = [
-        _test_ping,
-        _test_get_asset_catalog,
-        lambda: _test_search_tags(search_pattern),
-        lambda: _test_get_tag_path(tag_description),
-        lambda: _test_get_tag_metadata(sample_tag),
-        lambda: _test_get_tag_properties(sample_tag),
-        lambda: _test_read_timeseries(sample_tag),
-        lambda: _test_get_last_known_values(sample_tag),
-        _test_list_namespaces,
-        _test_get_server_info,
-        _test_get_metrics_summary,
-        _test_get_metrics,
-        _test_get_cache_stats,
-        _test_cleanup_expired_cache,
-        _test_get_health,
-        _test_get_aggregates,
-        _test_get_events,
-        _test_browse_status,
-        _test_get_asset_types,
-        _test_get_asset_instances,
-    ]
+    if tool == "mcp_status":
+        tests: list[ToolHandler] = [
+            _test_mcp_status,
+        ]
+    else:
+        tests: list[ToolHandler] = [
+            _test_ping,
+            _test_get_asset_catalog,
+            lambda: _test_search_tags(search_pattern),
+            lambda: _test_get_tag_path(tag_description),
+            lambda: _test_get_tag_metadata(sample_tag),
+            lambda: _test_get_tag_properties(sample_tag),
+            lambda: _test_read_timeseries(sample_tag),
+            lambda: _test_get_last_known_values(sample_tag),
+            _test_list_namespaces,
+            _test_get_server_info,
+            _test_get_metrics_summary,
+            _test_get_metrics,
+            _test_get_cache_stats,
+            _test_cleanup_expired_cache,
+            _test_get_health,
+            _test_get_aggregates,
+            _test_get_events,
+            _test_browse_status,
+            _test_get_asset_types,
+            _test_get_asset_instances,
+        ]
     results: list[ToolResult] = []
     for handler in tests:
         results.append(await handler())
@@ -375,13 +396,18 @@ def parse_args() -> argparse.Namespace:
         ),
         help="Description passed to get_tag_path (default: %(default)s)",
     )
+    parser.add_argument(
+        "--tool",
+        choices=["mcp_status"],
+        help="Specify the tool to test",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
     results = asyncio.run(
-        run_suite(args.sample_tag, args.search_pattern, args.tag_description)
+        run_suite(args.sample_tag, args.search_pattern, args.tag_description, args.tool)
     )
     return _print_summary(results)
 
