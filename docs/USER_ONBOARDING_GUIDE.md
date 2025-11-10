@@ -56,6 +56,17 @@ compare them to last week, and identify any anomalies"
 
 ---
 
+## 📖 Read This First: UNS/ISA‑95 Tag Guide
+
+To help the AI understand plant structure and naming, the MCP server exposes a built‑in resource with our ISA‑95/UNS conventions for Maceira.
+
+- Resource URI: `resource://canary/uns-tag-guide`
+- Source file: `docs/aux_files/Maceira_UNS_Tag_Guide.md`
+
+How to use:
+- In Claude Desktop, say: “Read resource://canary/uns-tag-guide and keep it in working memory for translating natural language to Canary tag paths.”
+- Claude can then use this context to resolve areas, equipment, and tag path patterns more accurately.
+
 ## ✅ Prerequisites
 
 Before installing, ensure you have:

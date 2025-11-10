@@ -1077,6 +1077,36 @@ def canary_time_standards() -> dict[str, Any]:
     }
 
 
+@mcp.resource(
+    "resource://canary/uns-tag-guide",
+    title="Maceira UNS Tag Guide (ISA-95)",
+    description=(
+        "Human-readable guide to the Secil Maceira ISA-95/UNS hierarchy and tag naming. "
+        "LLM/MCP clients should read this to understand the semantics and translate "
+        "natural-language asset references into valid Canary tag paths."
+    ),
+    mime_type="text/markdown",
+    tags={"documentation", "guide", "isa-95", "uns"},
+)
+def maceira_uns_tag_guide() -> str:
+    """Expose the local ISA-95/UNS tag guide Markdown as a resource.
+
+    Looks for the guide under ``docs/aux_files/Maceira_UNS_Tag_Guide.md`` relative to the
+    repository root. If not found, provides an actionable error with where to place it.
+    """
+    # Resolve repo root from this file: <repo>/src/canary_mcp/server.py
+    here = Path(__file__).resolve()
+    repo_root = here.parents[2]
+    candidate = repo_root / "docs" / "aux_files" / "Maceira_UNS_Tag_Guide.md"
+    if not candidate.exists():
+        raise FileNotFoundError(
+            "UNS tag guide not found. Expected at 'docs/aux_files/Maceira_UNS_Tag_Guide.md'. "
+            "Ensure the file exists in the repository so MCP clients can read it."
+        )
+    # Read as UTF-8 text
+    return candidate.read_text(encoding="utf-8", errors="replace")
+
+
 @mcp.tool()
 def get_asset_catalog(
     refresh: bool = False,

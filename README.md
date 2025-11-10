@@ -218,6 +218,24 @@ cp .env.example .env  # set CANARY_MCP_TRANSPORT=stdio and credentials
 uv run python -m canary_mcp.server
 ```
 
+## Try This in Your MCP Client
+
+In Claude Desktop (or another MCP client), start a new chat and run these steps:
+
+1) Load the ISA‑95/UNS guide resource so the model understands plant structure and naming:
+
+```
+read_resource("resource://canary/uns-tag-guide")
+```
+
+2) Ask a natural‑language question that relies on that context. For example:
+
+```
+“Using the UNS guide you just read, identify the correct Canary tag paths for Kiln 6 main burner temperature at Maceira and show a 24‑hour trend ending now with 5‑minute granularity. Return the chosen tag paths and a short rationale for each mapping.”
+```
+
+Tip: If the model is unsure, it should call `get_asset_catalog` or `search_tags` and ask a clarifying question before proceeding.
+
 ### Remote HTTP SSE Quick Start
 ```bash
 # edit .env on the server
