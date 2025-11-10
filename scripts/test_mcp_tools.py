@@ -10,7 +10,7 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Awaitable, Callable
+from typing import Awaitable, Callable, Dict, Any
 
 # Ensure src/ is importable
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -39,8 +39,8 @@ from canary_mcp.server import (  # noqa: E402  pylint: disable=wrong-import-posi
     ping,
     read_timeseries,
     search_tags,
+    mcp_status,
 )
-
 
 class Status:
     PASS = "PASS"
@@ -48,16 +48,13 @@ class Status:
     FAIL = "FAIL"
     SKIP = "SKIP"
 
-
 @dataclass
 class ToolResult:
     name: str
     status: str
     message: str
 
-
 ToolHandler = Callable[[], Awaitable[ToolResult]]
-
 
 def _config_missing(error: str) -> bool:
     needles = [
@@ -68,17 +65,18 @@ def _config_missing(error: str) -> bool:
     ]
     return any(token.lower() in error.lower() for token in needles)
 
-
-def _success_message(payload: dict | str | None) -> str:
+def _success_message(payload: Dict[str, Any] | str | None) -> str:
     if isinstance(payload, dict):
-        if "count" in payload:
-            return f"Returned count={payload['count']}"
-        if payload.get("success") is False:
-            return f"Tool responded with success=False ({payload.get('error', 'no details')})"
-    if isinstance(payload, str):
+        count = payload.get("count", 0)
+        if count is not None:
+            return f"Returned count={count}"
+        success = payload.get("success", False)
+        if success is False:
+            error = payload.get("error", "no details")
+            return f"Tool responded with success=False ({error})"
+    elif isinstance(payload, str):
         return payload
     return "Tool executed"
-
 
 async def _test_ping() -> ToolResult:
     try:
@@ -86,7 +84,6 @@ async def _test_ping() -> ToolResult:
         return ToolResult("ping", Status.PASS, result)
     except Exception as exc:  # pragma: no cover - CLI defensive
         return ToolResult("ping", Status.FAIL, str(exc))
-
 
 async def _test_get_asset_catalog() -> ToolResult:
     try:
@@ -96,7 +93,6 @@ async def _test_get_asset_catalog() -> ToolResult:
     except Exception as exc:
         return ToolResult("get_asset_catalog", Status.FAIL, str(exc))
 
-
 async def _test_search_tags(pattern: str) -> ToolResult:
     try:
         result = await search_tags.fn(pattern)
@@ -105,7 +101,6 @@ async def _test_search_tags(pattern: str) -> ToolResult:
     except Exception as exc:
         status = Status.WARN if _config_missing(str(exc)) else Status.FAIL
         return ToolResult("search_tags", status, str(exc))
-
 
 async def _test_get_tag_path(description: str) -> ToolResult:
     try:
@@ -123,7 +118,6 @@ async def _test_get_tag_path(description: str) -> ToolResult:
     except Exception as exc:
         return ToolResult("get_tag_path", Status.FAIL, str(exc))
 
-
 async def _test_get_tag_metadata(sample_tag: str) -> ToolResult:
     try:
         result = await get_tag_metadata.fn(sample_tag)
@@ -133,7 +127,6 @@ async def _test_get_tag_metadata(sample_tag: str) -> ToolResult:
         status = Status.WARN if _config_missing(str(exc)) else Status.FAIL
         return ToolResult("get_tag_metadata", status, str(exc))
 
-
 async def _test_get_tag_properties(sample_tag: str) -> ToolResult:
     try:
         result = await get_tag_properties.fn([sample_tag])
@@ -142,7 +135,6 @@ async def _test_get_tag_properties(sample_tag: str) -> ToolResult:
     except Exception as exc:
         status = Status.WARN if _config_missing(str(exc)) else Status.FAIL
         return ToolResult("get_tag_properties", status, str(exc))
-
 
 async def _test_read_timeseries(sample_tag: str) -> ToolResult:
     try:
@@ -159,7 +151,6 @@ async def _test_read_timeseries(sample_tag: str) -> ToolResult:
         status = Status.WARN if _config_missing(str(exc)) else Status.FAIL
         return ToolResult("read_timeseries", status, str(exc))
 
-
 async def _test_get_last_known_values(sample_tag: str) -> ToolResult:
     try:
         result = await get_last_known_values.fn([sample_tag])
@@ -169,7 +160,6 @@ async def _test_get_last_known_values(sample_tag: str) -> ToolResult:
         status = Status.WARN if _config_missing(str(exc)) else Status.FAIL
         return ToolResult("get_last_known_values", status, str(exc))
 
-
 async def _test_list_namespaces() -> ToolResult:
     try:
         result = await list_namespaces.fn()
@@ -178,7 +168,6 @@ async def _test_list_namespaces() -> ToolResult:
     except Exception as exc:
         status = Status.WARN if _config_missing(str(exc)) else Status.FAIL
         return ToolResult("list_namespaces", status, str(exc))
-
 
 async def _test_get_server_info() -> ToolResult:
     try:
@@ -193,7 +182,6 @@ async def _test_get_server_info() -> ToolResult:
         status = Status.WARN if _config_missing(str(exc)) else Status.FAIL
         return ToolResult("get_server_info", status, str(exc))
 
-
 async def _test_get_metrics_summary() -> ToolResult:
     try:
         result = get_metrics_summary.fn()
@@ -202,7 +190,6 @@ async def _test_get_metrics_summary() -> ToolResult:
     except Exception as exc:
         return ToolResult("get_metrics_summary", Status.FAIL, str(exc))
 
-
 async def _test_get_metrics() -> ToolResult:
     try:
         result = get_metrics.fn()
@@ -210,7 +197,6 @@ async def _test_get_metrics() -> ToolResult:
         return ToolResult("get_metrics", Status.PASS, msg)
     except Exception as exc:
         return ToolResult("get_metrics", Status.FAIL, str(exc))
-
 
 async def _test_get_cache_stats() -> ToolResult:
     try:
@@ -222,7 +208,6 @@ async def _test_get_cache_stats() -> ToolResult:
     except Exception as exc:
         return ToolResult("get_cache_stats", Status.FAIL, str(exc))
 
-
 async def _test_cleanup_expired_cache() -> ToolResult:
     try:
         result = cleanup_expired_cache.fn()
@@ -232,7 +217,6 @@ async def _test_cleanup_expired_cache() -> ToolResult:
         return ToolResult("cleanup_expired_cache", Status.PASS, msg)
     except Exception as exc:
         return ToolResult("cleanup_expired_cache", Status.FAIL, str(exc))
-
 
 async def _test_get_health() -> ToolResult:
     try:
@@ -244,7 +228,6 @@ async def _test_get_health() -> ToolResult:
     except Exception as exc:
         return ToolResult("get_health", Status.FAIL, str(exc))
 
-
 async def _test_get_aggregates() -> ToolResult:
     try:
         result = await get_aggregates.fn()
@@ -255,7 +238,6 @@ async def _test_get_aggregates() -> ToolResult:
     except Exception as exc:
         status = Status.WARN if _config_missing(str(exc)) else Status.FAIL
         return ToolResult("get_aggregates", status, str(exc))
-
 
 async def _test_get_events() -> ToolResult:
     try:
@@ -274,7 +256,6 @@ async def _test_get_events() -> ToolResult:
         status = Status.WARN if _config_missing(str(exc)) else Status.FAIL
         return ToolResult("get_events", status, str(exc))
 
-
 async def _test_browse_status() -> ToolResult:
     try:
         result = await browse_status.fn(path="Secil.Portugal", depth=1)
@@ -286,7 +267,6 @@ async def _test_browse_status() -> ToolResult:
         status = Status.WARN if _config_missing(str(exc)) else Status.FAIL
         return ToolResult("browse_status", status, str(exc))
 
-
 async def _test_get_asset_types() -> ToolResult:
     try:
         result = await get_asset_types.fn()
@@ -297,7 +277,6 @@ async def _test_get_asset_types() -> ToolResult:
     except Exception as exc:
         status = Status.WARN if _config_missing(str(exc)) else Status.FAIL
         return ToolResult("get_asset_types", status, str(exc))
-
 
 async def _test_get_asset_instances() -> ToolResult:
     try:
@@ -311,37 +290,48 @@ async def _test_get_asset_instances() -> ToolResult:
         status = Status.WARN if _config_missing(str(exc)) else Status.FAIL
         return ToolResult("get_asset_instances", status, str(exc))
 
+async def _test_mcp_status() -> ToolResult:
+    try:
+        result = mcp_status.fn()
+        msg = _success_message(result)
+        return ToolResult("mcp_status", Status.PASS, msg)
+    except Exception as exc:
+        return ToolResult("mcp_status", Status.FAIL, str(exc))
 
 async def run_suite(
-    sample_tag: str, search_pattern: str, tag_description: str
+    sample_tag: str, search_pattern: str, tag_description: str, tool: str | None = None
 ) -> list[ToolResult]:
-    tests: list[ToolHandler] = [
-        _test_ping,
-        _test_get_asset_catalog,
-        lambda: _test_search_tags(search_pattern),
-        lambda: _test_get_tag_path(tag_description),
-        lambda: _test_get_tag_metadata(sample_tag),
-        lambda: _test_get_tag_properties(sample_tag),
-        lambda: _test_read_timeseries(sample_tag),
-        lambda: _test_get_last_known_values(sample_tag),
-        _test_list_namespaces,
-        _test_get_server_info,
-        _test_get_metrics_summary,
-        _test_get_metrics,
-        _test_get_cache_stats,
-        _test_cleanup_expired_cache,
-        _test_get_health,
-        _test_get_aggregates,
-        _test_get_events,
-        _test_browse_status,
-        _test_get_asset_types,
-        _test_get_asset_instances,
-    ]
+    if tool == "mcp_status":
+        tests: list[ToolHandler] = [
+            _test_mcp_status,
+        ]
+    else:
+        tests: list[ToolHandler] = [
+            _test_ping,
+            _test_get_asset_catalog,
+            lambda: _test_search_tags(search_pattern),
+            lambda: _test_get_tag_path(tag_description),
+            lambda: _test_get_tag_metadata(sample_tag),
+            lambda: _test_get_tag_properties(sample_tag),
+            lambda: _test_read_timeseries(sample_tag),
+            lambda: _test_get_last_known_values(sample_tag),
+            _test_list_namespaces,
+            _test_get_server_info,
+            _test_get_metrics_summary,
+            _test_get_metrics,
+            _test_get_cache_stats,
+            _test_cleanup_expired_cache,
+            _test_get_health,
+            _test_get_aggregates,
+            _test_get_events,
+            _test_browse_status,
+            _test_get_asset_types,
+            _test_get_asset_instances,
+        ]
     results: list[ToolResult] = []
     for handler in tests:
         results.append(await handler())
     return results
-
 
 def _print_summary(results: list[ToolResult]) -> int:
     print("\n" + "=" * 72)
@@ -357,7 +347,6 @@ def _print_summary(results: list[ToolResult]) -> int:
         f"FAIL: {status_counts[Status.FAIL]}"
     )
     return 1 if status_counts[Status.FAIL] else 0
-
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Validate Canary MCP tools.")
@@ -378,16 +367,19 @@ def parse_args() -> argparse.Namespace:
         ),
         help="Description passed to get_tag_path (default: %(default)s)",
     )
+    parser.add_argument(
+        "--tool",
+        choices=["mcp_status"],
+        help="Specify the tool to test",
+    )
     return parser.parse_args()
-
 
 def main() -> int:
     args = parse_args()
     results = asyncio.run(
-        run_suite(args.sample_tag, args.search_pattern, args.tag_description)
+        run_suite(args.sample_tag, args.search_pattern, args.tag_description, args.tool)
     )
     return _print_summary(results)
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

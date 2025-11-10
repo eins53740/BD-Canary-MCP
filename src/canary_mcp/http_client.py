@@ -23,6 +23,7 @@ TOOL_HTTP_METHODS: dict[str, str] = {
     "get_last_known_values": "POST",
     "get_tag_data_window": "POST",
     "browse_status": "GET",
+    "get_server_info": "POST",
 }
 
 __all__ = ["TOOL_HTTP_METHODS", "get_tool_http_method", "execute_tool_request"]
