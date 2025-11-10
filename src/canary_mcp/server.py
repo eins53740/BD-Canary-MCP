@@ -40,6 +40,13 @@ try:  # pragma: no cover - test harness compatibility shim
 except Exception:  # pragma: no cover - avoid polluting runtime errors
     pass
 
+NAME_WEIGHT = 5.0
+PATH_WEIGHT = 3.0
+DESCRIPTION_WEIGHT = 2.0
+METADATA_WEIGHT = 1.0
+STARTS_WITH_BONUS = 1.5
+EXACT_MATCH_BONUS = 3.0
+
 # Load environment variables
 load_dotenv()
 
@@ -801,13 +808,14 @@ def _score_tag_candidate(
         "metadata": [],
     }
 
-    score = 0.0
+ """   score = 0.0
     name_weight = 5.0
     path_weight = 3.0
     description_weight = 2.0
     metadata_weight = 1.0
     starts_with_bonus = 1.5
     exact_match_bonus = 3.0
+"""
 
     for keyword in keywords:
         if not keyword:
@@ -1105,6 +1113,75 @@ def maceira_uns_tag_guide() -> str:
         )
     # Read as UTF-8 text
     return candidate.read_text(encoding="utf-8", errors="replace")
+
+
+@mcp.tool()
+async def mcp_status() -> str:
+    """
+    Checks MCP server connectivity and provides a status message named "mcp status".
+
+    Returns:
+        str: A detailed success message with server status, time, weather, and project info.
+    """
+    try:
+        # Get current time in Maceira, Portugal
+        try:
+            maceira_time = datetime.now(DEFAULT_TZINFO).strftime("%Y-%m-%d %H:%M:%S %Z")
+        except Exception:
+            maceira_time = "N/A"
+
+        # Get Lisbon weather from wttr.in
+        weather_info = "N/A"
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get("https://wttr.in/Lisbon?format=j1")
+                response.raise_for_status()
+                weather_data = response.json()
+                current_condition = weather_data.get("current_condition", [{}])[0]
+                temp_c = current_condition.get("temp_C")
+                feels_like_c = current_condition.get("FeelsLikeC")
+                description = current_condition.get("weatherDesc", [{}])[0].get("value")
+                weather_info = (
+                    f"{description}, {temp_c}°C (feels like {feels_like_c}°C)"
+                )
+        except Exception as e:
+            log.warning("mcp_status_weather_error", error=str(e))
+            weather_info = "Weather data currently unavailable."
+
+        # Get latest git commit date
+        last_update = "N/A"
+        try:
+            process = await asyncio.create_subprocess_exec(
+                "git",
+                "log",
+                "-1",
+                "--format=%cd",
+                "--date=iso-local",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await process.communicate()
+            if process.returncode == 0:
+                last_update = stdout.decode().strip()
+            else:
+                err_msg = stderr.decode().strip()
+                log.warning("mcp_status_git_log_error", error=err_msg)
+                last_update = "Could not determine last update."
+        except Exception as e:
+            log.warning("mcp_status_git_log_exception", error=str(e))
+            last_update = "Could not determine last update."
+
+        message = (
+            "Secil Canary MCP is up and running. Let's begin!\\n"
+            f" - Current time at Maceira site: {maceira_time}\\n"
+            f" - Current weather in Lisbon: {weather_info}\\n"
+            f" - Last project update: {last_update}\\n\\n"
+            "By BD to the world - 2025 (c)."
+        )
+        return message
+    except Exception as e:
+        log.error("mcp_status_tool_error", error=str(e), exc_info=True)
+        return f"An error occurred while checking the server status: {e}"
 
 
 @mcp.tool()

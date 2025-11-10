@@ -16,8 +16,8 @@ This catalog lists every manual entry point we ship for exercising MCP tools wit
 
 **Quick Reference**
 
-- All scripts append `src/` to `sys.path` so they can be invoked from anywhere (no uv wrapper needed).  
-- Most tools require a valid Canary session token; configure `.env` with `CANARY_API_TOKEN`, `CANARY_VIEWS_BASE_URL`, and (for write) `CANARY_SAF_BASE_URL`.  
-- The `run_write_test_dataset.py` script defaults to a dry run—flip `--execute` only when you really want data written.  
-- Use `scripts/test_mcp_tools.py` for a consolidated smoke test that hits many of these tools programmatically.  
+- All scripts append `src/` to `sys.path` so they can be invoked from anywhere (no uv wrapper needed).
+- Most tools require a valid Canary session token; configure `.env` with `CANARY_API_TOKEN`, `CANARY_VIEWS_BASE_URL`, and (for write) `CANARY_SAF_BASE_URL`.
+- The `run_write_test_dataset.py` script defaults to a dry run—flip `--execute` only when you really want data written.
+- Use `scripts/test_mcp_tools.py` for a consolidated smoke test that hits many of these tools programmatically.
 - Record the printed JSON (request_id, error, payload) when escalating incidents—this makes root cause analysis faster than “the tool failed.”

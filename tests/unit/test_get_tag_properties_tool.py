@@ -67,7 +67,9 @@ async def test_get_tag_properties_success(monkeypatch):
         )
 
         monkeypatch.setattr("httpx.AsyncClient.post", post_mock)
-        monkeypatch.setattr("canary_mcp.server.search_tags", SimpleNamespace(fn=search_mock))
+        monkeypatch.setattr(
+            "canary_mcp.server.search_tags", SimpleNamespace(fn=search_mock)
+        )
 
         result = await get_tag_properties.fn(["Tag.A", "Tag.B", "Tag.A"])
 
@@ -108,7 +110,9 @@ async def test_get_tag_properties_propagates_errors(monkeypatch):
         )
 
         monkeypatch.setattr("httpx.AsyncClient.post", post_mock)
-        monkeypatch.setattr("canary_mcp.server.search_tags", SimpleNamespace(fn=search_mock))
+        monkeypatch.setattr(
+            "canary_mcp.server.search_tags", SimpleNamespace(fn=search_mock)
+        )
 
         result = await get_tag_properties.fn(["Tag.A"])
 

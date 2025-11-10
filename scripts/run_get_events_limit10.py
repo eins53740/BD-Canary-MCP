@@ -9,7 +9,6 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_PATH = REPO_ROOT / "src"
@@ -23,7 +22,9 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run the get_events_limit10 tool for Canary event diagnostics."
     )
-    parser.add_argument("--limit", type=int, default=10, help="Number of events to return.")
+    parser.add_argument(
+        "--limit", type=int, default=10, help="Number of events to return."
+    )
     parser.add_argument(
         "--view",
         default=os.getenv("CANARY_EVENTS_VIEW"),

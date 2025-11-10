@@ -30,7 +30,9 @@ async def test_tag_lookup_high_confidence(monkeypatch):
     """Workflow should produce a confident match and allow next-step automation."""
     cache = MemoryCache()
     monkeypatch.setattr("canary_mcp.server.get_cache_store", lambda: cache)
-    monkeypatch.setattr("canary_mcp.server.get_local_tag_candidates", lambda *a, **k: [])
+    monkeypatch.setattr(
+        "canary_mcp.server.get_local_tag_candidates", lambda *a, **k: []
+    )
 
     search_mock = AsyncMock(
         return_value={
@@ -48,7 +50,9 @@ async def test_tag_lookup_high_confidence(monkeypatch):
             "cached": False,
         }
     )
-    monkeypatch.setattr("canary_mcp.server.search_tags", SimpleNamespace(fn=search_mock))
+    monkeypatch.setattr(
+        "canary_mcp.server.search_tags", SimpleNamespace(fn=search_mock)
+    )
     monkeypatch.setattr(
         "canary_mcp.server._get_tag_metadata_cached",
         AsyncMock(
@@ -80,7 +84,9 @@ async def test_tag_lookup_low_confidence_prompts_for_clarification(monkeypatch):
     """Low confidence responses should ask clarifying questions instead of guessing."""
     cache = MemoryCache()
     monkeypatch.setattr("canary_mcp.server.get_cache_store", lambda: cache)
-    monkeypatch.setattr("canary_mcp.server.get_local_tag_candidates", lambda *a, **k: [])
+    monkeypatch.setattr(
+        "canary_mcp.server.get_local_tag_candidates", lambda *a, **k: []
+    )
 
     search_mock = AsyncMock(
         return_value={
@@ -98,7 +104,9 @@ async def test_tag_lookup_low_confidence_prompts_for_clarification(monkeypatch):
             "cached": False,
         }
     )
-    monkeypatch.setattr("canary_mcp.server.search_tags", SimpleNamespace(fn=search_mock))
+    monkeypatch.setattr(
+        "canary_mcp.server.search_tags", SimpleNamespace(fn=search_mock)
+    )
     monkeypatch.setattr(
         "canary_mcp.server._get_tag_metadata_cached",
         AsyncMock(
@@ -114,7 +122,9 @@ async def test_tag_lookup_low_confidence_prompts_for_clarification(monkeypatch):
         ),
     )
     # Force low confidence outcome to exercise the clarifying path.
-    monkeypatch.setattr("canary_mcp.server._compute_confidence", lambda *_a, **_k: (0.5, "low"))
+    monkeypatch.setattr(
+        "canary_mcp.server._compute_confidence", lambda *_a, **_k: (0.5, "low")
+    )
 
     result = await get_tag_path.fn("temperature")
 

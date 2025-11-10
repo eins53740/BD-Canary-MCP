@@ -136,6 +136,7 @@ Claude Desktop discovers MCP servers via a JSON manifest. Create the config file
 1) Find Claude Desktop’s MCP config directory (Windows): `%APPDATA%\Claude\mcp`
 
 2) Create or edit `config.json` in that directory and use this content:
+ `%APPDATA%\Claude\claude_desktop_config.json`
 
 ```json
 {

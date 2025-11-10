@@ -34,7 +34,9 @@ class MemoryCache:
     def get(self, key: str) -> Any:
         return self.store.get(key)
 
-    def set(self, key: str, value: Any, category: str = "metadata", ttl: int | None = None) -> None:
+    def set(
+        self, key: str, value: Any, category: str = "metadata", ttl: int | None = None
+    ) -> None:
         self.store[key] = value
 
 
@@ -73,7 +75,9 @@ async def test_get_tag_path_end_to_end(monkeypatch):
             "cached": False,
         }
     )
-    monkeypatch.setattr("canary_mcp.server.search_tags", SimpleNamespace(fn=search_mock))
+    monkeypatch.setattr(
+        "canary_mcp.server.search_tags", SimpleNamespace(fn=search_mock)
+    )
 
     metadata_side_effect = [
         {
@@ -112,9 +116,13 @@ async def test_get_tag_path_end_to_end(monkeypatch):
     ]
 
     metadata_mock = AsyncMock(side_effect=metadata_side_effect)
-    monkeypatch.setattr("canary_mcp.server.get_tag_metadata", SimpleNamespace(fn=metadata_mock))
+    monkeypatch.setattr(
+        "canary_mcp.server.get_tag_metadata", SimpleNamespace(fn=metadata_mock)
+    )
 
-    result = await get_tag_path.fn("Looking for kiln shell temperature sensor information")
+    result = await get_tag_path.fn(
+        "Looking for kiln shell temperature sensor information"
+    )
 
     assert result["success"] is True
     assert result["most_likely_path"] == "Plant.Kiln.Section15.ShellTemp"

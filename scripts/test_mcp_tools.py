@@ -19,6 +19,7 @@ if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
 
 from canary_mcp.server import (  # noqa: E402  pylint: disable=wrong-import-position
+    browse_status,
     cleanup_expired_cache,
     get_aggregates,
     get_asset_catalog,
@@ -26,7 +27,6 @@ from canary_mcp.server import (  # noqa: E402  pylint: disable=wrong-import-posi
     get_asset_types,
     get_cache_stats,
     get_events,
-    browse_status,
     get_health,
     get_last_known_values,
     get_metrics,

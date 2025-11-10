@@ -86,85 +86,85 @@ _Extracted from the uploaded dataset; codes and names are authoritative._
 - 891 - Plant Main Substation
 
 ## 4. End-to-End Examples (NL → Tag Path)
-- `400 - Clinker Production.451 - Bypass.Normalised.Indications.BYPVT603INT02.Active`  
+- `400 - Clinker Production.451 - Bypass.Normalised.Indications.BYPVT603INT02.Active`
   _from Canary_Path_description_maceira.json_
-- `400 - Clinker Production.432 - Kiln.Normalised.Machines.FO6RGH32M1.Closed`  
+- `400 - Clinker Production.432 - Kiln.Normalised.Machines.FO6RGH32M1.Closed`
   _from Canary_Path_description_maceira.json_
-- `400 - Clinker Production.432 - Kiln.Normalised.OptimizationSystem.FO6AI_6461.Value`  
+- `400 - Clinker Production.432 - Kiln.Normalised.OptimizationSystem.FO6AI_6461.Value`
   _from Canary_Path_description_maceira.json_
-- `500 - Cement Grinding.511 - Clinker Conveying.Normalised.Indications.TADTL32INT01.Status`  
+- `500 - Cement Grinding.511 - Clinker Conveying.Normalised.Indications.TADTL32INT01.Status`
   _from Canary_Path_description_maceira.json_
-- `500 - Cement Grinding.521 - Roller Press.Normalised.OptimizationSystem.PRLEV14M14.Open`  
+- `500 - Cement Grinding.521 - Roller Press.Normalised.OptimizationSystem.PRLEV14M14.Open`
   _from Canary_Path_description_maceira.json_
-- `400 - Clinker Production.431 - Kiln.KPI.Instantaneous.Emissions.Part`  
+- `400 - Clinker Production.431 - Kiln.KPI.Instantaneous.Emissions.Part`
   _from Canary_Path_description_maceira.json_
-- `800 - Electrical Departments.841 - Control Equipment.Edge.POLAB.MKF6.MKF6_HALITE`  
+- `800 - Electrical Departments.841 - Control Equipment.Edge.POLAB.MKF6.MKF6_HALITE`
   _from Canary_Path_description_maceira.json_
-- `600 - Cement Packaging and Dispatch.671 - Bag Conveying.Normalised.Indications.EMBRG1003INT04.Status`  
+- `600 - Cement Packaging and Dispatch.671 - Bag Conveying.Normalised.Indications.EMBRG1003INT04.Status`
   _from Canary_Path_description_maceira.json_
-- `400 - Clinker Production.462 - Coal Mill.Normalised.Alarms.MC1DISJ_D1.InAlarm`  
+- `400 - Clinker Production.462 - Coal Mill.Normalised.Alarms.MC1DISJ_D1.InAlarm`
   _from Canary_Path_description_maceira.json_
-- `400 - Clinker Production.462 - Coal Mill.Normalised.Analog.MC1TT_6335_6.Value`  
+- `400 - Clinker Production.462 - Coal Mill.Normalised.Analog.MC1TT_6335_6.Value`
   _from Canary_Path_description_maceira.json_
-- `500 - Cement Grinding.532 - Cement Mill.Normalised.Analog.MC8SO3SP_SP13.Value`  
+- `500 - Cement Grinding.532 - Cement Mill.Normalised.Analog.MC8SO3SP_SP13.Value`
   _from Canary_Path_description_maceira.json_
-- `600 - Cement Packaging and Dispatch.671 - Bag Conveying.Normalised.Indications.EMBEV1300INT07.Status`  
+- `600 - Cement Packaging and Dispatch.671 - Bag Conveying.Normalised.Indications.EMBEV1300INT07.Status`
   _from Canary_Path_description_maceira.json_
-- `500 - Cement Grinding.531 - Cement Mill.Normalised.Analog.MC7TT_7129_2_2.Value`  
+- `500 - Cement Grinding.531 - Cement Mill.Normalised.Analog.MC7TT_7129_2_2.Value`
   _from Canary_Path_description_maceira.json_
-- `500 - Cement Grinding.531 - Cement Mill.Normalised.Indications.MC7G05INT01.Active`  
+- `500 - Cement Grinding.531 - Cement Mill.Normalised.Indications.MC7G05INT01.Active`
   _from Canary_Path_description_maceira.json_
-- `600 - Cement Packaging and Dispatch.633 - Bulk Dispatch Station.Edge.ECS.TSACG01.GN34EV34`  
+- `600 - Cement Packaging and Dispatch.633 - Bulk Dispatch Station.Edge.ECS.TSACG01.GN34EV34`
   _from Canary_Path_description_maceira.json_
-- `500 - Cement Grinding.531 - Cement Mill.Normalised.Analog.MC7TT_133_1_2.Value`  
+- `500 - Cement Grinding.531 - Cement Mill.Normalised.Analog.MC7TT_133_1_2.Value`
   _from Canary_Path_description_maceira.json_
-- `500 - Cement Grinding.534 - Mixer.Normalised.Indications.MSTSO78INT06.Active`  
+- `500 - Cement Grinding.534 - Mixer.Normalised.Indications.MSTSO78INT06.Active`
   _from Canary_Path_description_maceira.json_
-- `600 - Cement Packaging and Dispatch.671 - Bag Conveying.Normalised.Indications.EMBVC3227INT02.Status`  
+- `600 - Cement Packaging and Dispatch.671 - Bag Conveying.Normalised.Indications.EMBVC3227INT02.Status`
   _from Canary_Path_description_maceira.json_
-- `500 - Cement Grinding.531 - Cement Mill.Normalised.Analog.MC7RESIDUE32RST_SP18.Status`  
+- `500 - Cement Grinding.531 - Cement Mill.Normalised.Analog.MC7RESIDUE32RST_SP18.Status`
   _from Canary_Path_description_maceira.json_
-- `300 - Raw Meal Production.323 - Filler Mill.Normalised.Indications.MFLG02INT02.Active`  
+- `300 - Raw Meal Production.323 - Filler Mill.Normalised.Indications.MFLG02INT02.Active`
   _from Canary_Path_description_maceira.json_
-- `400 - Clinker Production.431 - Kiln.KPI.Daily.Quality.Kiln`  
+- `400 - Clinker Production.431 - Kiln.KPI.Daily.Quality.Kiln`
   _from Canary_Path_description_maceira.json_
-- `400 - Clinker Production.432 - Kiln.Normalised.Asset.Equipment.Hydrogen`  
+- `400 - Clinker Production.432 - Kiln.Normalised.Asset.Equipment.Hydrogen`
   _from Canary_Path_description_maceira.json_
-- `500 - Cement Grinding.541 - Conveying to Silos.Normalised.Indications.TSLVC8INT04.Active`  
+- `500 - Cement Grinding.541 - Conveying to Silos.Normalised.Indications.TSLVC8INT04.Active`
   _from Canary_Path_description_maceira.json_
-- `600 - Cement Packaging and Dispatch.671 - Bag Conveying.Normalised.Indications.EMBTL6054INT02.Status`  
+- `600 - Cement Packaging and Dispatch.671 - Bag Conveying.Normalised.Indications.EMBTL6054INT02.Status`
   _from Canary_Path_description_maceira.json_
-- `600 - Cement Packaging and Dispatch.671 - Bag Conveying.Normalised.Indications.EMBTP6007INT01.Active`  
+- `600 - Cement Packaging and Dispatch.671 - Bag Conveying.Normalised.Indications.EMBTP6007INT01.Active`
   _from Canary_Path_description_maceira.json_
-- `400 - Clinker Production.431 - Kiln.Normalised.Analog.FO5JT_89.Value`  
+- `400 - Clinker Production.431 - Kiln.Normalised.Analog.FO5JT_89.Value`
   _from Canary_Path_description_maceira.json_
-- `500 - Cement Grinding.541 - Conveying to Silos.Normalised.Selections.TSLEL1_S25SEL01.Selected`  
+- `500 - Cement Grinding.541 - Conveying to Silos.Normalised.Selections.TSLEL1_S25SEL01.Selected`
   _from Canary_Path_description_maceira.json_
-- `300 - Raw Meal Production.322 - Raw Mill.Normalised.Indications.MC6RG6044M1INT02.Status`  
+- `300 - Raw Meal Production.322 - Raw Mill.Normalised.Indications.MC6RG6044M1INT02.Status`
   _from Canary_Path_description_maceira.json_
-- `600 - Cement Packaging and Dispatch.671 - Bag Conveying.Normalised.Indications.EMBMT0909M3INT09.Status`  
+- `600 - Cement Packaging and Dispatch.671 - Bag Conveying.Normalised.Indications.EMBMT0909M3INT09.Status`
   _from Canary_Path_description_maceira.json_
-- `500 - Cement Grinding.532 - Cement Mill.Normalised.Indications.MC8G01INT04.Status`  
+- `500 - Cement Grinding.532 - Cement Mill.Normalised.Indications.MC8G01INT04.Status`
   _from Canary_Path_description_maceira.json_
-- `600 - Cement Packaging and Dispatch.621 - Cement conveying.Normalised.Selections.EMBCIRC48SEL01.Selected`  
+- `600 - Cement Packaging and Dispatch.621 - Cement conveying.Normalised.Selections.EMBCIRC48SEL01.Selected`
   _from Canary_Path_description_maceira.json_
-- `500 - Cement Grinding.531 - Cement Mill.Normalised.Indications.MC7MA7118INT02.Status`  
+- `500 - Cement Grinding.531 - Cement Mill.Normalised.Indications.MC7MA7118INT02.Status`
   _from Canary_Path_description_maceira.json_
-- `500 - Cement Grinding.533 - Cement Mill.Normalised.Analog.MC9REJECT_SP16.Value`  
+- `500 - Cement Grinding.533 - Cement Mill.Normalised.Analog.MC9REJECT_SP16.Value`
   _from Canary_Path_description_maceira.json_
-- `500 - Cement Grinding.534 - Mixer.Normalised.Indications.MSTCP7142INT02.Active`  
+- `500 - Cement Grinding.534 - Mixer.Normalised.Indications.MSTCP7142INT02.Active`
   _from Canary_Path_description_maceira.json_
-- `400 - Clinker Production.442 - Clinker Cooler.Normalised.Indications.AR6BR6128INT07.Status`  
+- `400 - Clinker Production.442 - Clinker Cooler.Normalised.Indications.AR6BR6128INT07.Status`
   _from Canary_Path_description_maceira.json_
-- `500 - Cement Grinding.533 - Cement Mill.Normalised.Indications.MC9G06INT09.Active`  
+- `500 - Cement Grinding.533 - Cement Mill.Normalised.Indications.MC9G06INT09.Active`
   _from Canary_Path_description_maceira.json_
-- `400 - Clinker Production.442 - Clinker Cooler.Normalised.Analog.AR6JT_6068.Status`  
+- `400 - Clinker Production.442 - Clinker Cooler.Normalised.Analog.AR6JT_6068.Status`
   _from Canary_Path_description_maceira.json_
-- `500 - Cement Grinding.511 - Clinker Conveying.Normalised.Indications.TADTL85INT08.Active`  
+- `500 - Cement Grinding.511 - Clinker Conveying.Normalised.Indications.TADTL85INT08.Active`
   _from Canary_Path_description_maceira.json_
-- `600 - Cement Packaging and Dispatch.671 - Bag Conveying.Normalised.Indications.EMBEX1031INT10.Active`  
+- `600 - Cement Packaging and Dispatch.671 - Bag Conveying.Normalised.Indications.EMBEX1031INT10.Active`
   _from Canary_Path_description_maceira.json_
-- `300 - Raw Meal Production.322 - Raw Mill.Normalised.Indications.MC6G06INT09.Active`  
+- `300 - Raw Meal Production.322 - Raw Mill.Normalised.Indications.MC6G06INT09.Active`
   _from Canary_Path_description_maceira.json_
 
 ## 5. Tag Types, Sensor Types, and Data Types
