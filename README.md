@@ -114,6 +114,25 @@ Prerequisites:
 - Python 3.12+ available on PATH (portable Python works on Windows)
 - uv installed
 
+Upgrade Python in our project:
+```bash
+# 1) Install Python 3.14 (managed by uv)
+uv python install 3.14
+
+# 2) Pin your project to 3.14 (creates/updates .python-version)
+uv python pin 3.14
+
+# 3) Recreate or create the venv on 3.14 (if you already have .venv, add --force)
+uv venv --python 3.14
+
+# 4) Re-sync your dependencies into the fresh env
+uv sync
+
+# 5) Sanity check
+python --version
+```
+
+
 Steps:
 ```bash
 #0) Install Python 3.14
