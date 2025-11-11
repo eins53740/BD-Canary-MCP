@@ -17,7 +17,7 @@ Repo Guide: https://deepwiki.com/eins53740/BD-Canary-MCP
 
 - OS: Windows 10/11
 - Tools:
-  - Python 3.11+ (recommended 3.12)
+  - Python 3.12+ (recommended 3.14)
   - Git
   - VS Code (latest)
   - Claude Desktop (latest)
@@ -36,7 +36,7 @@ $env:Path += ";$env:USERPROFILE\.local\bin"
 uv --version
 ```
 
-2) Ensure Python 3.11+ available
+2) Ensure Python 3.12+ available
 
 ```powershell
 uv python install 3.12

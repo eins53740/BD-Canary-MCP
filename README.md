@@ -111,39 +111,52 @@ By following these workflows, the client can reliably navigate the Canary Histor
 Fast path to run locally with uv on Windows, macOS, or Linux.
 
 Prerequisites:
-- Python 3.12 or 3.13 available on PATH (portable Python works on Windows)
+- Python 3.12+ available on PATH (portable Python works on Windows)
 - uv installed
 
 Steps:
 ```bash
+#0) Install Python 3.14
+https://www.python.org/downloads/release/python-3140/
+
 # 1) Install uv (one-time)
 # Windows PowerShell
+Set-ExecutionPolicy Bypass -Scope Process -Force
 powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-# macOS/Linux
-curl -fsSL https://astral.sh/uv/install.sh | sh
+$env:Path += ";$env:USERPROFILE\.local\bin"
+uv --version # To confirm uv is up and running. You may reboot your terminal
 
 # 2) Clone and enter repo
 git clone <repository-url>
-cd BD-Canary-MCP
+#E.g: git clone https://secil.ghe.com/secil-uns-ot/CanaryMCP
+cd CanaryMCP # Root folder
 
 # 3) Create and activate virtual env + install deps
+#Non developer
+uv sync --locked
+#OR Developer
 uv sync --locked --dev
 
 # 4) Configure environment from template
 copy .env.example .env  # Windows
-# or
-cp .env.example .env    # macOS/Linux
-# Then edit .env with your Canary credentials (no secrets committed)
+# Edit .env with the correct token and secrets
+notepad .env
+# Edit CANARY_API_TOKEN=<ask for your token - UNS OT>
 
+# 5) Install the package in editable mode (dev only)
 uv run pip install .
 
-# 5) Validate installation
+# 6) Validate installation
 uv run python scripts/validate_installation.py
+#Note -> da sempre erro no python-dotenv
 
-# 6) Start the MCP server
+# 7) Start the MCP server
 uv run canary-mcp
 # or
 uv run python -m canary_mcp.server
+
+# 8) Configure you MCP client (e.g.: see Connecting to Claude Desktop below)
+#Note: You may close the MCP server. Claude Desktop will restart it as needed.
 ```
 
 Notes:
@@ -477,11 +490,19 @@ print(response)
 
 The primary way to use this MCP server is through Claude Desktop. Follow these steps to connect:
 
+#### 0. Install Claude Desktop (or other LLM chat with MCP clients features)
+https://claude.ai/redirect/claudedotcom.v1.60777239-e2d4-4d6b-bd2e-0f9ebd82b555/api/desktop/win32/x64/exe/latest/redirect
+
 #### 1. Locate Claude Desktop Configuration File
 
 The configuration file is located at:
 ```
 %APPDATA%\Claude\claude_desktop_config.json
+or
+C:\Users\<YourUsername>\AppData\Roaming\Claude\claude_desktop_config.json
+
+#Edit the configuraiton file with notepad:
+
 ```
 
 Full path (Windows):
@@ -500,14 +521,14 @@ Create or edit the config file with the following content:
       "command": "uv",
       "args": [
         "--directory",
-        "C:\\Github\\BD\\BD-hackaton-2025-10",
+        "C:\\Github\\MCPServer",
         "run",
         "python",
         "-m",
         "canary_mcp.server"
       ],
       "env": {
-        "PYTHONPATH": "C:\\Github\\BD\\BD-hackaton-2025-10\\src"
+        "PYTHONPATH": "C:\\Github\\MCPServer\\src"
       }
     }
   }
@@ -515,7 +536,7 @@ Create or edit the config file with the following content:
 ```
 
 **Important Notes:**
-- Replace `C:\\Github\\BD\\BD-hackaton-2025-10` with your actual project path
+- Replace `C:\\Github\\MCPServer` with your actual project path
 - Use double backslashes (`\\`) in JSON for Windows paths
 - Requires Claude Desktop version 0.7.0+ (MCP support)
 
